@@ -28,7 +28,10 @@ def process_attendance_log():
                     log_type = "IN" 
 
                 if log.punch_direction == "O":
-                    log_type = "OUT" 
+                    log_type = "OUT"
+
+
+                shift = frappe.db.get_value("Employee", log.employee_id, "default_shift") 
 
                 checkin = frappe.get_doc({
                     "doctype": "Employee Checkin",
@@ -36,7 +39,8 @@ def process_attendance_log():
                     "log_type": log_type,
                     "time": time,
                     "device_id": log.terminal_id,
-                    "custom_area": log.area
+                    "custom_area": log.area,
+                    "shift": shift
                 })
 
                 checkin.save()
@@ -47,3 +51,15 @@ def process_attendance_log():
             frappe.log_error(e)
             sql = f"UPDATE bio_attendance_log set is_processed = 'E', message = '{str(e)}' where name = '{log.name}'"
             frappe.db.sql(sql)
+
+
+@frappe.whitelist()
+def reset_attendance_log(bio_id):
+    frappe.db.sql(
+        f"""
+        UPDATE
+            bio_attendance_log
+            set is_processed = 'N', message = null
+        WHERE 
+            name = '{bio_id}'
+    """, as_dict=True)

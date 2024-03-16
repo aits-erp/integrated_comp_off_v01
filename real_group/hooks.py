@@ -133,6 +133,14 @@ app_license = "mit"
 # Scheduled Tasks
 # ---------------
 
+scheduler_events = {
+    "cron": {
+        "5 * * * *": [
+            "real_group.real_group.attendance.process_attendance_log"
+        ]    
+    }
+}
+
 # scheduler_events = {
 # 	"all": [
 # 		"real_group.tasks.all"
