@@ -1,0 +1,34 @@
+[
+ {
+  "default_value": "",
+  "doc_type": "Employee",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "company",
+  "is_system_generated": 0,
+  "modified": "2024-05-21 13:35:33.748559",
+  "module": "Real Group",
+  "name": "Employee-company-set_only_once",
+  "property": "set_only_once",
+  "property_type": "Check",
+  "row_name": null,
+  "value": "1"
+ },
+ {
+  "default_value": "",
+  "doc_type": "Company",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "custom_employee_code_starting_from",
+  "is_system_generated": 0,
+  "modified": "2024-05-21 15:13:10.687795",
+  "module": "Real Group",
+  "name": "Company-custom_employee_code_starting_from-set_only_once",
+  "property": "set_only_once",
+  "property_type": "Check",
+  "row_name": null,
+  "value": "1"
+ }
+]
