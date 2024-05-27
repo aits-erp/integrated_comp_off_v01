@@ -147,6 +147,9 @@ scheduler_events = {
     "cron": {
         "5 * * * *": [
             "real_group.real_group.attendance.process_attendance_log"
+        ],
+        "15 0 * * *": [
+            "real_group.real_group.attendance.process_attendance_from_attendance_summary"
         ]    
     }
 }
