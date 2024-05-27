@@ -9,7 +9,7 @@ def process_attendance_log():
         FROM
             bio_attendance_log
         WHERE is_processed = 'N'
-        ORDER by employee_id, punch_date, punch_time
+        ORDER by employee_id, punch_date, punch_time    
         LIMIT 500
     """, as_dict=True)
 
@@ -48,7 +48,7 @@ def process_attendance_log():
                 frappe.db.sql(sql)
 
         except Exception as e:
-            frappe.log_error(e)
+            frappe.log_error('bio_attendance_exception', e)
             sql = f"UPDATE bio_attendance_log set is_processed = 'E', message = '{str(e)}' where name = '{log.name}'"
             frappe.db.sql(sql)
 
@@ -63,3 +63,4 @@ def reset_attendance_log(bio_id):
         WHERE 
             name = '{bio_id}'
     """, as_dict=True)
+    frappe.db.commit()

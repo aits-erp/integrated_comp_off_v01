@@ -1,0 +1,46 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Employee Grade",
+  "enabled": 1,
+  "modified": "2024-05-21 12:37:44.449203",
+  "module": "Real Group",
+  "name": "Employee Grade",
+  "script": "frappe.ui.form.on('Employee Grade', {\n\trefresh(frm) {\n\t    \n\t    frm.set_query(\"custom_allowed_check_in_machines\", function(doc, cdt, cdn) {\n            return {\n                \"filters\": {\n                    \"machine_type\": \"In\"\n                }\n            };\n        });\n        frm.set_query(\"custom_allowed_check_out_machines\", function(doc, cdt, cdn) {\n            return {\n                \"filters\": {\n                    \"machine_type\": \"Out\"\n                }\n            };\n        });\n        \n// \t\tfrm.set_query(\"allowed_check_in_machines\", \"machine_name\", function() {\n// \t\t    return {\n// \t\t        filters: {\n// \t\t            \"machine_type\": \"In\"\n// \t\t        }\n// \t\t    };\n// \t\t});\n\t}\n});",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Medical History",
+  "enabled": 1,
+  "modified": "2024-05-21 12:37:44.373010",
+  "module": "Real Group",
+  "name": "Medical History",
+  "script": "frappe.ui.form.on('Medical History', {\n\trefresh(frm) {\n\t   // abcd\n\t   frappe.call({\n            method: 'medical_history_measurement_points_both',\n            callback: function(r) {\n                if (r.message) {\n                    var records = r.message;\n                    records.forEach( rec => {\n                            var row = cur_frm.fields_dict['random_check'].grid.add_new_row();\n                            frappe.model.set_value(row.doctype, row.name, \"medical_parameters\", rec.measure_name);\n                            frappe.model.set_value(row.doctype, row.name, \"medical_code\", rec.measure_code);\n                            frappe.model.set_value(row.doctype, row.name, \"uom\", rec.uom);\n                    })\n                }\n            }\n        })\n\t},\n\t\n\tdate_of_birth(frm){\n\t    if(frm.doc.date_of_birth != null){\n\t        frm.set_value(\"age\", moment().diff(frm.doc.date_of_birth, 'years') )\n\t    }\n\t},\n\t\n\tdate_of_joining(frm){\n\t    if(frm.doc.date_of_joining != null){\n\t        frm.set_value(\"service_years\", moment().diff(frm.doc.date_of_joining, 'years') )\n\t    }\n\t},\n\t\n\ttype_of_examination(frm){\n        setTimeout(function(){\n            frappe.call({\n                method: 'medical_history_measurement_points',\n                args: {\n                    \"type_of_examination\": frm.doc.type_of_examination\n                },\n                callback: function(r) {\n                    if (r.message) {\n                        console.log(r.message)\n                        var records = r.message;\n                        records.forEach( rec => {\n                            if (rec.parameter_type !== \"Random Check\"){\n                                let inputString = rec.parameter_type;\n                                let outputString = convertToSnakeCase(inputString);\n                                var row = cur_frm.fields_dict[outputString].grid.add_new_row();\n                                frappe.model.set_value(row.doctype, row.name, \"medical_parameters\", rec.measure_name);\n                                frappe.model.set_value(row.doctype, row.name, \"medical_code\", rec.measure_code);\n                                frappe.model.set_value(row.doctype, row.name, \"uom\", rec.uom);\n                            }\n                        })\n                    }\n                }\n            })\n        }, 2000);\n        \n        // if (frm.doc.type_of_examination == \"Scheduled Test\") {\n        //     var row = frm.fields_dict.random_check.grid.add_new_row();\n        //     frappe.model.set_value(row.doctype, row.name, \"medical_parameters\", \"Health\");\n        // }\n\t}\n})\n\nfunction convertToSnakeCase(str) {\n    let sanitizedStr = str.replace(/[^\\w\\s]/gi, '');\n    sanitizedStr = sanitizedStr.toLowerCase();\n    sanitizedStr = sanitizedStr.replace(/\\s+/g, '_');\n    return sanitizedStr;\n}",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Employee",
+  "enabled": 1,
+  "modified": "2024-05-21 12:37:44.412416",
+  "module": "Real Group",
+  "name": "Employee",
+  "script": "frappe.ui.form.on('Employee', {\n    refresh(frm) {\n        // Capitalize the first_name field\n        \n        \n        // Example of setting another field, just as a reference\n        // frm.set_value(\"attendance_device_id\", frm.doc.name);\n    },\n    \n    first_name(frm){\n            let capitalizedFirstName = capitalizeWords(frm.doc.first_name);\n            frm.set_value('first_name', capitalizedFirstName);\n    },\n    \n    middle_name(frm){\n            let capitalizedFirstName = capitalizeWords(frm.doc.middle_name);\n            frm.set_value('middle_name', capitalizedFirstName);\n    },\n    \n    last_name(frm){\n            let capitalizedFirstName = capitalizeWords(frm.doc.last_name);\n            frm.set_value('last_name', capitalizedFirstName);\n    },\n    \n    employee_name(frm){\n            let capitalizedFirstName = capitalizeWords(frm.doc.employee_name);\n            frm.set_value('employee_name', capitalizedFirstName);\n    },\n    \n    custom_medical_history(frm) {\n        frappe.call({\n            method: 'employee_medical_history',\n            args: {\n                'e_name': frm.doc.name\n            },\n            callback: function(r) {\n                if (r.message && r.message.url) {\n                    window.location.href = r.message.url;\n                    // Optionally reload the page after a delay\n                    // setTimeout(function() {\n                    //     window.location.reload();\n                    // }, 1000);\n                }\n            }\n        });\n    }\n});\nfrappe.ui.form.on('Emergency Contacts', {\n\trefresh(frm) {\n\t\t// your code here\n\t},\n\t\n\temergency_contact_name(frm, cdt, cdn){\n\t    console.log(\"hi\")\n\t    let row = frappe.get_doc(cdt, cdn)\n        let capitalizedFirstName = capitalizeWords(row.emergency_contact_name);\n        // frm.set_value('emergency_contact_name', capitalizedFirstName);\n        frappe.model.set_value(row.doctype, row.name, \"emergency_contact_name\", capitalizedFirstName);\n    },\n})\n\nfunction capitalizeWords(str) {\n    return str.split(' ')\n              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())\n              .join(' ');\n}\n\n\n",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Medical History",
+  "enabled": 1,
+  "modified": "2024-05-21 12:37:44.432265",
+  "module": "Real Group",
+  "name": "Medical History List",
+  "script": "frappe.listview_settings['Medical History'] = {\n    onload: function(listview) {\n        cur_list.refresh()\n    }\n}",
+  "view": "List"
+ }
+]

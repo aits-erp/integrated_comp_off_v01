@@ -114,9 +114,10 @@ app_license = "mit"
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+override_doctype_class = {
+	"User": "real_group.overrides.CustomUser",
+    "Employee": "real_group.overrides.CustomEmployee"
+}
 
 # Document Events
 # ---------------
@@ -129,6 +130,15 @@ app_license = "mit"
 # 		"on_trash": "method"
 # 	}
 # }
+
+doc_events = {
+    "Employee": {
+        "after_insert": ["real_group.real_group.integration.create_employee", "real_group.real_group.integration.create_account", "real_group.real_group.integration.create_user"],
+        "on_update": ["real_group.real_group.integration.update_employee", "real_group.real_group.integration.update_account", "real_group.real_group.integration.update_user" ]
+    }
+}
+        # "after_insert": ["real_group.real_group.integration.create_employee", "real_group.real_group.integration.create_account"],
+        # "on_update": ["real_group.real_group.integration.update_employee", "real_group.real_group.integration.update_account"]
 
 # Scheduled Tasks
 # ---------------
@@ -235,3 +245,13 @@ scheduler_events = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
+
+fixtures = [
+    {"dt": "Custom Field", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Report", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "DocType", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Print Format", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Server Script", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Client Script", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]}
+]
