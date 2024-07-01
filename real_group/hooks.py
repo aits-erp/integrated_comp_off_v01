@@ -116,7 +116,8 @@ app_license = "mit"
 
 override_doctype_class = {
 	"User": "real_group.overrides.CustomUser",
-    "Employee": "real_group.overrides.CustomEmployee"
+    "Employee": "real_group.overrides.CustomEmployee",
+    "Employee Checkin": "real_group.overrides.CustomEmployeeCheckin"
 }
 
 # Document Events
@@ -132,24 +133,31 @@ override_doctype_class = {
 # }
 
 doc_events = {
-    "Employee": {
-        "after_insert": ["real_group.real_group.integration.create_employee", "real_group.real_group.integration.create_account", "real_group.real_group.integration.create_user"],
-        "on_update": ["real_group.real_group.integration.update_employee", "real_group.real_group.integration.update_account", "real_group.real_group.integration.update_user" ]
-    }
+    # "Employee": {
+    #     "after_insert": ["real_group.real_group.integration.create_employee"],
+    #     "on_update": ["real_group.real_group.integration.update_employee"]
+    # },
+    # "User": {
+    #     "after_insert": ["real_group.real_group.integration.create_user"],
+    #     "on_update": ["real_group.real_group.integration.update_user"]
+    # }
 }
-        # "after_insert": ["real_group.real_group.integration.create_employee", "real_group.real_group.integration.create_account"],
-        # "on_update": ["real_group.real_group.integration.update_employee", "real_group.real_group.integration.update_account"]
+        # "after_insert": ["real_group.real_group.integration.create_employee", "real_group.real_group.integration.create_account", "real_group.real_group.integration.create_user"],
+        # "on_update": ["real_group.real_group.integration.update_employee", "real_group.real_group.integration.update_account", "real_group.real_group.integration.update_user" ]
 
 # Scheduled Tasks
 # ---------------
 
 scheduler_events = {
     "cron": {
-        "5 * * * *": [
-            "real_group.real_group.attendance.process_attendance_log"
-        ],
+        # "5 * * * *": [
+        #     "real_group.real_group.attendance.process_attendance_log"
+        # ],
         "15 0 * * *": [
             "real_group.real_group.attendance.process_attendance_from_attendance_summary"
+        ],
+        "0 11 * * *": [
+            "real_group.real_group.attendance.process_attendance_from_no_check_in_applicable_grade"
         ]    
     }
 }
