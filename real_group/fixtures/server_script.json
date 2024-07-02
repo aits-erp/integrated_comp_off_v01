@@ -171,8 +171,8 @@
   "script_type": "DocType Event"
  },
  {
-  "allow_guest": 0,
-  "api_method": null,
+  "allow_guest": 1,
+  "api_method": "test",
   "cron_format": null,
   "disabled": 0,
   "docstatus": 0,
@@ -180,13 +180,13 @@
   "doctype_event": "After Insert",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2024-07-01 15:23:41.452841",
+  "modified": "2024-07-02 11:52:13.642531",
   "module": "Real Group",
   "name": "SMS for Late Check In",
   "rate_limit_count": 5,
   "rate_limit_seconds": 86400,
   "reference_doctype": "Employee Checkin",
-  "script": "grade = frappe.db.get_value(\"Employee\", doc.employee, \"grade\")\n\n\n# url = \"http://sms.osdigital.in/V2/http-api.php?apikey=hHzISVzWmTSPLfX2&senderid=RIPLGK&number=9926100041&message=Hello SWAPNIL, \n\n# You have arrived 30 minutes late at work today and your clock-in time is 2023-11-09 16:27:05 hours.\n\n# Regards, \n# REAL Group\"",
+  "script": "grade = frappe.db.get_value(\"Employee\", doc.employee, \"grade\")\nmobile = frappe.db.get_value(\"Employee\", doc.employee, \"cell_number\")\n\ng = frappe.get_doc(\"Employee Grade\", grade)\n\ncheck_in_date = f\"{str(doc.time)[:10]}\"\n\nif g.custom_single_punch_applicable == 1 or g.custom_no_punch_applicable == 1:\n    pass\nelse:\n    start_time = frappe.db.get_value(\"Shift Type\", doc.shift, \"start_time\")\n    shift_start_time = f'{check_in_date} {str(start_time)}'\n    shift_actual_start_time = frappe.utils.get_datetime(shift_start_time) + g.custom_check_in_grace_time\n    duration = frappe.utils.get_datetime(doc.time) - shift_actual_start_time\n    \n    if frappe.utils.get_datetime(doc.time) > shift_actual_start_time:\n        employee_name = doc.employee_name\n        message = f\"Hello {employee_name},%0A%0AYou have arrived {int(duration.seconds / 60) } minutes late at work today and your clock-in time is {doc.time} hours.%0A%0ARegards,%0A%0AREAL Group\"\n        frappe.log_error('Late Check In', {\"message\": message, \"mobile\": mobile})\n        message = message.replace(\" \", \"%20\")\n        url= f\"http://sms.osdigital.in/V2/http-api.php?apikey=hHzISVzWmTSPLfX2&senderid=RIPLGK&number={mobile}&message={message}\"\n        frappe.make_get_request(url)\n\n# frappe.response[\"message\"] = {\n#     \"shift_actual_start_time\": shift_actual_start_time,\n#     \"check_in_time\": c.time,\n#     \"check_in_date\": check_in_date,\n#     \"d\": duration,\n#     \"duration\": int(duration.seconds / 60),\n#     \"message\": message,\n#     \"url\": url\n# }",
   "script_type": "DocType Event"
  }
 ]
