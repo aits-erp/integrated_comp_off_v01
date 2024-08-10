@@ -386,3 +386,69 @@ USER_MAP = {
     "LASTUPDATE" : 'modified',
               
 }
+
+
+
+SALARY_STRUCTURE_RATE_MAST = {
+    "EMP_CODE": "emp_code" ,
+    "FROM_DATE": "from_date" ,
+    # "TO_DATE": "to_date" ,
+    "AFNO": "afno" ,
+    "AFRATE": "afrate" ,
+    "USER_CODE": "user_code" ,
+    "LASTUPDATE": "modified" ,
+    # "FLAG": "flag" ,
+    "EMP_CONFIG_CATG": "custom_emp_category" ,
+    "AFCODE": "afcode" ,
+    "AFIELD": "afield" ,
+    "PAYROLL_SERIES": "custom_payroll_series" 
+}
+
+SALARY_SLIP_SALARY_TRANS  = {
+
+    "EMP_CODE" : "emp_code",
+    "CAL_YEAR" : "custom_calendar_year",
+    "MONTH" : "custom_month",
+    "AFNO" : "afno",
+    "AFIELD" : "afield",
+    "USER_CODE" : "user_code",
+    "LASTUPDATE" : "modified",
+    # "FLAG" : "flag",
+    # "ACC_VRNO" : "acc_vrno",
+    # "ACC_SLNO" : "acc_slno",
+    # "ACC_TCODE" : "acc_tcode",
+    "ENTITY_CODE" : "entity_code",
+    "DIV_CODE" : "custom_division",
+    "FROM_DATE" : "from_date",
+    "EMP_CATG" : "custom_emp_category",
+    "PAYROLL_SERIES" : "custom_payroll_series",
+    "AFCODE" : "afcode",
+    "AFHEAD" : "afhead",
+    "AFRATE" : "afrate",
+    "ACTUALS" : "actuals",
+    "AFRATEI" : "afratei",
+    # "BASIC_AMT" : "basic_amt",
+    # "SAL_SUPRESS" : "sal_supress",
+    # "COST_CODE" : "cost_code",
+    # "PAYMENT_VRNO" : "payment_vrno",
+    # "PAYMENT_SLNO" : "payment_slno",
+    # "PAYMENT_TCODE" : "payment_tcode"
+}
+
+
+ATTENDANCE_BALANCE  = {
+
+    "CAL_YEAR": "cal_year", 
+    "MONTH": "month", 
+    "EMP_CODE": "emp_code", 
+    "ATTEND_CHAR": "attend_char", 
+    "DAYS": "days", 
+    "USER_CODE": "user_code", 
+    "LASTUPDATE": "lastupdate", 
+    # "FLAG": "FLAG", 
+    "APPROVEDBY": "approvedby", 
+    "APPROVEDDATE": "approveddate", 
+    "SAL_SUPRESS": "sal_supress", 
+    "REMARK":"remark"
+}
+

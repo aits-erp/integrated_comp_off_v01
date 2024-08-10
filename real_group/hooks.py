@@ -59,10 +59,9 @@ app_license = "mit"
 # ----------
 
 # add methods and filters to jinja environment
-# jinja = {
-# 	"methods": "real_group.utils.jinja_methods",
-# 	"filters": "real_group.utils.jinja_filters"
-# }
+jinja = {
+	"methods": "real_group.real_group.utils.get_qr_code"
+}
 
 # Installation
 # ------------
@@ -133,14 +132,23 @@ override_doctype_class = {
 # }
 
 doc_events = {
-    # "Employee": {
-    #     "after_insert": ["real_group.real_group.integration.create_employee"],
-    #     "on_update": ["real_group.real_group.integration.update_employee"]
+    "Employee": {
+        "after_insert": ["real_group.real_group.integration.create_employee"],
+        "on_update": ["real_group.real_group.integration.update_employee"]
+    },
+
+    "User": {
+        "after_insert": ["real_group.real_group.integration.create_user"],
+        "on_update": ["real_group.real_group.integration.update_user"]
+    },
+
+    # "Salary Structure Assignment": {
+    #     "on_submit": ["real_group.real_group.integration.create_salary_structure_assignment"]
     # },
-    # "User": {
-    #     "after_insert": ["real_group.real_group.integration.create_user"],
-    #     "on_update": ["real_group.real_group.integration.update_user"]
-    # }
+
+    "Salary Slip": {
+        "on_submit": ["real_group.real_group.integration.create_salary_slip"]
+    }
 }
         # "after_insert": ["real_group.real_group.integration.create_employee", "real_group.real_group.integration.create_account", "real_group.real_group.integration.create_user"],
         # "on_update": ["real_group.real_group.integration.update_employee", "real_group.real_group.integration.update_account", "real_group.real_group.integration.update_user" ]
@@ -153,11 +161,17 @@ scheduler_events = {
         # "5 * * * *": [
         #     "real_group.real_group.attendance.process_attendance_log"
         # ],
-        "15 0 * * *": [
+        # "* * * * *": [
+        #     "real_group.real_group.attendance.pull_data_from_postgre"
+        # ],
+        "00 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_attendance_summary"
         ],
         "0 11 * * *": [
             "real_group.real_group.attendance.process_attendance_from_no_check_in_applicable_grade"
+        ],
+        "59 23 * * *": [
+            "real_group.real_group.attendance.process_attendance_from_single_check_in_applicable_grade"
         ]    
     }
 }

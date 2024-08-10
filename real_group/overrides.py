@@ -21,6 +21,10 @@ class CustomEmployee(Employee):
 
 		count = frappe.db.count("Employee", filters={"company": self.company})
 		start_from = frappe.db.get_value("Company", self.company, "custom_employee_code_starting_from")
+		ending_at = frappe.db.get_value("Company", self.company, "custom_employee_code_ending_at")
+
+		if (start_from + count + 1) > ending_at:
+			frappe.throw("Cannot create new employee: Please update the naming series to continue or contact admin")
 
 		self.name = str(start_from + count + 1)
 
