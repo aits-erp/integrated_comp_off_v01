@@ -1,0 +1,54 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:relation",
+ "creation": "2024-05-29 17:35:06.623309",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "relation",
+  "erp_code"
+ ],
+ "fields": [
+  {
+   "fieldname": "relation",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Relation",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "erp_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "ERP Code",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-08-12 23:43:00.671149",
+ "modified_by": "Administrator",
+ "module": "Real Group",
+ "name": "Relation",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -7,6 +7,8 @@
  "field_order": [
   "birthday_wish_subject",
   "birthday_wish_message",
+  "column_break_pwfm",
+  "email_account",
   "easy_time_pro_connection_settings_section",
   "time_pro_host",
   "time_pro_database",
@@ -67,12 +69,23 @@
    "fieldname": "time_pro_last_sync_on",
    "fieldtype": "Datetime",
    "label": "Time Pro Last Sync On"
+  },
+  {
+   "fieldname": "email_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Email Account",
+   "options": "Email Account"
+  },
+  {
+   "fieldname": "column_break_pwfm",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2024-08-07 18:29:10.190933",
+ "modified": "2024-08-12 16:49:48.045544",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Real Group Settings",

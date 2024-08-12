@@ -1,0 +1,55 @@
+{
+ "actions": [],
+ "autoname": "format:{shift_duration}",
+ "creation": "2024-08-12 23:28:00.258720",
+ "default_view": "List",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "shift_duration",
+  "section_break_eanw",
+  "items"
+ ],
+ "fields": [
+  {
+   "fieldname": "shift_duration",
+   "fieldtype": "Time",
+   "label": "Shift Duration"
+  },
+  {
+   "fieldname": "section_break_eanw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "items",
+   "options": "Compensation Matrix Details"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-08-12 23:28:00.258720",
+ "modified_by": "Administrator",
+ "module": "Real Group",
+ "name": "Compensation Matrix",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
