@@ -1097,11 +1097,12 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 	return sql_dict
 
 
-def get_attendance_balance_insert_query(map, table_name, docname, doc_salary_structure):
+def get_attendance_balance_insert_query(map, table_name, docname):
 	salary_slip = frappe.db.sql("""
 		SELECT
-			EXTRACT(YEAR FROM ss.end_date) AS custom_calendar_year,
+			EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
 			EXTRACT(MONTH FROM ss.end_date) AS custom_month,
+			UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month_char,
 			employee AS emp_code,
 			(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
 			ss.company,
@@ -1111,15 +1112,19 @@ def get_attendance_balance_insert_query(map, table_name, docname, doc_salary_str
 			`tabSalary Slip` as ss
 		WHERE
 			ss.name = %s
-		""", (docname), as_dict =1)
+		""", ("Sal Slip/52069/00001"), as_dict =1)
+
+	#Fetching the basic data form Salary Slip
 
 	cal_year = salary_slip[0].get("custom_calendar_year")
-	month = salary_slip[0].get("month")
+	month = salary_slip[0].get("custom_month")
+	month_char = salary_slip[0].get("custom_month_char")
 	employee = salary_slip[0].get("emp_code")
 	company = salary_slip[0].get("company")
 	lastupdate = salary_slip[0].get("modified")
 	usercode = salary_slip[0].get("user_code")
 
+	#fetching the data from standard report(Monthly Attendance Sheet) don't need to change
 	result = frappe.call(
 		"frappe.desk.query_report.run",
 		report_name="Monthly Attendance Sheet",
@@ -1134,72 +1139,111 @@ def get_attendance_balance_insert_query(map, table_name, docname, doc_salary_str
 		)
 
 	temp_result = result["result"][0]
+	#needs to map new leave type here
+	temp_result = {
+			"PRESENT": temp_result.get("total_present", 0.0),
+			"ABSENT_LOP" : temp_result.get("total_absent", 0.0) + temp_result.get("leave_without_pay", 0.0) ,
+			"HOLIDAY" : temp_result.get("total_holidays", 0.0),
+			"OPTIONAL_LEAVE" : temp_result.get("optional_leave", 0.0),
+			"SICK_LEAVE" : temp_result.get("sick_leave", 0.0),
+			"ESIC_LEAVE" : temp_result.get("esic_leave", 0.0),
+			"COMPENSATORY_OFF" : temp_result.get("compensatory_off", 0.0),
+			"CASUAL_LEAVE" : temp_result.get("casual_leave", 0.0),
+			"EARNED_LEAVE" : temp_result.get("earned_leave", 0.0),
+			"NIGHT" : temp_result.get("night", 0.0),
+			"TOUR" : temp_result.get("tour", 0.0),
+			"APPROVED_LEAVE" : temp_result.get("approved_leave", 0.0),
+			"WEEKLY_OFF" : temp_result.get("weekly_off", 0.0),
+			"OUTDOOR_DUTY_LEAVE" : temp_result.get("outdoor_duty_leave", 0.0),
+			"LATE_PENALTY" : temp_result.get("late_penalty", 0.0),
+			"FULL_AND_FINAL_EARNING" : temp_result.get("full_and_final_earning", 0.0),
+			"FULL_AND_FINAL_DEDUCTION" : temp_result.get("full_and_final_deduction", 0.0)
+		}
 
-	leave_type = frappe.db.get_all("Leave Type", ["name", "custom_attend_char"])
 
-	leaves =  ["NIGHT", "TOUR", "APPROVED_LEAVE", "PRESENT", "COMPENSATORY_OFF", "ABSENT_LOP", "WEEKLY_OFF", "CASUAL_LEAVE", "HOLIDAY", "EARNED_LEAVE", "ESIC_LEAVE", "OUTDOOR_DUTY_LEAVE", "SICK_LEAVE", "OPTIONAL_LEAVE", "LATE_PENALTY", "FULL_AND_FINAL_EARNING", "FULL_AND_FINAL_DEDUCTION"]
+	final_result = []
+	#Needs to map the ERP Attend Char here which are not present in leave type
+	leave_type_map = {
+		"PRESENT": "P",
+		"ABSENT_LOP": "A",
+		"HOLIDAY": "H",
+		"NIGHT": "B",
+		"TOUR": "T",
+		"APPROVED_LEAVE": "M",
+		"WEEKLY_OFF": "R",
+		"OUTDOOR_DUTY_LEAVE": "O",
+		"LATE_PENALTY": "N",
+		"FULL_AND_FINAL_EARNING": "F",
+		"FULL_AND_FINAL_DEDUCTION": "D"
+	}
 
-	main_rec = []
+	for rec in temp_result:
+		leave_type = rec.replace("_", " ").title() #Replace the leave name to title case
+		if frappe.db.exists("Leave Type", leave_type): #checing leave type present or not
+			attand_char = frappe.db.get_value("Leave Type", leave_type, "custom_erp_attend_char") #present then append
+		else:
+			attand_char = leave_type_map.get(rec, "") #append from leave_type_map which are define in above lines
 
-	for leave in  leaves:
-		for rec in main_rec:
-			if rec.name != leave.lower():
-				leavetype = ""
-				for l_typ in leave_type:
-					if l_typ.get("name") == rec.name:
-						leavetype = name 
-				temp_rec = {
-					"cal_year" : cal_year,
-					"month" : month,
-					"employee" : employee,
-					"company" : company,
-					"lastupdate" : lastupdate,
-					"usercode" : usercode,
-					"name" : leavetype
-				}
-				if temp_rec.leavetype != "":
-					main_rec.append(temp_rec)
+		if attand_char:
+			attend_bal_rec = {
+				"CAL_YEAR": cal_year,
+				"MONTH": month_char,
+				"EMP_CODE": employee,
+				"ATTEND_CHAR": attand_char,
+				"DAYS": temp_result[rec],
+				"USER_CODE": usercode,
+				"LASTUPDATE": lastupdate,
+				"APPROVEDBY": "11517",
+				"APPROVEDDATE": lastupdate
+			}
+			final_result.append(attend_bal_rec)
 
-		pass
 
-	if not salary_slips:
+	attend_chars = final_result
+
+	
+	if not attend_chars:
 		return None
 
 	sql_queries = []
-	for salary_slip in salary_slips:
-		sets = []
-		conditions = []
+	for attend_char in attend_chars:
+		keys = []
+		values = []
 		for key, value in map.items():
 			if value:
-				if value == 'emp_code':
-					conditions.append(f"{key} = '{salary_slip[value]}' AND AFNO = '{salary_slip['afno']}' AND CAL_YEAR = '{salary_slip['custom_calendar_year']}' AND MONTH = '{salary_slip['custom_month']}' ")
+				keys.append(key)
+				value_to_insert = attend_char[value]
+				if value_to_insert is None:
+					values.append('')
 				else:
-					value_to_insert = salary_slip[value]
-					if value_to_insert is None:
-						sets.append(f"{key} = ''")
-					elif value_to_insert == 'rate_identifier':
-						get_indicator_query = f"SELECT AFRATEI FROM RIPLRR.EMP_CONFIG_MAST WHERE AFCODE = '{salary_slip['afcode']}' AND EMP_CATG = '{salary_slip['custom_emp_category']}' AND ENTITY_CODE = '{salary_slip['entity_code']}' AND TO_DATE IS NULL"
-						sets.append(f"{key} = ({get_indicator_query})")
+					if 'from_date' in value:
+						values.append(f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
+					elif 'modified' in value:
+						value_to_insert = str(value_to_insert).split(".")
+						values.append(f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
 					else:
-						if 'from_date' in value:
-							sets.append(f"{key} = TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
-						elif 'modified' in value:
-							value_to_insert = str(value_to_insert).split(".")
-							sets.append(f"{key} = TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
-						elif 'afrate' in value:
-							sets.append(f"{key} = {value_to_insert}")
-						else:
-							sets.append(f"{key} = '{value_to_insert}'")
+						values.append(f"{value_to_insert}")
 
+		formatted_values = []
+		for elem in values:
+			if type(elem) == int or type(elem) == float:
+				formatted_values.append(f"{float(elem)}")
+			else:
+				elem_str = str(elem)
+				if 'TO_DATE' in elem_str:
+					formatted_values.append(elem_str)
+				else:
+					formatted_values.append("'" + elem_str + "'")
 		sql = f"""
-			UPDATE {table_name}
-			SET {','.join([str(elem) for elem in sets])}
-			WHERE {' AND '.join([str(elem) for elem in conditions])}
+			INSERT INTO {table_name}
+				({','.join([str(elem) for elem in keys])})
+			VALUES
+				({','.join(formatted_values)})
 		"""
 
 		sql_queries.append(sql)
 	
-	sql_dict = {"sql_queries":sql_queries, "emp_code": salary_slips[0].emp_code, "cal_year": salary_slips[0].custom_calendar_year, "month":  salary_slips[0].custom_month }
+	sql_dict = {"sql_queries":sql_queries, "emp_code": employee, "cal_year": cal_year, "month":  month_char }
 	
 	return sql_dict
 

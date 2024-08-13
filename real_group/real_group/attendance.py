@@ -62,7 +62,6 @@ def pull_data_from_postgre():
 		frappe.db.set_value("Real Group Settings", "Real Group Settings", "time_pro_last_sync_on", str(upload_time))
 		frappe.db.commit()
 
-
 @frappe.whitelist()
 def process_attendance_log():
 
@@ -690,8 +689,6 @@ def process_attendance_from_attendance_summary():
 				# 	print(c.name)
 				# 	frappe.db.set_value("Employee Checkin", c.name, "attendance", attendance.name)
 
-
-
 def process_attendance_from_no_check_in_applicable_grade():
 	employees = frappe.db.sql("""
 		SELECT 
@@ -736,8 +733,6 @@ def process_attendance_from_no_check_in_applicable_grade():
 					attendance.save()
 					attendance.add_tag("No Check in Required")
 					attendance.submit()
-
-
 
 def process_attendance_from_single_check_in_applicable_grade():
 	employees = frappe.db.sql("""
