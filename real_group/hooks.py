@@ -158,12 +158,12 @@ doc_events = {
 
 scheduler_events = {
     "cron": {
-        # "5 * * * *": [
-        #     "real_group.real_group.attendance.process_attendance_log"
-        # ],
-        # "* * * * *": [
-        #     "real_group.real_group.attendance.pull_data_from_postgre"
-        # ],
+        "5 * * * *": [
+            "real_group.real_group.attendance.process_attendance_log"
+        ],
+        "* * * * *": [
+            "real_group.real_group.attendance.pull_data_from_postgre"
+        ],
         "00 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_attendance_summary"
         ],

@@ -331,12 +331,12 @@ def process_attendance_from_attendance_summary():
 
 	year = str(attendance_for_date.year)
 	month = attendance_for_date.strftime("%b")
-	employee_code = "50003"
-	holiday_list = frappe.db.get_value("Employee", employee_code, "holiday_list")
-	company = frappe.db.get_value("Employee", employee_code, "company")
-	branch = frappe.db.get_value("Employee", employee_code, "branch")
-	division = frappe.db.get_value("Employee", employee_code, "custom_division")
-	department = frappe.db.get_value("Employee", employee_code, "department")
+	employee_code = ""
+	holiday_list = ""
+	company = ""
+	branch = ""
+	division = ""
+	department = ""
 
 	conditions = ""
 	emp_condition = ""
