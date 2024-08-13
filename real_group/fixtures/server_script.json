@@ -389,13 +389,13 @@
   "doctype_event": "Before Submit",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2024-08-12 16:41:55.267573",
+  "modified": "2024-08-13 14:07:07.159234",
   "module": "Real Group",
   "name": "Update Leave Allocation",
   "rate_limit_count": 5,
   "rate_limit_seconds": 86400,
   "reference_doctype": "Leave Application",
-  "script": "if doc.leave_type == \"Compensatory Off\":\n    total_leaves = frappe.db.get_all(\"Leave Allocation\", filters={\n        \"employee\": doc.employee, \n        \"leave_type\": \"Compensatory Off\", \n        \"from_date\": [\"<\", doc.from_date], \n        \"new_leaves_allocated\": [\">\", 0],\n        \"docstatus\": 1\n    })\n    if total_leaves:\n        for leave in total_leaves[0:len(total_leaves)-1]:\n            allocated_leave = frappe.db.get_value(\"Leave Allocation\", leave[\"name\"], \"new_leaves_allocated\")\n            allocated_leave_doc = frappe.get_doc(\"Leave Allocation\", leave[\"name\"])\n            if allocated_leave >= doc.total_leave_days:\n                update_leave = allocated_leave - doc.total_leave_days\n                allocated_leave_doc.new_leaves_allocated = update_leave\n                allocated_leave_doc.total_leaves_allocated = update_leave\n                allocated_leave_doc.save()\n            if doc.total_leave_days > allocated_leave:\n                update_leave = 0    \n                allocated_leave_doc.new_leaves_allocated = update_leave\n                allocated_leave_doc.total_leaves_allocated = update_leave\n                allocated_leave_doc.save()",
+  "script": "\"\"\"\n    Updating leave allocation for allocated leaves based on leave taken\n    to reduce the count of the leave allocation of previously allocated leaves\n\"\"\"\n\nif doc.leave_type == \"Compensatory Off\":\n    total_leaves = frappe.db.get_all(\"Leave Allocation\", filters={\n        \"employee\": doc.employee, \n        \"leave_type\": \"Compensatory Off\", \n        \"from_date\": [\"<\", doc.from_date], \n        \"new_leaves_allocated\": [\">\", 0],\n        \"docstatus\": 1\n    })\n    if total_leaves:\n        for leave in total_leaves[0:len(total_leaves)-1]:\n            allocated_leave = frappe.db.get_value(\"Leave Allocation\", leave[\"name\"], \"new_leaves_allocated\")\n            allocated_leave_doc = frappe.get_doc(\"Leave Allocation\", leave[\"name\"])\n            if allocated_leave >= doc.total_leave_days:\n                update_leave = allocated_leave - doc.total_leave_days\n                allocated_leave_doc.new_leaves_allocated = update_leave\n                allocated_leave_doc.total_leaves_allocated = update_leave\n                allocated_leave_doc.save()\n            if doc.total_leave_days > allocated_leave:\n                update_leave = 0    \n                allocated_leave_doc.new_leaves_allocated = update_leave\n                allocated_leave_doc.total_leaves_allocated = update_leave\n                allocated_leave_doc.save()\n                \n\n",
   "script_type": "DocType Event"
  },
  {

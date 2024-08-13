@@ -167,7 +167,7 @@ scheduler_events = {
         "00 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_attendance_summary"
         ],
-        "0 11 * * *": [
+        "59 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_no_check_in_applicable_grade"
         ],
         "59 23 * * *": [

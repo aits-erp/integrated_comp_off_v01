@@ -475,7 +475,7 @@
   "modified": "2024-08-13 11:37:00.564093",
   "module": "Real Group",
   "name": "Employee Attendance",
-  "prepared_report": 0,
+  "prepared_report": 1,
   "query": null,
   "ref_doctype": "Attendance",
   "reference_report": null,
