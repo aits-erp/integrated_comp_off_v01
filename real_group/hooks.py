@@ -146,9 +146,10 @@ doc_events = {
     #     "on_submit": ["real_group.real_group.integration.create_salary_structure_assignment"]
     # },
 
-    # "Salary Slip": {
-    #     "on_submit": ["real_group.real_group.integration.create_salary_slip"]
-    # }
+    "Salary Slip": {
+        "on_submit": ["real_group.real_group.integration.create_salary_slip"],
+        "on_cancel": ["real_group.real_group.integration.cancel_salary_slip"]
+    }
 }
         # "after_insert": ["real_group.real_group.integration.create_employee", "real_group.real_group.integration.create_account", "real_group.real_group.integration.create_user"],
         # "on_update": ["real_group.real_group.integration.update_employee", "real_group.real_group.integration.update_account", "real_group.real_group.integration.update_user" ]
@@ -164,11 +165,12 @@ scheduler_events = {
         "* * * * *": [
             "real_group.real_group.attendance.pull_data_from_postgre"
         ],
-        "00 23 * * *": [
+        "0 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_attendance_summary"
         ],
-        "59 23 * * *": [
-            "real_group.real_group.attendance.process_attendance_from_no_check_in_applicable_grade"
+        "0 9 * * *": [
+            "real_group.real_group.attendance.process_attendance_from_no_check_in_applicable_grade",
+            "real_group.real_group.notifications.send_birthday_wishes"
         ],
         "59 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_single_check_in_applicable_grade"
@@ -278,5 +280,7 @@ fixtures = [
     {"dt": "Print Format", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Server Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Client Script", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]}
+    {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Workflow"},
+    {"dt": "Web Form", "filters": [["module", "=", "Real Group"]]}
 ]

@@ -3,7 +3,7 @@ from frappe.utils.password import  get_decrypted_password
 import cx_Oracle
 import json
 from datetime import datetime
-from real_group.real_group.employee_map import EMPLOYEE_MAP, ACCOUNT_MAP, USER_MAP, SALARY_STRUCTURE_RATE_MAST, SALARY_SLIP_SALARY_TRANS, ATTENDANCE_BALANCE
+from real_group.real_group.employee_map import EMPLOYEE_MAP, ACCOUNT_MAP, USER_MAP, SALARY_STRUCTURE_RATE_MAST, SALARY_SLIP_SALARY_TRANS, ATTENDANCE_BALANCE, BONUS_TRANSACTION
 # from real_group.real_group.account_map import ACCOUNT_MAP
 # from real_group.real_group.user_map import USER_MAP
 
@@ -877,44 +877,174 @@ def create_salary_slip(doc, method):
 			frappe.log_error(title="Salary slip", message=doc.as_json())			
 			cur = con.cursor()
 
+			bonus_tran_list = []
+			if doc.custom_bonus_amount > 0.0:	
+				#Get BONUS TRANSACION Insert SQL
+				bonus_tran_queries = get_bonus_transaction_insert_query(BONUS_TRANSACTION, 'RIPLRR.EMP_BONUS_TRAN', doc.name)
+				bonus_tran_list = bonus_tran_queries.get("sql_queries")
+				frappe.log_error("Bonus Transaction Insert" , str(bonus_tran_list))
+				# frappe.throw(str(bonus_tran_list))
 
+			#Get Attend Bal Insert SQL
+			attend_bal_queries = get_attendance_balance_insert_query(ATTENDANCE_BALANCE, 'RIPLRR.EMP_ATTEND_BAL', doc.name)
+			attend_sql_list = attend_bal_queries.get("sql_queries")
+			# frappe.throw(str(attend_sql_list))
 
+			#Get Salary Slip Insert SQL
 			sql_dict = get_salary_slip_insert_query(SALARY_SLIP_SALARY_TRANS, 'RIPLRR.EMP_SAL_TRAN', doc.name, doc.salary_structure)
-			frappe.log_error(title="Salary slip Update Query", message=sql_dict)
 			
 			sql_list = sql_dict.get("sql_queries")
 			emp_code = sql_dict.get("emp_code")
 			cal_year = sql_dict.get("cal_year")
 			month = sql_dict.get("month")
-
-			# frappe.throw(f"{emp_code} - {cal_year} - {month}")
+			
+			#Check for the same month salary slip if exist
 			check_for_existing_record_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}'"
-			# frappe.throw(str(check_for_existing_record_sql))
 
 			my_count_for_existing = cur.execute(check_for_existing_record_sql)
 			result_for_existing = cur.fetchall() 
-			if result_for_existing:
+			if result_for_existing: #if salary slip exist then check is already trasaction done on erp 
 				check_for_transaction_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}' AND (ACC_VRNO IS NOT NULL OR ACC_TCODE IS NOT NULL OR PAYMENT_VRNO IS NOT NULL OR PAYMENT_TCODE IS NOT NULL)"
 				my_count_for_transaction = cur.execute(check_for_transaction_sql)
 				result_for_transaction = cur.fetchall()
-				if result_for_transaction:
+
+				if result_for_transaction: #if exist then throw msg 
 					frappe.log_error("Salary Transaction Proceed Done", str(result_for_transaction))
 					frappe.throw(f"Salary Transaction Already Exist For Employee - {emp_code} AND Month - {month} And Transaction Completed!!")
-				else:
-					# update query
+				
+				else: # else update the salary transaction
+
+					attend_bal_sql_update_dict = get_attendance_balance_update_query(ATTENDANCE_BALANCE, 'RIPLRR.EMP_ATTEND_BAL', doc.name)
+					attend_bal_sql_update_list = attend_bal_sql_update_dict.get("sql_queries")
+					frappe.log_error("attend bal sql update list", attend_bal_sql_update_list)
+
+					for attend_bal_sql in attend_bal_sql_update_list:
+						cur.execute(attend_bal_sql)
+					
 					sql_update_dict = get_salary_slip_update_query(SALARY_SLIP_SALARY_TRANS, 'RIPLRR.EMP_SAL_TRAN', doc.name, doc.salary_structure)
-					frappe.log_error(title="Salary Slip Update Query", message=sql_update_dict)
 					sql_update_list = sql_update_dict.get("sql_queries")
-					emp_code = sql_update_dict.get("emp_code")
-					cal_year = sql_update_dict.get("cal_year")
-					month = sql_update_dict.get("month")
+					frappe.log_error("salary slip update list", sql_update_list)
 
 					for sql in sql_update_list:
 						cur.execute(sql)
-			else:
+
+
+			else: #else direct insert new salary slip
+				if len(bonus_tran_list) > 0:
+					for bonus_tran in bonus_tran_list:
+						cur.execute(bonus_tran)
+
+				for attend_sql in attend_sql_list:
+					cur.execute(attend_sql)
+
 				for sql in sql_list:
 					cur.execute(sql)
 
+			con.commit() #-----------------Database commit value
+			
+		except cx_Oracle.DatabaseError as er:
+			frappe.log_error(title="Oracle Query Error", message=er)
+			frappe.throw('Oracle Query Error:', str(er))
+			con.rollback()
+
+		except Exception as er:
+			frappe.log_error(title="Oracle Exception", message=er)
+			frappe.throw('Oracle Exception:', str(er))
+			con.rollback()
+
+		finally:
+			if cur:
+				cur.close()
+
+	finally:
+		if con:
+			con.close()
+
+
+def cancel_salary_slip(doc, method):
+	
+	try:
+		con = cx_Oracle.connect(user=ORACLE_USER, password=ORACLE_PASSWORD, dsn=ORACLE_DSN)
+
+	except cx_Oracle.DatabaseError as er:
+		frappe.log_error(title="Oracle Connection Error", message=er)
+		frappe.throw('Oracle Connection Error:', str(er))
+
+	else:
+		try:
+			frappe.log_error(title="Salary slip on Cancel", message=doc.as_json())			
+			cur = con.cursor()
+			
+			#Get Salary Slip Insert 0 on Cancel
+			salary_slip = frappe.db.sql("""
+					SELECT
+						employee AS emp_code,
+						EXTRACT(YEAR FROM ss.end_date) AS custom_calendar_year,
+						UPPER(TRIM(TO_CHAR(ss.end_date, 'MON'))) AS custom_month,
+						ss.modified
+					FROM
+						`tabSalary Slip` as ss
+					WHERE
+						ss.name = %s
+					""", (doc.name), as_dict =1)
+
+			# frappe.throw(str(salary_slip))
+
+			emp_code = salary_slip[0].get("emp_code")
+			cal_year = salary_slip[0].get("custom_calendar_year")
+			month = salary_slip[0].get("custom_month")
+			lastupdate = str(salary_slip[0].get("modified")).split(".")
+			amount = 0.0
+
+			update_zero_sql_salary_slip = f"""
+					UPDATE 
+						RIPLRR.EMP_SAL_TRAN 
+					SET 
+						AFRATE = {amount}, 
+						AFIELD = {amount}, 
+						ACTUALS = {amount},
+						LASTUPDATE = TO_DATE('{lastupdate[0]}', 'YYYY-MM-DD HH24:MI:SS') 
+					WHERE 
+						EMP_CODE = '{emp_code}'
+						AND CAL_YEAR = '{cal_year}' 
+						AND MONTH = '{month}'
+				"""
+
+			update_zero_sql_attend_bal = f"""
+					UPDATE 
+						RIPLRR.EMP_ATTEND_BAL 
+					SET 
+						DAYS = '0.0',
+						LASTUPDATE = TO_DATE('{lastupdate[0]}', 'YYYY-MM-DD HH24:MI:SS') 
+					WHERE 
+						EMP_CODE = '{emp_code}'
+						AND CAL_YEAR = '{cal_year}' 
+						AND MONTH = '{month}'
+				"""
+
+			#Check for the same month salary slip if exist
+			check_for_existing_record_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}'"
+			frappe.log_error("Check TO update before insert zero", check_for_existing_record_sql)
+			my_count_for_existing = cur.execute(check_for_existing_record_sql)
+			result_for_existing = cur.fetchall() 
+
+			if result_for_existing: #if salary slip exist then check is already trasaction done on erp 
+				check_for_transaction_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}' AND (ACC_VRNO IS NOT NULL OR ACC_TCODE IS NOT NULL OR PAYMENT_VRNO IS NOT NULL OR PAYMENT_TCODE IS NOT NULL)"
+				my_count_for_transaction = cur.execute(check_for_transaction_sql)
+				result_for_transaction = cur.fetchall()
+
+				if result_for_transaction: #if exist then throw msg 
+					frappe.log_error("Salary Transaction Proceed Done", str(result_for_transaction))
+					frappe.throw(f"Salary Transaction Already Exist For Employee - {emp_code} AND Month - {month} And Transaction Completed!!")
+				
+				else: # else update the salary transaction
+					frappe.log_error("update sql for zero value in cancel error", f"{update_zero_sql_attend_bal} -- \n {update_zero_sql_salary_slip}" )
+					cur.execute(update_zero_sql_attend_bal)
+					cur.execute(update_zero_sql_salary_slip)
+
+			else: #else direct insert new salary slip
+				frappe.log_error("Salary Slip on cancel", "Salary Slip Not Found in ERP System" )
+							
 			con.commit() #-----------------Database commit value
 			
 		except cx_Oracle.DatabaseError as er:
@@ -1103,16 +1233,19 @@ def get_attendance_balance_insert_query(map, table_name, docname):
 			EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
 			EXTRACT(MONTH FROM ss.end_date) AS custom_month,
 			UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month_char,
-			employee AS emp_code,
+			ss.employee AS emp_code,
 			(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
 			ss.company,
 			ss.modified,
-			(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code
+			(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
+			e.leave_approver as leave_approver
 		FROM
 			`tabSalary Slip` as ss
+		LEFT JOIN
+			`tabEmployee` as e ON e.name = ss.employee
 		WHERE
 			ss.name = %s
-		""", ("Sal Slip/52069/00001"), as_dict =1)
+		""", (docname), as_dict =1)
 
 	#Fetching the basic data form Salary Slip
 
@@ -1123,6 +1256,7 @@ def get_attendance_balance_insert_query(map, table_name, docname):
 	company = salary_slip[0].get("company")
 	lastupdate = salary_slip[0].get("modified")
 	usercode = salary_slip[0].get("user_code")
+	leave_approver = salary_slip[0].get("leave_approver")
 
 	#fetching the data from standard report(Monthly Attendance Sheet) don't need to change
 	result = frappe.call(
@@ -1186,21 +1320,19 @@ def get_attendance_balance_insert_query(map, table_name, docname):
 
 		if attand_char:
 			attend_bal_rec = {
-				"CAL_YEAR": cal_year,
-				"MONTH": month_char,
-				"EMP_CODE": employee,
-				"ATTEND_CHAR": attand_char,
-				"DAYS": temp_result[rec],
-				"USER_CODE": usercode,
-				"LASTUPDATE": lastupdate,
-				"APPROVEDBY": "11517",
-				"APPROVEDDATE": lastupdate
+				"cal_year": cal_year,
+				"month": month_char,
+				"emp_code": employee,
+				"attend_char": attand_char,
+				"days": float(temp_result[rec]),
+				"user_code": usercode,
+				"lastupdate": lastupdate,
+				"approvedby": leave_approver,
+				"approveddate": lastupdate
 			}
 			final_result.append(attend_bal_rec)
 
-
 	attend_chars = final_result
-
 	
 	if not attend_chars:
 		return None
@@ -1216,11 +1348,13 @@ def get_attendance_balance_insert_query(map, table_name, docname):
 				if value_to_insert is None:
 					values.append('')
 				else:
-					if 'from_date' in value:
-						values.append(f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
-					elif 'modified' in value:
+					if 'lastupdate' in value:
+						# values.append(f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
 						value_to_insert = str(value_to_insert).split(".")
 						values.append(f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+					elif 'approveddate' in value:
+						value_to_insert = str(value_to_insert).split(".")
+						values.append(f"TO_DATE('{value_to_insert[0].split(' ')[0]} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
 					else:
 						values.append(f"{value_to_insert}")
 
@@ -1234,6 +1368,7 @@ def get_attendance_balance_insert_query(map, table_name, docname):
 					formatted_values.append(elem_str)
 				else:
 					formatted_values.append("'" + elem_str + "'")
+
 		sql = f"""
 			INSERT INTO {table_name}
 				({','.join([str(elem) for elem in keys])})
@@ -1248,7 +1383,305 @@ def get_attendance_balance_insert_query(map, table_name, docname):
 	return sql_dict
 
 
+def get_attendance_balance_update_query(map, table_name, docname):
+	salary_slip = frappe.db.sql("""
+		SELECT
+			EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
+			EXTRACT(MONTH FROM ss.end_date) AS custom_month,
+			UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month_char,
+			ss.employee AS emp_code,
+			(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
+			ss.company,
+			ss.modified,
+			(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
+			e.leave_approver as leave_approver
+		FROM
+			`tabSalary Slip` as ss
+		LEFT JOIN
+			`tabEmployee` as e ON e.name = ss.employee
+		WHERE
+			ss.name = %s
+		""", (docname), as_dict =1)
 
+	#Fetching the basic data form Salary Slip
+
+	cal_year = salary_slip[0].get("custom_calendar_year")
+	month = salary_slip[0].get("custom_month")
+	month_char = salary_slip[0].get("custom_month_char")
+	employee = salary_slip[0].get("emp_code")
+	company = salary_slip[0].get("company")
+	lastupdate = salary_slip[0].get("modified")
+	usercode = salary_slip[0].get("user_code")
+	leave_approver = salary_slip[0].get("leave_approver")
+
+	#fetching the data from standard report(Monthly Attendance Sheet) don't need to change
+	result = frappe.call(
+		"frappe.desk.query_report.run",
+		report_name="Monthly Attendance Sheet",
+		filters={
+			"month":month,
+			"year":cal_year,
+			"employee":employee,
+			"company":company,
+			"summarized_view":1
+		},
+		ignore_prepared_report=True
+		)
+
+	temp_result = result["result"][0]
+	#needs to map new leave type here
+	temp_result = {
+			"PRESENT": temp_result.get("total_present", 0.0),
+			"ABSENT_LOP" : temp_result.get("total_absent", 0.0) + temp_result.get("leave_without_pay", 0.0) ,
+			"HOLIDAY" : temp_result.get("total_holidays", 0.0),
+			"OPTIONAL_LEAVE" : temp_result.get("optional_leave", 0.0),
+			"SICK_LEAVE" : temp_result.get("sick_leave", 0.0),
+			"ESIC_LEAVE" : temp_result.get("esic_leave", 0.0),
+			"COMPENSATORY_OFF" : temp_result.get("compensatory_off", 0.0),
+			"CASUAL_LEAVE" : temp_result.get("casual_leave", 0.0),
+			"EARNED_LEAVE" : temp_result.get("earned_leave", 0.0),
+			"NIGHT" : temp_result.get("night", 0.0),
+			"TOUR" : temp_result.get("tour", 0.0),
+			"APPROVED_LEAVE" : temp_result.get("approved_leave", 0.0),
+			"WEEKLY_OFF" : temp_result.get("weekly_off", 0.0),
+			"OUTDOOR_DUTY_LEAVE" : temp_result.get("outdoor_duty_leave", 0.0),
+			"LATE_PENALTY" : temp_result.get("late_penalty", 0.0),
+			"FULL_AND_FINAL_EARNING" : temp_result.get("full_and_final_earning", 0.0),
+			"FULL_AND_FINAL_DEDUCTION" : temp_result.get("full_and_final_deduction", 0.0)
+		}
+
+
+	final_result = []
+	#Needs to map the ERP Attend Char here which are not present in leave type
+	leave_type_map = {
+		"PRESENT": "P",
+		"ABSENT_LOP": "A",
+		"HOLIDAY": "H",
+		"NIGHT": "B",
+		"TOUR": "T",
+		"APPROVED_LEAVE": "M",
+		"WEEKLY_OFF": "R",
+		"OUTDOOR_DUTY_LEAVE": "O",
+		"LATE_PENALTY": "N",
+		"FULL_AND_FINAL_EARNING": "F",
+		"FULL_AND_FINAL_DEDUCTION": "D"
+	}
+
+	for rec in temp_result:
+		leave_type = rec.replace("_", " ").title() #Replace the leave name to title case
+		if frappe.db.exists("Leave Type", leave_type): #checing leave type present or not
+			attand_char = frappe.db.get_value("Leave Type", leave_type, "custom_erp_attend_char") #present then append
+		else:
+			attand_char = leave_type_map.get(rec, "") #append from leave_type_map which are define in above lines
+
+		if attand_char:
+			attend_bal_rec = {
+				"cal_year": cal_year,
+				"month": month_char,
+				"emp_code": employee,
+				"attend_char": attand_char,
+				"days": float(temp_result[rec]),
+				"user_code": usercode,
+				"lastupdate": lastupdate,
+				"approvedby": leave_approver,
+				"approveddate": lastupdate
+			}
+			final_result.append(attend_bal_rec)
+
+
+	attend_chars = final_result
+
+	# frappe.throw(str(final_result))
+
+	
+	if not attend_chars:
+		return None
+
+	sql_queries = []
+	for attend_char in attend_chars:
+		sets = []
+		conditions = []
+		for key, value in map.items():
+			if value:
+				if value == 'emp_code':
+					conditions.append(f"{key} = '{attend_char[value]}' AND CAL_YEAR = '{attend_char['cal_year']}' AND MONTH = '{attend_char['month']}' AND ATTEND_CHAR = '{attend_char['attend_char']}' ")
+				else:
+					value_to_insert = attend_char[value]
+					if value_to_insert is None:
+						sets.append(f"{key} = ''")
+					else:
+						if 'lastupdate' in value:
+							value_to_insert = str(value_to_insert).split(".")
+							sets.append(f"{key} = TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+						elif 'approveddate' in value:
+							value_to_insert = str(value_to_insert).split(".")
+							sets.append(f"{key} = TO_DATE('{value_to_insert[0].split(' ')[0]} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
+						else:
+							sets.append(f"{key} = '{value_to_insert}'")
+
+		sql = f"""
+			UPDATE {table_name}
+			SET {','.join([str(elem) for elem in sets])}
+			WHERE {' AND '.join([str(elem) for elem in conditions])}
+		"""
+
+		sql_queries.append(sql)
+	
+	sql_dict = {"sql_queries":sql_queries, "emp_code": employee, "cal_year": cal_year, "month":  month_char }
+	
+	return sql_dict
+
+
+def get_bonus_transaction_insert_query(map, table_name, docname):
+	bonus_trans = frappe.db.sql("""
+		SELECT
+			ss.employee AS emp_code,
+			'BASIC' AS afcode_str,
+			(SELECT amount FROM `tabSalary Detail` WHERE parent = ss.salary_structure AND abbr = 'B') AS basic_amt,
+			(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
+			ss.modified AS lastupdate,
+			ss.creation AS bonus_cal_date,
+			ss.start_date AS from_date,
+			ss.end_date AS to_date,
+			ss.custom_bonus_rate AS bonus_cal_rate,
+			ss.custom_bonus_amount AS bonus_amt,
+			ss.name AS vrno,
+			ss.creation AS vrdate,
+			ss.payment_days AS paydays,
+			(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
+			(SELECT erp_code FROM `tabDivision` WHERE name = ss.custom_division  LIMIT 1) as div_code,
+			(SELECT erp_code FROM `tabEmployee Category` WHERE name = ss.custom_employee_category LIMIT 1) as custom_emp_category,
+			(SELECT erp_code FROM `tabPayroll Series` WHERE name = ss.custom_payroll_series LIMIT 1) as custom_payroll_series
+		FROM
+			`tabSalary Slip` as ss
+		WHERE
+			ss.name = %s
+		""", (docname), as_dict =1)
+
+	if not bonus_trans:
+		return None
+
+	sql_queries = []
+	for bonus_tran in bonus_trans:
+		keys = []
+		values = []
+		for key, value in map.items():
+			if value:
+				keys.append(key)
+				value_to_insert = bonus_tran[value]
+				if value_to_insert is None:
+					values.append('')
+				else:
+					if 'from_date' in value or "to_date" in value:
+						values.append(f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
+					elif 'lastupdate' in value or 'bonus_cal_date' in value or 'vrdate' in value:
+						value_to_insert = str(value_to_insert).split(".")
+						values.append(f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+					elif 'afcode_str' in value:
+						values.append(f",{value_to_insert},")
+					else:
+						values.append(f"{value_to_insert}")
+
+		formatted_values = []
+		for elem in values:
+			if type(elem) == int or type(elem) == float:
+				formatted_values.append(f"{float(elem)}")
+			else:
+				elem_str = str(elem)
+				if 'TO_DATE' in elem_str:
+					formatted_values.append(elem_str)
+				else:
+					formatted_values.append("'" + elem_str + "'")
+
+		sql = f"""
+			INSERT INTO {table_name}
+				({','.join([str(elem) for elem in keys])})
+			VALUES
+				({','.join(formatted_values)})
+		"""
+
+		sql_queries.append(sql)
+	
+	sql_dict = {"sql_queries":sql_queries, "emp_code": bonus_trans[0].emp_code}
+	
+	return sql_dict
+
+
+# def get_bonus_transaction_insert_query(map, table_name, docname):
+	salary_slips = frappe.db.sql("""
+		SELECT
+		employee AS emp_code,
+		ss.start_date as from_date,
+		EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
+		UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month,
+		ss.modified,
+		sd.parentfield,
+		CASE 
+			WHEN sd.parentfield = 'earnings' THEN CONCAT('E', sd.idx)
+			WHEN sd.parentfield = 'deductions' THEN CONCAT('D', sd.idx)
+			ELSE sd.idx
+		END AS afno,
+		(SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1) AS afcode,
+		LEFT(UPPER(sd.salary_component), 15) AS afhead,
+		sd.custom_erp_rate AS afrate,
+		'rate_identifier' AS afratei,
+		(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
+		(SELECT erp_code FROM `tabDivision` WHERE name = ss.custom_division  LIMIT 1) as custom_division,
+		(SELECT erp_code FROM `tabEmployee Category` WHERE name = ss.custom_employee_category LIMIT 1) as custom_emp_category,
+		(SELECT erp_code FROM `tabPayroll Series` WHERE name = ss.custom_payroll_series LIMIT 1) as custom_payroll_series,
+		(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
+		IFNULL((SELECT ss_sd.amount FROM `tabSalary Detail` as ss_sd WHERE ss_sd.parent = ss.name AND (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = ss_sd.salary_component LIMIT 1) = (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1)), 0) AS afield,
+		IFNULL((SELECT ss_sd.amount FROM `tabSalary Detail` as ss_sd WHERE ss_sd.parent = ss.name AND (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = ss_sd.salary_component LIMIT 1) = (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1)), 0) AS actuals
+	FROM
+		`tabSalary Slip` as ss
+	LEFT JOIN
+		`tabSalary Detail` as sd ON sd.parent = ss.salary_structure
+	WHERE
+		ss.name = %s
+	""", (docname), as_dict =1)
+
+	
+
+	if not salary_slips:
+		return None
+
+	sql_queries = []
+	for salary_slip in salary_slips:
+		sets = []
+		conditions = []
+		for key, value in map.items():
+			if value:
+				if value == 'emp_code':
+					conditions.append(f"{key} = '{salary_slip[value]}' AND AFNO = '{salary_slip['afno']}' AND CAL_YEAR = '{salary_slip['custom_calendar_year']}' AND MONTH = '{salary_slip['custom_month']}' ")
+				else:
+					value_to_insert = salary_slip[value]
+					if value_to_insert is None:
+						sets.append(f"{key} = ''")
+					elif value_to_insert == 'rate_identifier':
+						get_indicator_query = f"SELECT AFRATEI FROM RIPLRR.EMP_CONFIG_MAST WHERE AFCODE = '{salary_slip['afcode']}' AND EMP_CATG = '{salary_slip['custom_emp_category']}' AND ENTITY_CODE = '{salary_slip['entity_code']}' AND TO_DATE IS NULL"
+						sets.append(f"{key} = ({get_indicator_query})")
+					else:
+						if 'from_date' in value:
+							sets.append(f"{key} = TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
+						elif 'modified' in value:
+							value_to_insert = str(value_to_insert).split(".")
+							sets.append(f"{key} = TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+						elif 'afrate' in value:
+							sets.append(f"{key} = {value_to_insert}")
+						else:
+							sets.append(f"{key} = '{value_to_insert}'")
+
+		sql = f"""
+			UPDATE {table_name}
+			SET {','.join([str(elem) for elem in sets])}
+			WHERE {' AND '.join([str(elem) for elem in conditions])}
+		"""
+
+		sql_queries.append(sql)
+	
+	sql_dict = {"sql_queries":sql_queries, "emp_code": salary_slips[0].emp_code, "cal_year": salary_slips[0].custom_calendar_year, "month":  salary_slips[0].custom_month }
+	
+	return sql_dict
 
 
 

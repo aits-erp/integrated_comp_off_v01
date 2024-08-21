@@ -1,7 +1,7 @@
 {
  "actions": [],
  "autoname": "format:Incentive-{from_date}-{to_date}-{employee}",
- "creation": "2024-08-01 16:45:06.282481",
+ "creation": "2024-08-14 14:29:43.027250",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -13,7 +13,8 @@
   "column_break_ukn8",
   "to_date",
   "section_break_7bte",
-  "incentive"
+  "incentive",
+  "extra_incentive"
  ],
  "fields": [
   {
@@ -59,11 +60,16 @@
    "fieldtype": "Float",
    "label": "Incentive",
    "precision": "2"
+  },
+  {
+   "fieldname": "extra_incentive",
+   "fieldtype": "Float",
+   "label": "Extra Incentive"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-12 23:28:19.319221",
+ "modified": "2024-08-14 17:03:34.405850",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Incentive Log",

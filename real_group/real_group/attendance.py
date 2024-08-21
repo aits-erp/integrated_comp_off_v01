@@ -388,14 +388,16 @@ def process_attendance_from_attendance_summary():
 
 	employee_list = frappe.db.sql(f"""
 		SELECT
-			DISTINCT name, employee_name
+			DISTINCT e.name, e.employee_name
 		FROM
-			`tabEmployee`
-		WHERE
-			name = %s
-			AND status = 'Active'
-		""", (employee_code), as_dict=True)
-			
+			`tabEmployee` e
+		LEFT JOIN `tabEmployee Grade` g ON g.name = e.grade
+ 		WHERE
+			e.status = 'Active'
+			AND g.custom_single_punch_applicable = 0
+			AND g.custom_no_punch_applicable = 0
+		""", as_dict=True)
+	
 	for emp in employee_list:    
 		sql = frappe.db.sql(f"""
 			SELECT

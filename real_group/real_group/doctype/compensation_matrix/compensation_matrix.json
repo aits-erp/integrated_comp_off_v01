@@ -1,20 +1,25 @@
 {
  "actions": [],
  "autoname": "format:{shift_duration}",
- "creation": "2024-08-12 23:28:00.258720",
+ "creation": "2024-08-14 14:29:43.597526",
  "default_view": "List",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "shift_duration",
+  "column_break_krlr",
+  "description",
   "section_break_eanw",
   "items"
  ],
  "fields": [
   {
+   "description": "eg. HH:MM",
    "fieldname": "shift_duration",
    "fieldtype": "Time",
-   "label": "Shift Duration"
+   "in_list_view": 1,
+   "label": "Shift Duration",
+   "reqd": 1
   },
   {
    "fieldname": "section_break_eanw",
@@ -23,13 +28,24 @@
   {
    "fieldname": "items",
    "fieldtype": "Table",
-   "label": "items",
-   "options": "Compensation Matrix Details"
+   "options": "Compensation Matrix Details",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_krlr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Description",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-12 23:28:00.258720",
+ "modified": "2024-08-14 15:31:14.720288",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Compensation Matrix",

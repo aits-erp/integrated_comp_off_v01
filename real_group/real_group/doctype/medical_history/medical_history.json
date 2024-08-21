@@ -3,7 +3,7 @@
  "allow_import": 1,
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2024-08-12 23:41:10.374693",
+ "creation": "2024-08-14 14:24:45.428917",
  "default_view": "List",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -458,16 +458,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Medical History",
-   "print_hide": 1,
-   "read_only": 1,
-   "search_index": 1
-  },
-  {
    "fieldname": "column_break_tkhm",
    "fieldtype": "Column Break"
   },
@@ -507,7 +497,7 @@
    "link_fieldname": "employee"
   }
  ],
- "modified": "2024-08-13 16:29:46.097200",
+ "modified": "2024-08-14 14:24:45.428917",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Medical History",

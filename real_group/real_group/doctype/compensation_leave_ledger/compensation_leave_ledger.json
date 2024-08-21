@@ -1,15 +1,25 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2024-08-10 16:33:47.656013",
+ "creation": "2024-08-14 14:29:43.203307",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "status",
+  "section_break_wvj7",
   "employee",
+  "company",
+  "division",
+  "column_break_tzks",
+  "employee_name",
+  "branch",
+  "department",
+  "section_break_95y2",
   "leave_from",
+  "work_date",
+  "column_break_9c3j",
   "leave_expiry",
-  "leave_count",
-  "status"
+  "leave_count"
  ],
  "fields": [
   {
@@ -38,11 +48,67 @@
    "fieldtype": "Select",
    "label": "Status",
    "options": "Active\nExpired"
+  },
+  {
+   "fieldname": "section_break_wvj7",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fetch_from": "employee.company",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fetch_from": "employee.custom_division",
+   "fieldname": "division",
+   "fieldtype": "Link",
+   "label": "Division",
+   "options": "Division"
+  },
+  {
+   "fieldname": "column_break_tzks",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "employee.branch",
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch"
+  },
+  {
+   "fetch_from": "employee.department",
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department"
+  },
+  {
+   "fieldname": "section_break_95y2",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "work_date",
+   "fieldtype": "Date",
+   "label": "Work Date"
+  },
+  {
+   "fieldname": "column_break_9c3j",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-12 23:18:28.876859",
+ "modified": "2024-08-17 10:40:06.838052",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Compensation Leave Ledger",

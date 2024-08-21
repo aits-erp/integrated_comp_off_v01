@@ -448,7 +448,32 @@ ATTENDANCE_BALANCE  = {
     # "FLAG": "FLAG", 
     "APPROVEDBY": "approvedby", 
     "APPROVEDDATE": "approveddate", 
-    "SAL_SUPRESS": "sal_supress", 
-    "REMARK":"remark"
+    # "SAL_SUPRESS": "sal_supress", 
+    # "REMARK":"remark"
 }
 
+BONUS_TRANSACTION = {
+    "EMP_CODE" : "emp_code", 
+    "AFCODE_STR" : "afcode_str", 
+    "BASIC_AMT" : "basic_amt", 
+    "USER_CODE" : "user_code", 
+    "LASTUPDATE" : "lastupdate", 
+    # "APPROVEDBY" : "approvedby", 
+    # "APPROVEDDATE" : "approveddate", 
+    "BONUS_CAL_DATE" : "bonus_cal_date", 
+    "FROM_DATE" : "from_date", 
+    "TO_DATE" : "to_date", 
+    "BONUS_CAL_RATE" : "bonus_cal_rate", 
+    "BONUS_AMT" : "bonus_amt", 
+    "EMP_CATG" : "custom_emp_category", 
+    "PAYROLL_SERIES" : "custom_payroll_series", 
+    "VRNO" : "vrno", 
+    "VRDATE" : "vrdate", 
+    "PAYDAYS" : "paydays", 
+    # "ACC_VRNO" : "acc_vrno", 
+    "ENTITY_CODE" : "entity_code", 
+    "DIV_CODE" : "div_code", 
+    # "ACC_TCODE" : "acc_tcode", 
+    # "FLAG" : "flag", 
+    # "ELIGIBLE_AMT" : "eligible_amt", 
+}

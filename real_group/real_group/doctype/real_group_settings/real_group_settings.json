@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2024-08-01 13:57:04.431914",
+ "creation": "2024-08-14 14:29:42.925305",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -16,7 +16,9 @@
   "column_break_jble",
   "time_pro_port",
   "time_pro_user",
-  "time_pro_password"
+  "time_pro_password",
+  "salary_component_settings_section",
+  "component_for_incentive"
  ],
  "fields": [
   {
@@ -80,12 +82,23 @@
   {
    "fieldname": "column_break_pwfm",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "salary_component_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Salary Component Settings"
+  },
+  {
+   "fieldname": "component_for_incentive",
+   "fieldtype": "Link",
+   "label": "Component For Incentive",
+   "options": "Salary Component"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2024-08-12 16:49:48.045544",
+ "modified": "2024-08-20 13:46:18.240245",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Real Group Settings",

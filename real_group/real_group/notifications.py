@@ -45,5 +45,5 @@ def send_birthday_reminder(recipients, reminder_text, message, sender=None):
 		bcc=recipients,
 		subject=reminder_text,
 		content=message,
-		header="&nbsp"
+		header="&nbsp;"
 	)
