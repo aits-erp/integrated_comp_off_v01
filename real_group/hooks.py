@@ -132,15 +132,15 @@ override_doctype_class = {
 # }
 
 doc_events = {
-    # "Employee": {
-    #     "after_insert": ["real_group.real_group.integration.create_employee"],
-    #     "on_update": ["real_group.real_group.integration.update_employee"]
-    # },
+    "Employee": {
+        "after_insert": ["real_group.real_group.integration.create_employee"],
+        "on_update": ["real_group.real_group.integration.update_employee"]
+    },
 
-    # "User": {
-    #     "after_insert": ["real_group.real_group.integration.create_user"],
-    #     "on_update": ["real_group.real_group.integration.update_user"]
-    # },
+    "User": {
+        "after_insert": ["real_group.real_group.integration.create_user"],
+        "on_update": ["real_group.real_group.integration.update_user"]
+    },
 
     # "Salary Structure Assignment": {
     #     "on_submit": ["real_group.real_group.integration.create_salary_structure_assignment"]
@@ -276,7 +276,7 @@ scheduler_events = {
 fixtures = [
     {"dt": "Custom Field", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Report", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "DocType", "filters": [["module", "=", "Real Group"]]},
+    # {"dt": "DocType", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Print Format", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Server Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Client Script", "filters": [["module", "=", "Real Group"]]},

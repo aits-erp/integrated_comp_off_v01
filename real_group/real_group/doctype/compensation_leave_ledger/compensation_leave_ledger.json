@@ -6,6 +6,8 @@
  "engine": "InnoDB",
  "field_order": [
   "status",
+  "column_break_idgf",
+  "reference_no",
   "section_break_wvj7",
   "employee",
   "company",
@@ -19,7 +21,8 @@
   "work_date",
   "column_break_9c3j",
   "leave_expiry",
-  "leave_count"
+  "leave_count",
+  "actual_count"
  ],
  "fields": [
   {
@@ -45,9 +48,8 @@
   },
   {
    "fieldname": "status",
-   "fieldtype": "Select",
-   "label": "Status",
-   "options": "Active\nExpired"
+   "fieldtype": "Data",
+   "label": "Status"
   },
   {
    "fieldname": "section_break_wvj7",
@@ -104,11 +106,26 @@
   {
    "fieldname": "column_break_9c3j",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_idgf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_count",
+   "fieldtype": "Float",
+   "label": "Actual Count"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-17 10:40:06.838052",
+ "modified": "2024-08-26 19:36:17.698764",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Compensation Leave Ledger",
@@ -123,6 +140,18 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
    "share": 1,
    "write": 1
   }

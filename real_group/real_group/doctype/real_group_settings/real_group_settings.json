@@ -18,7 +18,17 @@
   "time_pro_user",
   "time_pro_password",
   "salary_component_settings_section",
-  "component_for_incentive"
+  "component_for_incentive",
+  "column_break_zgvn",
+  "esic_deduction_limit",
+  "oracle_credentials_section",
+  "database",
+  "column_break_ebyu",
+  "host",
+  "column_break_lnzw",
+  "password",
+  "column_break_ahyl",
+  "username"
  ],
  "fields": [
   {
@@ -93,12 +103,59 @@
    "fieldtype": "Link",
    "label": "Component For Incentive",
    "options": "Salary Component"
+  },
+  {
+   "fieldname": "column_break_zgvn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "21000",
+   "fieldname": "esic_deduction_limit",
+   "fieldtype": "Float",
+   "label": "ESIC Deduction Limit"
+  },
+  {
+   "fieldname": "oracle_credentials_section",
+   "fieldtype": "Section Break",
+   "label": "Oracle Credentials"
+  },
+  {
+   "fieldname": "column_break_lnzw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "label": "Password"
+  },
+  {
+   "fieldname": "column_break_ahyl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "username",
+   "fieldtype": "Data",
+   "label": "Username"
+  },
+  {
+   "fieldname": "database",
+   "fieldtype": "Data",
+   "label": "Database"
+  },
+  {
+   "fieldname": "column_break_ebyu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "host",
+   "fieldtype": "Data",
+   "label": "Host"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2024-08-20 13:46:18.240245",
+ "modified": "2024-08-24 19:49:42.374814",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Real Group Settings",

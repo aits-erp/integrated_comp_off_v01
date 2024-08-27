@@ -229,7 +229,7 @@ ACCOUNT_MAP = {
     # "BIRTH_DATE": "date_of_birth",
     # "FATHER_NAME": "custom_father_name",
     # "MOTHER_NAME": "custom_mother_name",
-    # "ENTITY_CODE": "company",
+    "ENTITY_CODE": "company",
     # "PLANT_CODE": "",
     # "DIV_CODE": "custom_division",
     # "ACC_CODE": "",
@@ -348,7 +348,7 @@ USER_MAP = {
     "DEPT_CODE" : "department",
     # "INSPDEPT_STR" : "inspdept_str",
     "USER_LEVEL" : "user_level",
-    # "ACC_YEAR" : "acc_year",
+    "ACC_YEAR" : "acc_year",
     "ENTITY" : "company",
     # "FLAG" : "flag",
     # "MODULE_CODE" : "module_code",
@@ -362,7 +362,7 @@ USER_MAP = {
     # "TASK_CODE_STR" : "task_code_str",
     # "EMAIL" : "email",
     # "EMAIL_PSW" : "email_psw",
-    # "USER_STATUS" : "user_status",
+    "USER_STATUS" : "user_status",
     # "MACHINE_HOST" : "machine_host",
     # "MACHINE_IP" : "machine_ip",
     # "USER_SETTING" : "user_setting",
@@ -386,8 +386,6 @@ USER_MAP = {
     "LASTUPDATE" : 'modified',
               
 }
-
-
 
 SALARY_STRUCTURE_RATE_MAST = {
     "EMP_CODE": "emp_code" ,
@@ -434,7 +432,6 @@ SALARY_SLIP_SALARY_TRANS  = {
     # "PAYMENT_SLNO" : "payment_slno",
     # "PAYMENT_TCODE" : "payment_tcode"
 }
-
 
 ATTENDANCE_BALANCE  = {
 

@@ -285,6 +285,16 @@ def process_attendance_log_out():
 
 				#update shift in check out type 
 
+				# frappe.log_error("doc.time", doc.time)
+				custom_cross_days = 0
+				if log_type == "OUT":
+					start = frappe.utils.get_time("03:00:00")
+					end = frappe.utils.get_time("12:00:00")
+					
+					x = time.split(" ")
+					if start <= frappe.utils.get_time(x[1]) <= end:
+						custom_cross_days = 1
+
 				checkin = frappe.get_doc({
 					"doctype": "Employee Checkin",
 					"employee": log.employee_id,
@@ -293,7 +303,8 @@ def process_attendance_log_out():
 					"device_id": log.terminal_id,
 					"custom_area": log.area,
 					"shift": shift,
-					"custom_bio_log_id": log.name
+					"custom_bio_log_id": log.name,
+					"custom_cross_days": custom_cross_days
 				})
 
 				checkin.save()

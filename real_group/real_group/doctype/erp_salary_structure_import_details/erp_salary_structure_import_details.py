@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class LoanApplicationGuarantor(Document):
+class ERPSalaryStructureImportDetails(Document):
 	pass

@@ -7,7 +7,15 @@
  "engine": "InnoDB",
  "field_order": [
   "section_break_3smy",
-  "loan_purpose"
+  "loan_purpose",
+  "section_break_bkhh",
+  "loan_amount",
+  "column_break_kego",
+  "number_of_installments",
+  "column_break_dfyp",
+  "installment_amount",
+  "section_break_pdes",
+  "erp_code"
  ],
  "fields": [
   {
@@ -19,11 +27,56 @@
    "fieldtype": "Data",
    "label": "Loan Purpose",
    "unique": 1
+  },
+  {
+   "fieldname": "erp_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "ERP Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_bkhh",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "loan_amount",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Loan Amount",
+   "options": "0"
+  },
+  {
+   "fieldname": "column_break_kego",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "number_of_installments",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Number of Installments",
+   "options": "0"
+  },
+  {
+   "fieldname": "column_break_dfyp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "installment_amount",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Installment Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_pdes",
+   "fieldtype": "Section Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-20 18:45:16.005974",
+ "modified": "2024-08-27 12:35:13.571547",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Loan Purpose",

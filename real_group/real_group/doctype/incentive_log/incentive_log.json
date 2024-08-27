@@ -1,6 +1,6 @@
 {
  "actions": [],
- "autoname": "format:Incentive-{from_date}-{to_date}-{employee}",
+ "allow_import": 1,
  "creation": "2024-08-14 14:29:43.027250",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -10,11 +10,15 @@
   "employee_name",
   "section_break_baoo",
   "from_date",
+  "work_date",
   "column_break_ukn8",
   "to_date",
   "section_break_7bte",
   "incentive",
-  "extra_incentive"
+  "extra_incentive",
+  "column_break_enqq",
+  "total_incentive",
+  "status"
  ],
  "fields": [
   {
@@ -65,15 +69,33 @@
    "fieldname": "extra_incentive",
    "fieldtype": "Float",
    "label": "Extra Incentive"
+  },
+  {
+   "fieldname": "column_break_enqq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_incentive",
+   "fieldtype": "Float",
+   "label": "Total Incentive"
+  },
+  {
+   "fieldname": "work_date",
+   "fieldtype": "Date",
+   "label": "Work Date"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Status"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-14 17:03:34.405850",
+ "modified": "2024-08-27 12:11:37.710579",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Incentive Log",
- "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {

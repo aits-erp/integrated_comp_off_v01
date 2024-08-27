@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class LoanApplication(Document):
+class ERPSeriesMaster(Document):
 	pass
