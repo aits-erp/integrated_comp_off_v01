@@ -4,6 +4,13 @@
 frappe.ui.form.on("ERP Salary Structure Import", {
     refresh(frm) {
         // Your Code Here
+        frm.set_query("income_tax_slab", "details", function () {
+            return {
+                filters: {
+                    "company": frm.doc.company
+                }
+            };
+        })
     },
     get_employee(frm) {
         if (frm.doc.company && frm.doc.branch && frm.doc.employee_category) {

@@ -15,6 +15,7 @@
   "to_date",
   "section_break_7bte",
   "incentive",
+  "incentive_original_value",
   "extra_incentive",
   "column_break_enqq",
   "total_incentive",
@@ -88,11 +89,17 @@
    "fieldname": "status",
    "fieldtype": "Data",
    "label": "Status"
+  },
+  {
+   "fieldname": "incentive_original_value",
+   "fieldtype": "Float",
+   "label": "Incentive Original Value",
+   "precision": "2"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-27 12:11:37.710579",
+ "modified": "2024-09-06 13:09:32.347737",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Incentive Log",

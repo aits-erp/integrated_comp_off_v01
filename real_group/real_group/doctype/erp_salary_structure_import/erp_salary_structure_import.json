@@ -10,6 +10,10 @@
   "branch",
   "column_break_mxca",
   "employee_category",
+  "column_break_qmhj",
+  "assignment_date",
+  "section_break_wjcm",
+  "submit_entries",
   "section_break_mzbb",
   "get_employee",
   "details",
@@ -78,6 +82,27 @@
    "fieldname": "get_employee",
    "fieldtype": "Button",
    "label": "Get Employees"
+  },
+  {
+   "fieldname": "column_break_qmhj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "assignment_date",
+   "fieldtype": "Date",
+   "label": "Assignment Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_wjcm",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "submit_entries",
+   "fieldtype": "Check",
+   "label": "Submit Entries"
   }
  ],
  "index_web_pages_for_search": 1,
@@ -92,7 +117,7 @@
    "link_fieldname": "custom_reference_no"
   }
  ],
- "modified": "2024-08-26 17:11:49.767313",
+ "modified": "2024-09-10 12:03:30.183554",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "ERP Salary Structure Import",

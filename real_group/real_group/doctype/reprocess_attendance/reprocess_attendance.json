@@ -111,7 +111,7 @@
    "link_fieldname": "custom_reprocess_reference"
   }
  ],
- "modified": "2024-08-23 18:51:09.778727",
+ "modified": "2024-08-28 15:33:24.479881",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Reprocess Attendance",
@@ -145,6 +145,7 @@
    "write": 1
   }
  ],
+ "queue_in_background": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

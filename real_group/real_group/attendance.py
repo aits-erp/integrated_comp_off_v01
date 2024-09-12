@@ -424,6 +424,7 @@ def process_attendance_from_attendance_summary():
 				
 				TIME(st.start_time) AS shift_start_time,
 				TIME(st.end_time) AS shift_end_time,
+				TIME(st.custom_actual_start_time) AS custom_actual_start_time,
 				ec.shift,
 				(CASE WHEN ec.log_type = 'IN' THEN ec.device_id END) as in_device,
 				(CASE WHEN ec.log_type = 'OUT' THEN ec.device_id END) as out_device,
@@ -565,7 +566,7 @@ def process_attendance_from_attendance_summary():
 				if data["shift_start_time"] and data["in_time"]:
 					if str(data["date"]) > first_day_last_month:
 						
-						late_entry_difference = data["in_time"] - data["shift_start_time"]
+						late_entry_difference = data["in_time"] - data["custom_actual_start_time"]
 						late_entry_difference_seconds = late_entry_difference.total_seconds()
 						f_seconds = fifteen_minutes_in.hour * 3600 + fifteen_minutes_in.minute * 60 + fifteen_minutes_in.second
 						

@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:skill_status",
- "creation": "2024-05-29 17:21:48.592498",
+ "creation": "2024-08-14 14:29:41.443091",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -28,7 +28,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-12 23:43:28.265752",
+ "modified": "2024-08-31 14:13:57.512670",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Skill Status",

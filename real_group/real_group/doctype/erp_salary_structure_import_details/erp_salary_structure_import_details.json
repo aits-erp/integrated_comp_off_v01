@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "employee",
+  "income_tax_slab",
   "column_break_fcaa",
   "salary_structure"
  ],
@@ -30,12 +31,20 @@
   {
    "fieldname": "column_break_fcaa",
    "fieldtype": "Column Break"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "income_tax_slab",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Income Tax Slab",
+   "options": "Income Tax Slab"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-08-26 13:56:17.281145",
+ "modified": "2024-09-10 11:58:13.915417",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "ERP Salary Structure Import Details",

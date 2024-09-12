@@ -81,12 +81,12 @@ def create_employee(doc, method):
 
 		except cx_Oracle.DatabaseError as er:
 			frappe.log_error(title="Oracle Query Error", message=er)
-			frappe.throw('Oracle Query Error:', str(er))
+			frappe.throw(f'Oracle Query Error: {str(er)}')
 			con.rollback()
 
 		except Exception as er:
 			frappe.log_error(title="Oracle Exception", message=er)
-			frappe.throw('Oracle Exception:', str(er))
+			frappe.throw(f'Oracle Exception: {str(er)}')
 			con.rollback()
 
 		finally:
@@ -149,12 +149,12 @@ def update_employee(doc, method):
 
 		except cx_Oracle.DatabaseError as er:
 			frappe.log_error(title="Oracle Query Error", message=er)
-			frappe.throw('Oracle Query Error:', str(er))
+			frappe.throw(f'Oracle Query Error: {str(er)}')
 			con.rollback()
 
 		except Exception as er:
 			frappe.log_error(title="Oracle Exception", message=er)
-			frappe.throw('Oracle Exception:', str(er))
+			frappe.throw(f'Oracle Exception: {str(er)}')
 			con.rollback()
 
 		finally:
@@ -371,7 +371,10 @@ def get_account_insert_query(map, table_name, employee_code):
 			name,
 			employee_name,
 			(SELECT username FROM `tabUser` WHERE name = owner) as user_id,
-			(SELECT custom_erp_code FROM `tabCompany` WHERE name = company  LIMIT 1) as company
+			(SELECT custom_erp_code FROM `tabCompany` WHERE name = company  LIMIT 1) as company,
+			(SELECT erp_acc_type FROM `tabPayroll Series` WHERE name = custom_payroll_series LIMIT 1) as acc_type,
+			(SELECT erp_acc_schedule FROM `tabPayroll Series` WHERE name = custom_payroll_series LIMIT 1) as acc_sch
+
 		FROM
 			`tabEmployee`
 		WHERE
@@ -415,7 +418,9 @@ def get_account_update_query(map, table_name, employee_code):
 			name,
 			employee_name,
 			(SELECT username FROM `tabUser` WHERE name = owner) as user_id,
-			(SELECT custom_erp_code FROM `tabCompany` WHERE name = company  LIMIT 1) as company
+			(SELECT custom_erp_code FROM `tabCompany` WHERE name = company  LIMIT 1) as company,
+			(SELECT erp_acc_type FROM `tabPayroll Series` WHERE name = custom_payroll_series LIMIT 1) as acc_type,
+			(SELECT erp_acc_schedule FROM `tabPayroll Series` WHERE name = custom_payroll_series LIMIT 1) as acc_sch
 		FROM
 			`tabEmployee`
 		WHERE
@@ -480,17 +485,17 @@ def create_user(doc, method):
 			check_emp_sql = f"""SELECT USER_CODE FROM RIPLRR.USER_MAST WHERE USER_CODE = '{doc.name}'"""
 			my_count = cur.execute(check_emp_sql)
 			result = cur.fetchall() 
+			today = doc.creation.split(' ')[0]
 			if result:
 				emp_code = result[0]
 				frappe.log_error(title="User_CODE", message=str(emp_code))
 				frappe.throw(f"User ID {emp_code} present in oracle, clean it first!!")
-				today = doc.creation.split(' ')[0]
 				sql = get_user_update_query(USER_MAP, 'RIPLRR.USER_MAST', doc.name, today)
 				frappe.log_error(title="User Update Query", message=sql)
 				cur.execute(sql)
 
 			else:
-				today = doc.creation.split(' ')[0]
+				#today = doc.creation.split(' ')[0]
 				sql = get_user_insert_query(USER_MAP, 'RIPLRR.USER_MAST', doc.name, today)
 				frappe.log_error(title="User Insert Query", message=sql)
 				cur.execute(sql)
@@ -534,9 +539,9 @@ def update_user(doc, method):
 			check_emp_sql = f"""SELECT USER_CODE FROM RIPLRR.USER_MAST WHERE USER_CODE = '{doc.name}'"""
 			my_count = cur.execute(check_emp_sql)
 			result = cur.fetchall() 
+			today = str(doc.creation).split(' ')[0]
 			if result:
 				emp_code = result[0]
-				today = doc.creation.split(' ')[0]
 				sql = get_user_update_query(USER_MAP, 'RIPLRR.USER_MAST', doc.name, today)
 				frappe.log_error(title="User Update Query", message=sql)
 				cur.execute(sql)
@@ -809,12 +814,12 @@ def get_user_update_query(map, table_name, user_code, today):
 
 # 		except cx_Oracle.DatabaseError as er:
 # 			frappe.log_error(title="Oracle Query Error", message=er)
-# 			frappe.throw('Oracle Query Error:', str(er))
+# 			frappe.throw(f'Oracle Query Error: {str(er)}')
 # 			con.rollback()
 
 # 		except Exception as er:
 # 			frappe.log_error(title="Oracle Exception", message=er)
-# 			frappe.throw('Oracle Exception:', str(er))
+# 			frappe.throw(f'Oracle Exception: {str(er)}')
 # 			con.rollback()
 
 # 		finally:
@@ -930,8 +935,9 @@ def create_salary_slip(doc, method):
 			bonus_tran = ""
 			if doc.custom_bonus_amount != 0:
 				series = get_next_series_no(doc.doctype, doc.company, doc.posting_date, cur)
-				frappe.throw(str(series))
+				# frappe.throw(str(series))
 				frappe.log_error("next Series",str(series))
+				frappe.db.set_value("Salary Slip", doc.name, "custom_erp_vrno", series)
 				
 				#Get BONUS TRANSACION Insert SQL
 				bonus_tran_query = get_bonus_transaction_insert_query(BONUS_TRANSACTION, 'RIPLRR.EMP_BONUS_TRAN', doc.name, series)
@@ -954,27 +960,28 @@ def create_salary_slip(doc, method):
 			
 			#Check for the same month salary slip if exist
 			check_for_existing_record_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}'"
-
+			frappe.log_error("check_for_existing_record_sql", check_for_existing_record_sql)
 			my_count_for_existing = cur.execute(check_for_existing_record_sql)
 			result_for_existing = cur.fetchall() 
 			if result_for_existing: #if salary slip exist then check is already trasaction done on erp 
 				check_for_transaction_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}' AND (ACC_VRNO IS NOT NULL OR ACC_TCODE IS NOT NULL OR PAYMENT_VRNO IS NOT NULL OR PAYMENT_TCODE IS NOT NULL)"
+				frappe.log_error("check_for_transaction_sql", check_for_transaction_sql)
 				my_count_for_transaction = cur.execute(check_for_transaction_sql)
 				result_for_transaction = cur.fetchall()
 
 				if result_for_transaction: #if exist then throw msg 
 					frappe.log_error("Salary Transaction Proceed Done", str(result_for_transaction))
-					frappe.throw(f"Salary Transaction Already Exist For Employee - {emp_code} AND Month - {month} And Transaction Completed!!")
+					frappe.throw(f"Salary Transaction Already Exist For Employee - '{emp_code}' AND Month - '{month}' And Transaction Completed!!")
 				
 				else: # else update the salary transaction
 					if doc.custom_bonus_amount != 0:
-						series = get_next_series_no(doc.doctype, doc.company, doc.posting_date, cur)
-						frappe.log_error("next Series",str(series))
-						
+						# series = get_next_series_no(doc.doctype, doc.company, doc.posting_date, cur)
+						# frappe.log_error("next Series",str(series))
+						series = frappe.db.get_value("Salary Slip", doc.amended_from, "custom_erp_vrno")
 						bonus_tran_update_dict = get_bonus_transaction_update_query(BONUS_TRANSACTION, 'RIPLRR.EMP_BONUS_TRAN', doc.name, series)
 						bonus_tran_update_sql = bonus_tran_update_dict.get("sql_query")
 						frappe.log_error("attend bal sql update list", bonus_tran_update_sql)
-						frappe.throw(str(bonus_tran_update_sql))
+						# frappe.throw(str(bonus_tran_update_sql))
 						if bonus_tran_update_sql != None:
 							cur.execute(bonus_tran_update_sql)
 					
@@ -1009,12 +1016,12 @@ def create_salary_slip(doc, method):
 			
 		except cx_Oracle.DatabaseError as er:
 			frappe.log_error(title="Oracle Query Error", message=er)
-			frappe.throw('Oracle Query Error:', str(er))
+			frappe.throw(f'Oracle Query Error: {str(er)}')
 			con.rollback()
 
 		except Exception as er:
 			frappe.log_error(title="Oracle Exception", message=er)
-			frappe.throw('Oracle Exception:', str(er))
+			frappe.throw(f'Oracle Exception: {str(er)}')
 			con.rollback()
 
 		finally:
@@ -1046,7 +1053,9 @@ def cancel_salary_slip(doc, method):
 						employee AS emp_code,
 						EXTRACT(YEAR FROM ss.end_date) AS custom_calendar_year,
 						UPPER(TRIM(TO_CHAR(ss.end_date, 'MON'))) AS custom_month,
-						ss.modified
+						ss.modified,
+						ss.posting_date,
+						ss.custom_erp_vrno
 					FROM
 						`tabSalary Slip` as ss
 					WHERE
@@ -1060,6 +1069,9 @@ def cancel_salary_slip(doc, method):
 			month = salary_slip[0].get("custom_month")
 			lastupdate = str(salary_slip[0].get("modified")).split(".")
 			amount = 0.0
+			posting_date = str(salary_slip[0].get("posting_date")).split(".")
+			vrno =  salary_slip[0].get("custom_erp_vrno")
+			
 
 			update_zero_sql_salary_slip = f"""
 					UPDATE 
@@ -1086,6 +1098,16 @@ def cancel_salary_slip(doc, method):
 						AND CAL_YEAR = '{cal_year}' 
 						AND MONTH = '{month}'
 				"""
+			
+			update_zero_sql_bonus_tran = f"""
+					UPDATE 
+						RIPLRR.EMP_BONUS_TRAN
+					SET 
+						BONUS_AMT = '0.0'
+					WHERE 
+						EMP_CODE = '{emp_code}'
+						AND VRNO = '{vrno}' 
+				"""
 
 			#Check for the same month salary slip if exist
 			check_for_existing_record_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}'"
@@ -1103,9 +1125,10 @@ def cancel_salary_slip(doc, method):
 					frappe.throw(f"Salary Transaction Already Exist For Employee - {emp_code} AND Month - {month} And Transaction Completed!!")
 				
 				else: # else update the salary transaction
-					frappe.log_error("update sql for zero value in cancel error", f"{update_zero_sql_attend_bal} -- \n {update_zero_sql_salary_slip}" )
+					frappe.log_error("update sql for zero value in cancel error", f"{update_zero_sql_attend_bal} -- \n {update_zero_sql_salary_slip} -- \n {update_zero_sql_bonus_tran}" )
 					cur.execute(update_zero_sql_attend_bal)
 					cur.execute(update_zero_sql_salary_slip)
+					cur.execute(update_zero_sql_bonus_tran)
 
 			else: #else direct insert new salary slip
 				frappe.log_error("Salary Slip on cancel", "Salary Slip Not Found in ERP System" )
@@ -1114,12 +1137,12 @@ def cancel_salary_slip(doc, method):
 			
 		except cx_Oracle.DatabaseError as er:
 			frappe.log_error(title="Oracle Query Error", message=er)
-			frappe.throw('Oracle Query Error:', str(er))
+			frappe.throw(f'Oracle Query Error: {str(er)}')
 			con.rollback()
 
 		except Exception as er:
 			frappe.log_error(title="Oracle Exception", message=er)
-			frappe.throw('Oracle Exception:', str(er))
+			frappe.throw(f'Oracle Exception: {str(er)}')
 			con.rollback()
 
 		finally:
@@ -1639,7 +1662,7 @@ def get_bonus_transaction_insert_query(map, table_name, docname, series):
 			else:
 				if 'from_date' in value or "to_date" in value or "vrdate" in value:
 					values.append(f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
-				elif 'lastupdate' in value or 'bonus_cal_date' in value:
+				elif 'bonus_cal_date' in value or 'lastupdate' in value:
 					value_to_insert = str(value_to_insert).split(".")
 					values.append(f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
 				elif 'afcode_str' in value:
@@ -1665,7 +1688,7 @@ def get_bonus_transaction_insert_query(map, table_name, docname, series):
 			({','.join(formatted_values)})
 	"""
 
-	sql_dict = {"sql_query":sql_query, "emp_code": bonus_tran.emp_code}
+	sql_dict = {"sql_query":sql, "emp_code": bonus_tran.emp_code}
 	
 	return sql_dict
 
@@ -1700,7 +1723,7 @@ def get_bonus_transaction_update_query(map, table_name, docname, series):
 	if not bonus_trans:
 		return None
 	
-	frappe.throw(str(bonus_trans))
+	# frappe.throw(str(bonus_trans))
 	bonus_tran = bonus_trans[0]
 
 	sets = []
@@ -1708,7 +1731,7 @@ def get_bonus_transaction_update_query(map, table_name, docname, series):
 	for key, value in map.items():
 		if value:
 			if value == 'emp_code':
-				conditions.append(f"{key} = '{bonus_tran[value]}' AND ENTITY_CODE = '{bonus_tran['entity_code']}'")
+				conditions.append(f"{key} = '{bonus_tran[value]}' AND ENTITY_CODE = '{bonus_tran['entity_code']}' AND VRNO = '{bonus_tran['vrno']}'")
 			else:
 				value_to_insert = bonus_tran[value]
 				if value_to_insert is None:
@@ -1716,7 +1739,7 @@ def get_bonus_transaction_update_query(map, table_name, docname, series):
 				else:
 					if 'from_date' in value or "to_date" in value or "vrdate" in value:
 						sets.append(f"{key} = TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
-					elif 'lastupdate' in value or 'bonus_cal_date' in value:
+					elif 'bonus_cal_date' in value or 'lastupdate' in value:
 						value_to_insert = str(value_to_insert).split(".")
 						sets.append(f"{key} = TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
 					elif 'afcode_str' in value:
@@ -1730,7 +1753,7 @@ def get_bonus_transaction_update_query(map, table_name, docname, series):
 		WHERE {' AND '.join([str(elem) for elem in conditions])}
 	"""
 	
-	sql_dict = {"sql_query":sql_query, "emp_code": bonus_tran.emp_code }
+	sql_dict = {"sql_query":sql, "emp_code": bonus_tran.emp_code }
 	
 	return sql_dict
 
@@ -1821,12 +1844,12 @@ def config_master(emp_catg, company):
 			
 		except cx_Oracle.DatabaseError as er:
 			frappe.log_error(title="Oracle Query Error", message=er)
-			frappe.throw('Oracle Query Error:', str(er))
+			frappe.throw(f'Oracle Query Error: {str(er)}')
 			con.rollback()
 
 		except Exception as er:
 			frappe.log_error(title="Oracle Exception", message=er)
-			frappe.throw('Oracle Exception:', str(er))
+			frappe.throw(f'Oracle Exception: {str(er)}')
 			con.rollback()
 
 		finally:
@@ -1912,12 +1935,12 @@ def erp_config_master(emp_catg, company):
 			
 		except cx_Oracle.DatabaseError as er:
 			frappe.log_error(title="Oracle Query Error", message=er)
-			frappe.throw('Oracle Query Error:', str(er))
+			frappe.throw(f'Oracle Query Error: {str(er)}')
 			con.rollback()
 
 		except Exception as er:
 			frappe.log_error(title="Oracle Exception", message=er)
-			frappe.throw('Oracle Exception:', str(er))
+			frappe.throw(f'Oracle Exception: {str(er)}')
 			con.rollback()
 
 		finally:
@@ -1961,12 +1984,12 @@ def employee_rate_master(emp_code):
 			
 		except cx_Oracle.DatabaseError as er:
 			frappe.log_error(title="Oracle Query Error", message=er)
-			frappe.throw('Oracle Query Error:', str(er))
+			frappe.throw(f'Oracle Query Error: {str(er)}')
 			con.rollback()
 
 		except Exception as er:
 			frappe.log_error(title="Oracle Exception", message=er)
-			frappe.throw('Oracle Exception:', str(er))
+			frappe.throw(f'Oracle Exception: {str(er)}')
 			con.rollback()
 
 		finally:
@@ -1991,40 +2014,43 @@ def get_next_series_no(doctype,company, date, cur):
 		else:
 			frappe.throw("Fiscal Year Not defined for the Bonus Transaction Date")
 
-		base_series = f"{erp_series.tcode}{erp_series.series_prefix}"
+		base_series = f"{erp_series.series_prefix}"
 		if erp_series.formatter == "YYY":
 			actual_base_series = f"{base_series}{fiscal_year}Y-"
 			entity_code = frappe.db.get_value("Company", company, 'custom_erp_code')
-			series_count = cur.execute(f"SELECT LASTVRNO FROM RIPLRR.VRSEQ_MAST WHERE ENTITY_CODE='{entity_code}' AND VRPREFIX = '{actual_base_series}'")
+			series_count = cur.execute(f"SELECT LASTVRNO FROM RIPLRR.VRSEQ_MAST WHERE ENTITY_CODE='{entity_code}' AND VRPREFIX = '{erp_series.tcode}{actual_base_series}'")
 			result_series_count = cur.fetchall() 
 			if len(result_series_count) > 0:
 				count = result_series_count[0][0]
 				next_series = f"{actual_base_series}{str(count + 1).zfill(5)}"
-				update_series = f"UPDATE RIPLRR.VRSEQ_MAST SET LASTVRNO = '{int(count) + 1}' WHERE ENTITY_CODE = {entity_code} AND VRPREFIX = '{actual_base_series}')"
+				update_series = f"UPDATE RIPLRR.VRSEQ_MAST SET LASTVRNO = '{int(count) + 1}' WHERE ENTITY_CODE = '{entity_code}' AND VRPREFIX = '{erp_series.tcode}{actual_base_series}')"
 				updated = cur.execute(update_series)
 			else:
-				insert_new_series = f"INSERT INTO RIPLRR.VRSEQ_MAST (LASTVRNO, ENTITY_CODE, VRPREFIX) VALUES (1, '{entity_code}','{actual_base_series}')"
+				insert_new_series = f"INSERT INTO RIPLRR.VRSEQ_MAST (LASTVRNO, ENTITY_CODE, VRPREFIX) VALUES (1, '{entity_code}','{erp_series.tcode}{actual_base_series}')"
 				inserted = cur.execute(insert_new_series)
 				# con.commit()
 				next_series = f"{actual_base_series}{'1'.zfill(5)}"
 
 		elif erp_series.formatter == "YYM":
-			dt = datetime.strptime(date, "%Y-%m-%d")
+			dt = datetime.strptime(str(date), "%Y-%m-%d")
 			if dt.month in [10, 11, 12]:
 				month_abbr = ["O", "N", "D"][dt.month - 10]
 			else:
 				month_abbr = str(dt.month)
 			actual_base_series = f"{base_series}{fiscal_year}{month_abbr}-"
 			entity_code = frappe.db.get_value("Company", company, 'custom_erp_code')
-			series_count = cur.execute(f"SELECT LASTVRNO FROM RIPLRR.VRSEQ_MAST WHERE ENTITY_CODE='{entity_code}' AND VRPREFIX = '{actual_base_series}'")
+			series_count = cur.execute(f"SELECT LASTVRNO FROM RIPLRR.VRSEQ_MAST WHERE ENTITY_CODE='{entity_code}' AND VRPREFIX = '{erp_series.tcode}{actual_base_series}'")
+			frappe.log_error("series_count", series_count)
 			result_series_count = cur.fetchall() 
 			if len(result_series_count) > 0:
 				count = result_series_count[0][0]
 				next_series = f"{actual_base_series}{int(count) + 1}"
-				update_series = f"UPDATE RIPLRR.VRSEQ_MAST SET LASTVRNO = '{int(count) + 1}' WHERE ENTITY_CODE = {entity_code} AND VRPREFIX = '{actual_base_series}')"
+				update_series = f"UPDATE RIPLRR.VRSEQ_MAST SET LASTVRNO = '{int(count) + 1}' WHERE ENTITY_CODE = '{entity_code}' AND VRPREFIX = '{erp_series.tcode}{actual_base_series}'"
+				frappe.log_error("update_series", update_series)
 				updated = cur.execute(update_series)
 			else:
-				insert_new_series = f"INSERT INTO RIPLRR.VRSEQ_MAST (LASTVRNO, ENTITY_CODE, VRPREFIX) VALUES (1, '{entity_code}','{actual_base_series}')"
+				insert_new_series = f"INSERT INTO RIPLRR.VRSEQ_MAST (LASTVRNO, ENTITY_CODE, VRPREFIX) VALUES (1, '{entity_code}','{erp_series.tcode}{actual_base_series}')"
+				frappe.log_error("insert_new_series", insert_new_series)
 				inserted = cur.execute(insert_new_series)
 				# con.commit()
 				next_series = f"{actual_base_series}1"
@@ -2034,3 +2060,5 @@ def get_next_series_no(doctype,company, date, cur):
 		return next_series
 	else:
 		frappe.throw("ERP Series Master Not Defined")
+
+

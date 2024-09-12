@@ -39,6 +39,7 @@ class ERPSalaryStructureImport(Document):
 				))
 			total_earnings = 0.0
 			total_deductions = 0.0
+			basic_pay = 0.0
 			for rec in earning_and_deductions:
 				if "D" in rec.get("AFNO") :
 					amount = 0.0
@@ -64,6 +65,10 @@ class ERPSalaryStructureImport(Document):
 							depends_on_formula = frappe.db.count("Salary Component", {"custom_erp_code": rate.get("AFCODE"), "amount_based_on_formula": 1})
 							if depends_on_formula == 0:
 								amount = rate.get("AFRATE")
+						
+					if rec.get("abbr") == "B":
+						basic_pay = amount
+
 
 					salary_structure.append("earnings", dict(
 							abbr = rec.get("abbr"),
@@ -76,10 +81,15 @@ class ERPSalaryStructureImport(Document):
 			salary_structure.total_earning = total_earnings
 			salary_structure.total_deduction = total_deductions
 
-			salary_structure.insert()
-			salary_structure.submit()
+			try:
+				salary_structure.insert()
+				if self.submit_entries == 1:
+					salary_structure.submit()
+			except Exception as e:
+				frappe.throw(f"Error While Importing Salary Structure for Employee - {emp_code} \n {str(e)}")
 
 
+			# frappe.throw(str(basic_pay))
 			emp = frappe.get_doc("Employee", emp_code)
 			ss_assign = frappe.get_doc(dict(
 				base = total_earnings,
@@ -89,14 +99,20 @@ class ERPSalaryStructureImport(Document):
 				doctype = "Salary Structure Assignment",
 				employee = emp_code,
 				employee_name = emp.employee_name,
-				from_date = self.creation.split(" ")[0],
+				from_date = self.assignment_date,
 				grade = emp.grade,
 				salary_structure = salary_structure.name,
-				custom_reference_no = self.name
+				custom_reference_no = self.name,
+				custom_basic_pay = basic_pay,
+				income_tax_slab = employee.income_tax_slab
 			))
 
-			ss_assign.insert()
-			ss_assign.submit()
+			try:
+				ss_assign.insert()
+				if self.submit_entries == 1:
+					ss_assign.submit()
+			except Exception as e:
+				frappe.throw(f"Error While Importing Salary Structure Assignment for Employee - {emp_code} \n {str(e)}")
 
 
 			employee.salary_structure = salary_structure.name

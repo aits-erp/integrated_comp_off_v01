@@ -1,0 +1,59 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2024-09-06 19:02:08.425618",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "additional_salary",
+  "installment_date",
+  "amount",
+  "skip"
+ ],
+ "fields": [
+  {
+   "fieldname": "installment_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Installment Date",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "skip",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Skip"
+  },
+  {
+   "fieldname": "additional_salary",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Additional Salary",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2024-09-12 15:17:53.841408",
+ "modified_by": "Administrator",
+ "module": "Real Group",
+ "name": "Loan Installment Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

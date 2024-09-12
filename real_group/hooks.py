@@ -60,7 +60,7 @@ app_license = "mit"
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": "real_group.real_group.utils.get_qr_code"
+	"methods": ["real_group.real_group.utils.get_qr_code", "real_group.real_group.utils.employee_advance_details"]
 }
 
 # Installation

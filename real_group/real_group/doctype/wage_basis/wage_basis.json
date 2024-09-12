@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:wage_basis",
- "creation": "2024-05-29 17:24:13.036786",
+ "creation": "2024-08-14 14:29:41.655084",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -28,7 +28,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-12 23:43:37.853678",
+ "modified": "2024-08-31 14:14:32.817173",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Wage Basis",

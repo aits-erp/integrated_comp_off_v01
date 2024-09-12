@@ -13,61 +13,65 @@ from operator import itemgetter
 
 class ReprocessAttendance(Document):
 
-	def before_cancel(self):
+	# def before_cancel(self):
 		
-		#Cancel Attendance
-		all_attendance = frappe.db.get_all("Attendance", {"custom_reprocess_reference": self.name})
-		for rec in all_attendance:
-			attendance = frappe.get_doc("Attandance", rec.name)
-			if attendance.doctatus != 2:
-				attendance.cancel()
-				attendance.delete()
-			else:
-				frappe.throw(f"Can't Cancelled Already Cancelled Attandance {rec.name}")
+	# 	#Cancel Attendance
+	# 	all_attendance = frappe.db.get_all("Attendance", {"custom_reprocess_reference": self.name})
+	# 	for rec in all_attendance:
+	# 		attendance = frappe.get_doc("Attendance", rec.name)
+	# 		if attendance.docstatus != 2:
+	# 			attendance.cancel()
+	# 			attendance.delete()
+	# 		else:
+	# 			frappe.throw(f"Cannot cancel already cancelled Attendance {rec.name}")
 		
-		#Cancel Leave Allocation
-		all_leave_allocation = frappe.db.get_all("Leave Allocation", {"custom_reprocess_reference": self.name})
-		for rec in all_leave_allocation:
-			leave_allocation = frappe.get_doc("Attandance", rec.name)
-			if leave_allocation.docstatus != 2:
-				leave_allocation.cancel()
-				leave_allocation.delete()
-			else:
-				frappe.throw(f"Can't Cancelled Already Cancelled Leave Allocation {rec.name}")
+	# 	#Cancel Leave Allocation
+	# 	all_leave_allocation = frappe.db.get_all("Leave Allocation", {"custom_reprocess_reference": self.name})
+	# 	for rec in all_leave_allocation:
+	# 		leave_allocation = frappe.get_doc("Attandance", rec.name)
+	# 		if leave_allocation.docstatus != 2:
+	# 			leave_allocation.cancel()
+	# 			leave_allocation.delete()
+	# 		else:
+	# 			frappe.throw(f"Cannot cancel already cancelled Leave Allocation {rec.name}")
 
 		
-		#Cancel Additional Salary
-		all_additional_salary = frappe.db.get_all("Additional Salary", {"custom_reprocess_reference": self.name})
-		for rec in all_additional_salary:
-			additional_salary = frappe.get_doc("Attandance", rec.name)
-			if additional_salary.docstatus != 2:
-				additional_salary.cancel()
-				additional_salary.delete()
-			else:
-				frappe.throw(f"Can't Cancelled Already Cancelled Leave Additional Salary {rec.name}")
+	# 	#Cancel Additional Salary
+	# 	all_additional_salary = frappe.db.get_all("Additional Salary", {"custom_reprocess_reference": self.name})
+	# 	for rec in all_additional_salary:
+	# 		additional_salary = frappe.get_doc("Attandance", rec.name)
+	# 		if additional_salary.docstatus != 2:
+	# 			additional_salary.cancel()
+	# 			additional_salary.delete()
+	# 		else:
+	# 			frappe.throw(f"Cannot cancel already cancelled Leave Additional Salary {rec.name}")
 
 	def before_submit(self):
-
+		
 		month_number = datetime.strptime(self.month, "%b").month
 
 		fr_date = datetime(int(self.year), month_number, 1).date()
 		t_date = datetime(int(self.year), month_number, calendar.monthrange(int(self.year), month_number)[1]).date()
-
+		# frappe.log_error("dates", {"fr_date": fr_date, "t_date": t_date})
 
 		if self.employee != None:
 			salary_slip = frappe.db.sql("""
-				SELECT name FROM `tabSalary Slip` WHERE %s = start_date AND employee = %s
+				SELECT name FROM `tabSalary Slip` WHERE %s = start_date AND employee = %s AND docstatus = 1
 				""", (fr_date, self.employee), as_dict = 1)
 			if salary_slip:
 				frappe.throw(f"Salary Slip Found! (\n Month -> {self.start_date} \n Employee -> {employee} \n Salary Slip -> {str(salary_slip)}")
 		else:
 			salary_slip = frappe.db.sql("""
-				SELECT name FROM `tabSalary Slip` WHERE %s = start_date
+				SELECT name FROM `tabSalary Slip` WHERE %s = start_date AND docstatus = 1
 				""", (fr_date), as_dict = 1)
 			if salary_slip:
 				frappe.throw(f"Salary Slip Found! (\n Month -> {self.start_date} \n Salary Slip -> {str(salary_slip)}")
 		
-		
+		self.delete_attendance(fr_date, t_date)
+		self.delete_leave_allocation(fr_date, t_date)
+		self.delete_comp_ledger(fr_date, t_date)
+		self.delete_additional_salary(fr_date, t_date)
+		self.delete_incentive_log(fr_date, t_date)
 
 		x = frappe.call(
 			"frappe.desk.query_report.run",
@@ -78,8 +82,8 @@ class ReprocessAttendance(Document):
 				"month":self.month,
 				"year":self.year,
 				"employee":self.employee
-        	},
-        	ignore_prepared_report=True
+			},
+			ignore_prepared_report=True
 		)
 
 
@@ -89,7 +93,7 @@ class ReprocessAttendance(Document):
 			i["attendance_date"] = str(i.get("date"))
 			if i["in_time"] is None and i["out_time"] is None:
 				continue
-			elif i["attendance"] == "Missing In and Out":
+			elif i.get("attendance") == "Missing In and Out":
 				continue
 			else:
 				filtered_result.append(i)
@@ -193,35 +197,109 @@ class ReprocessAttendance(Document):
 					).save()
 					attendance.submit()
 
-					previous_date = frappe.utils.add_to_date(attendance_date, days=-1)
+				previous_date = frappe.utils.add_to_date(attendance_date, days=-1)
 
-					frappe.log_error('eerrrr', {
-						"attendance_date": attendance_date,
-						"previous_date": previous_date
-					})
+				self.process_compensation(previous_date, attendance_date, r.get("employee"))
+				self.process_incentive(previous_date, attendance_date, r.get("employee"))
 
-					self.process_compensation(previous_date, attendance_date, r.get("employee"))
-					self.process_incentive(previous_date, attendance_date, r.get("employee"))
+				# checkins = frappe.db.get_all("Employee Checkin", filters=[["Employee Checkin","employee","=",r.employee],["Employee Checkin","time","Between",[yesterday,yesterday]]])
+				# for c in checkins:
+				# 	print(c.name)
+				# 	frappe.db.set_value("Employee Checkin", c.name, "attendance", attendance.name)
 
-					# checkins = frappe.db.get_all("Employee Checkin", filters=[["Employee Checkin","employee","=",r.employee],["Employee Checkin","time","Between",[yesterday,yesterday]]])
-					# for c in checkins:
-					# 	print(c.name)
-					# 	frappe.db.set_value("Employee Checkin", c.name, "attendance", attendance.name)
+	def delete_attendance(self, fr_date=None, t_date=None):
+		all_attendance = []
+
+		if self.employee != None:
+			all_attendance = frappe.db.get_all("Attendance", filters={"employee": self.employee, "attendance_date": (">=", fr_date, "<=", t_date)})
+		else:
+			all_attendance = frappe.db.get_all("Attendance", filters={"attendance_date": (">=", fr_date, "<=", t_date)})
+		
+		for a in all_attendance:
+			a_doc = frappe.get_doc("Attendance", a.get("name"))
+			if a_doc.docstatus == 1:
+				a_doc.cancel()
+				a_doc.delete()
+			else:
+				a_doc.delete()
+
+	def delete_leave_allocation(self, fr_date=None, t_date=None):
+		all_leave_allocation = []
+
+		if self.employee != None:
+			all_leave_allocation = frappe.db.get_all("Leave Allocation", filters={"employee": self.employee, "from_date": (">=", fr_date, "<=", t_date), "to_date": (">=", fr_date, "<=", t_date)})
+		else:
+			all_leave_allocation = frappe.db.get_all("Leave Allocation", filters={"from_date": (">=", fr_date, "<=", t_date), "to_date": (">=", fr_date, "<=", t_date)})
+		
+		for a in all_leave_allocation:
+			a_doc = frappe.get_doc("Leave Allocation", a.get("name"))
+			if a_doc.docstatus == 1:
+				a_doc.cancel()
+				a_doc.delete()
+			else:
+				a_doc.delete()
+
+	def delete_comp_ledger(self, fr_date=None, t_date=None):
+		all_comp_leave_ledger = []
+
+		if self.employee != None:
+			all_comp_leave_ledger = frappe.db.get_all("Compensation Leave Ledger", filters={"employee": self.employee, "leave_from": (">=", fr_date, "<=", t_date)})
+		else:
+			all_comp_leave_ledger = frappe.db.get_all("Compensation Leave Ledger", filters={"leave_from": (">=", fr_date, "<=", t_date)})
+		
+		for a in all_comp_leave_ledger:
+			a_doc = frappe.get_doc("Compensation Leave Ledger", a.get("name"))
+			if a_doc.docstatus == 1:
+				a_doc.cancel()
+				a_doc.delete()
+			else:
+				a_doc.delete()
+
+	def delete_additional_salary(self, fr_date=None, t_date=None):
+		all_add_sal = []
+
+		if self.employee != None:
+			all_add_sal = frappe.db.get_all("Additional Salary", filters={"employee": self.employee, "payroll_date": (">=", fr_date, "<=", t_date), "salary_component": "Incentives", "type": "Earning"})
+		else:
+			all_add_sal = frappe.db.get_all("Additional Salary", filters={"payroll_date": (">=", fr_date, "<=", t_date), "salary_component": "Incentives", "type": "Earning"})
+		
+		for a in all_add_sal:
+			a_doc = frappe.get_doc("Additional Salary", a.get("name"))
+			if a_doc.docstatus == 1:
+				a_doc.cancel()
+				a_doc.delete()
+			else:
+				a_doc.delete()
+
+	def delete_incentive_log(self, fr_date=None, t_date=None):
+		all_incentive_log = []
+
+		if self.employee != None:
+			all_incentive_log = frappe.db.get_all("Incentive Log", filters={"employee": self.employee, "from_date": (">=", fr_date, "<=", t_date), "to_date": (">=", fr_date, "<=", t_date)})
+		else:
+			all_incentive_log = frappe.db.get_all("Incentive Log", filters={"from_date": (">=", fr_date, "<=", t_date), "to_date": (">=", fr_date, "<=", t_date)})
+		
+		for a in all_incentive_log:
+			a_doc = frappe.get_doc("Incentive Log", a.get("name"))
+			if a_doc.docstatus == 1:
+				a_doc.cancel()
+				a_doc.delete()
+			else:
+				a_doc.delete()
 
 
 	def process_compensation(self, fr_date=None, t_date=None, employee=None):
 
 		fr_date = f"{fr_date} 00:00:00"
 		t_date = f"{t_date} 09:00:00"
-		frappe.log_error('date fr anf to', {"fr_date": fr_date, "t_date": t_date})
 		# employee = "50004"
 		# holiday = frappe.db.get_value("Employee", employee, "holiday_list") #"Holiday List Plant 2024 - Sat"
 		result = []
+		filtered_result = []    
 		sql = frappe.db.sql(f"""
 			SELECT
 				e.name AS employee,
 				e.employee_name,
-				e.holiday_list,
 				DATE(ec.time) AS date,
 				(CASE WHEN ec.log_type = 'IN' THEN TIME(ec.time) END) AS in_time,
 				(CASE WHEN ec.log_type = 'OUT' THEN TIME(ec.time) END) AS out_time,
@@ -236,7 +314,8 @@ class ReprocessAttendance(Document):
 				-- (CASE WHEN sa.start_date BETWEEN '{fr_date}' AND '{t_date}' AND sa.employee = e.name THEN sa.name ELSE e.default_shift END) AS shift,
 				CASE WHEN st.custom_end_across_days = 1 THEN st.custom_end_across_days ELSE 0 END as custom_end_across_days,
 				CASE WHEN ec.custom_is_temporary_shift = 1 THEN "Yes" ELSE "No" END as custom_is_temporary_shift,
-				0 holiday_flag
+				e.holiday_list,
+				0 is_holiday
 			FROM
 				`tabEmployee` AS e
 			LEFT JOIN
@@ -257,7 +336,6 @@ class ReprocessAttendance(Document):
 		""", as_dict=True)
 		
 		if sql:
-			
 			for index, data in enumerate(sql):
 				if data["grade"]:
 					g = frappe.get_doc("Employee Grade", data["grade"])
@@ -266,15 +344,11 @@ class ReprocessAttendance(Document):
 							if data["in_time"] and data["out_time"] is None and sql[index+1]["in_time"] is None and sql[index+1]["out_time"]:
 								data["out_time"] = sql[index+1]["out_time"]
 								sql[index+1]["out_time"] = None
-						
 							if data["custom_end_across_days"] == 1 and data["in_time"] is not None and data["out_time"] is None:
-								
 								data["out_time"] = sql[index+1]["out_time"]
 								sql[index+1]["out_time"] = None
 						except Exception as e:
 							msg = str(e)
-				
-				
 						""" Fetching grade wise Present, Absent, HalfDay, late entry and early chekout Threshold """
 						full_day = ""
 						half_day = ""
@@ -340,54 +414,61 @@ class ReprocessAttendance(Document):
 						
 						holiday_sql = frappe.db.sql(f"""
 							SELECT
+								h.weekly_off,
 								h.holiday_date
 							FROM
 								`tabHoliday List` hl
 							LEFT JOIN
 								`tabHoliday` h ON hl.name = h.parent
 							WHERE
-								hl.name = '{data.get("holiday_list")}'
+								hl.name = '{data["holiday_list"]}'
 								AND h.holiday_date = '{fr_date}'
 							GROUP BY
 								h.holiday_date
 						""", as_dict = True)
 						if holiday_sql:
-							if holiday_sql[0].holiday_date == data["date"]:
-								data["holiday_flag"] = 1
-							else:
-								data["holiday_flag"] = 0  
-						
-						
+							data["weekly_off"] = holiday_sql[0].get("weekly_off")
+							if str(data["date"]) == str(holiday_sql[0].get("holiday_date")):
+								data["is_holiday"] = 1
 						if data:
 							result.append(data)
-				
-						
-			filtered_result = []
 			
 			for i in result:
-				if i["in_time"] is None and i["out_time"] is None:
+				if i.get("in_time") is None and i.get("out_time") is None:
 					continue
-				elif i["attendance"] == "Missing In and Out":
+				elif i.get("attendance") == "Missing In and Out":
 					continue
-				elif i["attendance"] == "Missing In":
+				elif i.get("attendance") == "Missing In":
 					continue
-				elif i["attendance"] == "Missing Out":
+				elif i.get("attendance") == "Missing Out":
 					continue
 				else:
 					filtered_result.append(i)
 		
 			new_leaves_allocated = 0
 			to_update_leave = 0
-			# employee = ""
-			
+			employee = ""
+			status = ""
+			actual_count = 0
+			slicer = 0
 			if filtered_result:
-				if filtered_result[0]["holiday_flag"] == 0:
-					if len(filtered_result) > 1:
-						slicer = 1
+				if filtered_result[0].get("weekly_off") == 0:
+					status = "POH"
+				elif filtered_result[0].get("weekly_off") == 1:
+					status = "POW"
+				else:
+					status = "EW"
+				
+				if filtered_result[0].get("is_holiday") == 1:
+					slicer = 0
+				if filtered_result[0].get("is_holiday") == 0:
+					slicer = 1
+				try:
+					if len(filtered_result) > 0 and filtered_result[0].get("worked_hours") > frappe.utils.get_timedelta("04:00:00"):
 						employee = filtered_result[0]["employee"]
-						identifier = frappe.db.get_value("Shift Type", filtered_result[0]["shift"], "identifier")
+						identifier = frappe.db.get_value("Shift Type", filtered_result[0].get("shift"), "identifier")
 						extra_work = frappe.utils.get_timedelta("00:00:00")
-						comp_off_validity = frappe.db.get_value("Employee Grade", filtered_result[0]["grade"], "custom_comp_off_validity")
+						comp_off_validity = frappe.db.get_value("Employee Grade", filtered_result[0].get("grade"), "custom_comp_off_validity")
 						for result in filtered_result[slicer:]:
 							extra_work = extra_work + result["worked_hours"]
 						comp_matrix = frappe.get_doc("Compensation Matrix", identifier)
@@ -395,14 +476,21 @@ class ReprocessAttendance(Document):
 							for index, i in enumerate(comp_matrix.items):
 								if i.get("from_hrs") <= extra_work <= i.get("to_hrs"):
 									new_leaves_allocated = i.get("c_off_credit")
+									actual_count = i.get("c_off_credit")
 								else:
 									if (index + 1) == len(comp_matrix.items):
 										if extra_work > i.get("to_hrs"):
 											new_leaves_allocated = i.get("c_off_credit")
+											actual_count = i.get("c_off_credit")
+						
 						if new_leaves_allocated > 0:
 							allocated_leaves_list = frappe.db.sql("""
 								SELECT
-									name
+									name,
+									from_date,
+									to_date,
+									new_leaves_allocated,
+									custom_is_continuous
 								FROM
 									`tabLeave Allocation` la
 								WHERE
@@ -411,10 +499,13 @@ class ReprocessAttendance(Document):
 									AND la.docstatus=1
 									AND la.leave_type = 'Compensatory Off'
 									AND la.new_leaves_allocated > 0
+								ORDER BY
+									name DESC
 							""",(employee, t_date, frappe.utils.add_to_date(t_date, days=comp_off_validity), t_date, frappe.utils.add_to_date(t_date, days=comp_off_validity)), as_dict=True)
+							
 							if allocated_leaves_list:
-								allocated_leaves = frappe.get_doc("Leave Allocation", allocated_leaves_list[0])
-								frappe.log_error("existing log", allocated_leaves.as_json())
+								
+								allocated_leaves = frappe.get_doc("Leave Allocation", allocated_leaves_list[0].get("name"))
 								# new_leaves_allocated = new_leaves_allocated + allocated_leaves.new_leaves_allocated
 								to_update_leave = to_update_leave + allocated_leaves.new_leaves_allocated
 								leave_app = frappe.db.sql("""
@@ -434,66 +525,93 @@ class ReprocessAttendance(Document):
 								lv = leave_app[0]["leaves"] or 0
 								if leave_app:
 									to_update_leave = to_update_leave + lv
+								  
+									
+								allocated_leaves.cancel()
+								allocated_leaves.delete()
+									
+								if allocated_leaves.from_date == frappe.utils.getdate(t_date) or allocated_leaves.from_date == frappe.utils.add_to_date(frappe.utils.getdate(t_date), days=-1) or allocated_leaves.custom_is_continuous == 1:
+									leave_allocation_update = frappe.get_doc(dict(
+										doctype = "Leave Allocation",
+										employee = employee,
+										from_date = allocated_leaves.from_date,
+										to_date = frappe.utils.add_to_date(t_date, days=comp_off_validity + 1),
+										leave_type = "Compensatory Off",
+										new_leaves_allocated = new_leaves_allocated + to_update_leave,
+										custom_is_continuous = 1,
+										custom_reprocess_reference = self.name
+										
+									))
+									leave_allocation_update.insert()
+									leave_allocation_update.submit()
+									if to_update_leave > 0:
+										comp_leave = frappe.get_doc(dict(
+											reference_no = leave_allocation_update.name,
+											doctype = "Compensation Leave Ledger",
+											employee = employee,
+											leave_from = allocated_leaves.from_date,
+											leave_expiry = allocated_leaves.to_date,
+											leave_count = allocated_leaves.new_leaves_allocated,
+											status = status,
+											work_date = frappe.utils.add_to_date(t_date, days=-1),
+											actual_count = actual_count
+											))
+										
+										comp_leave.insert()
+								else:
+									leave_allocation_update = frappe.get_doc(dict(
+										doctype = "Leave Allocation",
+										employee = employee,
+										from_date = allocated_leaves.from_date,
+										to_date = frappe.utils.add_to_date(t_date, days=-1),
+										leave_type = "Compensatory Off",
+										new_leaves_allocated = to_update_leave,
+										custom_is_continuous = 0,
+										custom_reprocess_reference = self.name
+									))
+									leave_allocation_update.insert()
+									leave_allocation_update.submit()
+									if to_update_leave > 0:  
+										comp_leave = frappe.get_doc(dict(
+											reference_no = leave_allocation_update.name,
+											doctype = "Compensation Leave Ledger",
+											employee = employee,
+											leave_from = allocated_leaves.from_date,
+											leave_expiry = allocated_leaves.to_date,
+											leave_count = allocated_leaves.new_leaves_allocated,
+											status = status,
+											work_date = frappe.utils.add_to_date(allocated_leaves.from_date, days=-1),
+											actual_count = actual_count
+											))
+										
+										comp_leave.insert()
 								
-								if to_update_leave > 0:  
+									new_leaves_allocated = new_leaves_allocated + to_update_leave
+									leave_allocation = frappe.get_doc(dict(
+										doctype = "Leave Allocation",
+										employee = employee,
+										from_date = frappe.utils.add_to_date(t_date),
+										to_date = frappe.utils.add_to_date(t_date, days=comp_off_validity),
+										leave_type = "Compensatory Off",
+										new_leaves_allocated = new_leaves_allocated,
+										custom_is_continuous = 0,
+										custom_reprocess_reference = self.name
+										))
+									leave_allocation.insert()
+									leave_allocation.submit()
 									comp_leave = frappe.get_doc(dict(
+										reference_no = leave_allocation.name,
 										doctype = "Compensation Leave Ledger",
 										employee = employee,
-										leave_from = allocated_leaves.from_date,
-										leave_expiry = allocated_leaves.to_date,
-										leave_count = allocated_leaves.new_leaves_allocated,
-										status = "Active",
-										reference_no = allocated_leaves.name
+										leave_from = frappe.utils.add_to_date(t_date),
+										leave_expiry = frappe.utils.add_to_date(t_date, days=comp_off_validity),
+										leave_count = new_leaves_allocated,
+										status = status,
+										work_date = frappe.utils.add_to_date(t_date, days=-1),
+										actual_count = actual_count
 										))
 									
 									comp_leave.insert()
-								
-								# allocated_leaves.cancel()
-								# allocated_leaves.delete()
-								
-								# leave_allocation_update = frappe.get_doc(dict(
-								# 	doctype = "Leave Allocation",
-								# 	employee = employee,
-								# 	from_date = allocated_leaves.from_date,
-								# 	to_date = frappe.utils.add_to_date(t_date, days=-1 ),
-								# 	leave_type = "Compensatory Off",
-								# 	new_leaves_allocated = to_update_leave,
-								# 	custom_reprocess_reference=self.name
-								# ))
-								# frappe.log_error('leave_allocation_update', leave_allocation_update.as_json())
-								# leave_allocation_update.insert()
-								# leave_allocation_update.submit()
-
-								
-								frappe.throw(f"{allocated_leaves.to_date} == {fr_date}")
-								if allocated_leaves.to_date == fr_date:
-									# frappe.db.set_value("Leave Allocation", allocated_leaves.name, "from_date",  )
-									frappe.db.set_value("Leave Allocation", allocated_leaves.name, "to_date", frappe.utils.add_to_date(fr_date, days=1))
-									frappe.db.set_value("Leave Allocation", allocated_leaves.name, "new_leaves_allocated", allocated_leaves.new_leaves_allocated + to_update_leave)
-									frappe.db.set_value("Leave Allocation", allocated_leaves.name, "custom_reprocess_reference", self.name)
-								else:
-									frappe.db.set_value("Leave Allocation", allocated_leaves.name, "to_date", frappe.utils.add_to_date(allocated_leaves.from_date, days=-1 ))
-									frappe.db.set_value("Leave Allocation", allocated_leaves.name, "new_leaves_allocated", to_update_leave )
-									frappe.db.set_value("Leave Allocation", allocated_leaves.name, "custom_reprocess_reference", self.name )
-
-								# frappe.db.set_value("Leave Allocation", allocated_leaves.name, "from_date", allocated_leaves.from_date )
-								# frappe.db.set_value("Leave Allocation", allocated_leaves.name, "to_date", frappe.utils.add_to_date(t_date, days=-1 ) )
-								# frappe.db.set_value("Leave Allocation", allocated_leaves.name, "new_leaves_allocated", to_update_leave )
-								# frappe.db.set_value("Leave Allocation", allocated_leaves.name, "custom_reprocess_reference", self.name )
-								
-								new_leaves_allocated = new_leaves_allocated + to_update_leave
-								leave_allocation = frappe.get_doc(dict(
-									doctype = "Leave Allocation",
-									employee = employee,
-									from_date = t_date,
-									to_date = frappe.utils.add_to_date(t_date, days=comp_off_validity),
-									leave_type = "Compensatory Off",
-									new_leaves_allocated = new_leaves_allocated,
-									custom_reprocess_reference=self.name
-									))
-								frappe.log_error("my_new_update_leave_allocation",leave_allocation )
-								leave_allocation.insert()
-								leave_allocation.submit()
 							else:
 								leave_allocation = frappe.get_doc(dict(
 									doctype = "Leave Allocation",
@@ -502,145 +620,57 @@ class ReprocessAttendance(Document):
 									to_date = frappe.utils.add_to_date(t_date, days=comp_off_validity),
 									leave_type = "Compensatory Off",
 									new_leaves_allocated = new_leaves_allocated,
-									custom_reprocess_reference=self.name
+									custom_is_continuous = 0,
+									custom_reprocess_reference = self.name
 									))
 								leave_allocation.insert()
 								leave_allocation.submit()
-						
-				if filtered_result[0]["holiday_flag"] == 1:
-					
-					slicer = 0
-					employee = filtered_result[0]["employee"]
-					identifier = frappe.db.get_value("Shift Type", filtered_result[0]["shift"], "identifier")
-					extra_work = frappe.utils.get_timedelta("00:00:00")
-					comp_off_validity = frappe.db.get_value("Employee Grade", filtered_result[0]["grade"], "custom_comp_off_validity")
-					for result in filtered_result[slicer:]:
-						extra_work = extra_work + result["worked_hours"]
-					comp_matrix = frappe.get_doc("Compensation Matrix", identifier)
-					if extra_work:
-						for index, i in enumerate(comp_matrix.items):
-							
-							if i.get("from_hrs") <= extra_work <= i.get("to_hrs"):
-								new_leaves_allocated = i.get("c_off_credit")
-							else:
-								if (index + 1) == len(comp_matrix.items):
-									if extra_work > i.get("to_hrs"):
-										new_leaves_allocated = i.get("c_off_credit")
-					if new_leaves_allocated > 0:
-						allocated_leaves_list = frappe.db.sql("""
-							SELECT
-								name
-							FROM
-								`tabLeave Allocation` la
-							WHERE
-								employee = %s
-								AND (la.from_date BETWEEN %s AND %s or la.to_date BETWEEN %s AND %s)
-								AND la.docstatus=1
-								AND la.leave_type = 'Compensatory Off'
-								AND la.new_leaves_allocated > 0
-						""",(employee, t_date, frappe.utils.add_to_date(t_date, days=comp_off_validity), t_date, frappe.utils.add_to_date(t_date, days=comp_off_validity)), as_dict=True)
-						
-						if allocated_leaves_list:
-							allocated_leaves = frappe.get_doc("Leave Allocation", allocated_leaves_list[0])
-							# new_leaves_allocated = new_leaves_allocated + allocated_leaves.new_leaves_allocated
-							to_update_leave = to_update_leave + allocated_leaves.new_leaves_allocated
-							leave_app = frappe.db.sql("""
-								SELECT
-									SUM(lle.leaves) leaves
-								FROM
-									`tabLeave Ledger Entry` lle
-								WHERE
-									lle.employee = %s
-									AND lle.from_date BETWEEN %s AND %s 
-									AND lle.to_date BETWEEN %s AND %s
-									AND lle.transaction_type = 'Leave Application'
-									AND lle.leave_type = 'Compensatory Off'
-									AND lle.leaves < 0
-							""",(employee, allocated_leaves.from_date, allocated_leaves.to_date, allocated_leaves.from_date, allocated_leaves.to_date), as_dict=True)
-							
-							lv = leave_app[0]["leaves"] or 0
-							if leave_app:
-								to_update_leave = to_update_leave + lv
-							
-							if to_update_leave > 0:  
 								comp_leave = frappe.get_doc(dict(
+									reference_no = leave_allocation.name,
 									doctype = "Compensation Leave Ledger",
 									employee = employee,
-									leave_from = allocated_leaves.from_date,
-									leave_expiry = allocated_leaves.to_date,
-									leave_count = allocated_leaves.new_leaves_allocated,
-									status = "Active",
-									reference_no = allocated_leaves.name
+									leave_from = t_date,
+									leave_expiry = frappe.utils.add_to_date(t_date, days=comp_off_validity),
+									leave_count = new_leaves_allocated,
+									status = status,
+									work_date = frappe.utils.add_to_date(t_date, days=-1),
+									actual_count = actual_count
 									))
 								
 								comp_leave.insert()
-							
-							# allocated_leaves.cancel()
-							# allocated_leaves.delete()
-							
-							# leave_allocation_update = frappe.get_doc(dict(
-							# 	doctype = "Leave Allocation",
-							# 	employee = employee,
-							# 	from_date = allocated_leaves.from_date,
-							# 	to_date = t_date, #to_be_checked
-							# 	leave_type = "Compensatory Off",
-							# 	new_leaves_allocated = to_update_leave,
-							# 	custom_reprocess_reference=self.name
-							# ))
-							# frappe.log_error('leave_allocation_update513', leave_allocation_update.as_json())
-							# leave_allocation_update.insert()
-							# leave_allocation_update.submit()
-
-							# frappe.db.set_value("Leave Allocation", allocated_leaves.name, "from_date", allocated_leaves.from_date )
-							# frappe.db.set_value("Leave Allocation", allocated_leaves.name, "to_date", frappe.utils.add_to_date(t_date, days=-1 ) )
-							# frappe.db.set_value("Leave Allocation", allocated_leaves.name, "new_leaves_allocated", to_update_leave )
-							# frappe.db.set_value("Leave Allocation", allocated_leaves.name, "custom_reprocess_reference", self.name )
-							
-							
-							if allocated_leaves.to_date == fr_date:
-								# frappe.db.set_value("Leave Allocation", allocated_leaves.name, "from_date",  )
-								frappe.db.set_value("Leave Allocation", allocated_leaves.name, "to_date", frappe.utils.add_to_date(fr_date, days=1))
-								frappe.db.set_value("Leave Allocation", allocated_leaves.name, "new_leaves_allocated", allocated_leaves.new_leaves_allocated + to_update_leave)
-								frappe.db.set_value("Leave Allocation", allocated_leaves.name, "custom_reprocess_reference", self.name)
-							else:
-								frappe.db.set_value("Leave Allocation", allocated_leaves.name, "to_date", frappe.utils.add_to_date(allocated_leaves.from_date, days=-1 ))
-								frappe.db.set_value("Leave Allocation", allocated_leaves.name, "new_leaves_allocated", to_update_leave )
-								frappe.db.set_value("Leave Allocation", allocated_leaves.name, "custom_reprocess_reference", self.name )
-
-							
-							new_leaves_allocated = new_leaves_allocated + to_update_leave
-							leave_allocation = frappe.get_doc(dict(
-								doctype = "Leave Allocation",
-								employee = employee,
-								from_date = t_date,
-								to_date = frappe.utils.add_to_date(t_date, days=comp_off_validity),
-								leave_type = "Compensatory Off",
-								new_leaves_allocated = new_leaves_allocated,
-								custom_reprocess_reference=self.name
-								))
-							leave_allocation.insert()
-							leave_allocation.submit()
 						else:
-							leave_allocation = frappe.get_doc(dict(
-								doctype = "Leave Allocation",
-								employee = employee,
-								from_date = t_date,
-								to_date = frappe.utils.add_to_date(t_date, days=comp_off_validity),
-								leave_type = "Compensatory Off",
-								new_leaves_allocated = new_leaves_allocated,
-								custom_reprocess_reference=self.name
-								))
-							leave_allocation.insert()
-							leave_allocation.submit()
-
+							allocated_leaves_list = frappe.db.sql("""
+								SELECT
+									name,
+									from_date,
+									to_date,
+									new_leaves_allocated,
+									custom_is_continuous
+								FROM
+									`tabLeave Allocation` la
+								WHERE
+									employee = %s
+									AND (la.from_date BETWEEN %s AND %s or la.to_date BETWEEN %s AND %s)
+									AND la.docstatus=1
+									AND la.leave_type = 'Compensatory Off'
+									AND la.new_leaves_allocated > 0
+								ORDER BY
+									name DESC
+								LIMIT 1
+							""",(employee, t_date, frappe.utils.add_to_date(t_date, days=comp_off_validity), t_date, frappe.utils.add_to_date(t_date, days=comp_off_validity)), as_dict=True)
+							
+							if allocated_leaves_list:
+								frappe.db.set_value("Leave Allocation", allocated_leaves_list[0].get("name"), "custom_is_continuous", 0)
+				except Exception as e:
+					frappe.log_error("Error while comp_off re-process")
 			
-				
 	def process_incentive(self, fr_date=None, t_date=None, employee=None):
 
 		fr_date = f"{fr_date} 00:00:00"
 		t_date = f"{t_date} 09:00:00"
 
 		result = []
+		filtered_result = []
 		sql = frappe.db.sql(f"""
 			SELECT
 				e.name AS employee,
@@ -660,7 +690,8 @@ class ReprocessAttendance(Document):
 				-- (CASE WHEN sa.start_date BETWEEN '{fr_date}' AND '{t_date}' AND sa.employee = e.name THEN sa.name ELSE e.default_shift END) AS shift,
 				CASE WHEN st.custom_end_across_days = 1 THEN st.custom_end_across_days ELSE 0 END as custom_end_across_days,
 				CASE WHEN ec.custom_is_temporary_shift = 1 THEN "Yes" ELSE "No" END as custom_is_temporary_shift,
-				0 holiday_flag
+				0 is_holiday,
+				e.holiday_list
 			FROM
 				`tabEmployee` AS e
 			LEFT JOIN
@@ -671,8 +702,6 @@ class ReprocessAttendance(Document):
 				`tabShift Assignment` AS sa ON sa.employee = e.name
 			WHERE
 				ec.time BETWEEN '{fr_date}' AND '{t_date}'
-				-- AND '{fr_date}' <= ec.time
-				-- AND ec.time <= '{t_date}'
 				AND e.name = '{employee}'
 			GROUP BY
 				e.name, ec.time
@@ -697,9 +726,9 @@ class ReprocessAttendance(Document):
 								data["out_time"] = sql[index+1]["out_time"]
 								sql[index+1]["out_time"] = None
 						except Exception as e:
-							msg = str(e)
-				
-				
+							msg = e
+							
+							
 						""" Fetching grade wise Present, Absent, HalfDay, late entry and early chekout Threshold """
 						grade_emp = None
 						if data["grade"]:
@@ -762,6 +791,7 @@ class ReprocessAttendance(Document):
 						
 						holiday_sql = frappe.db.sql(f"""
 							SELECT
+								h.weekly_off,
 								h.holiday_date
 							FROM
 								`tabHoliday List` hl
@@ -774,351 +804,289 @@ class ReprocessAttendance(Document):
 								h.holiday_date
 						""", as_dict = True)
 						if holiday_sql:
-							if holiday_sql[0].holiday_date == data["date"]:
-								data["holiday_flag"] = 1
-							else:
-								data["holiday_flag"] = 0    
+							data["weekly_off"] = holiday_sql[0].get("weekly_off")
+							if str(data["date"]) == str(holiday_sql[0].get("holiday_date")):
+								data["is_holiday"] = 1
+							
 						if data:
 							result.append(data)
 						
-			filtered_result = []
+			
 			
 			for i in result:
-				if i["in_time"] is None and i["out_time"] is None:
+				if i.get("in_time") is None and i.get("out_time") is None:		
 					continue
-				elif i["attendance"] == "Missing In and Out":
+				elif i.get("attendance") == "Missing In and Out":
 					continue
-				elif i["attendance"] == "Missing In":
+				elif i.get("attendance") == "Missing In":
 					continue
-				elif i["attendance"] == "Missing Out":
+				elif i.get("attendance") == "Missing Out":
 					continue
 				else:
 					filtered_result.append(i)
 					
 			additional_incentive = 0
+			actual = 0
 			employee = ""
 			extra_work = frappe.utils.get_timedelta("00:00:00")
 			month_first_date = frappe.utils.get_first_day(fr_date)
 			month_last_date = frappe.utils.get_last_day(fr_date)
-			if len(filtered_result) > 0:
-				if filtered_result[0]["holiday_flag"] == 0:
-					if len(filtered_result) > 1:
-						slicer = 1    
+			slicer = 0
+			if filtered_result:
+				if filtered_result[0].get("weekly_off") == 0:
+					status = "POH"
+				elif filtered_result[0].get("weekly_off") == 1:
+					status = "POW"
+				else:
+					status = "EW"
+				if filtered_result[0].get("is_holiday") == 1:
+					slicer = 0
+				if filtered_result[0].get("is_holiday") == 0:
+					slicer = 1
+				try:
+					if len(filtered_result) > 0 and filtered_result[0].get("worked_hours") > frappe.utils.get_timedelta("04:00:00"):
 						employee = filtered_result[0]["employee"]
 						incentive_gross = frappe.db.get_value("Employee Grade", filtered_result[0]["grade"], "custom_incentive_gross_amount") 
-						incentive_ceiling = frappe.db.get_value("Employee Grade", filtered_result[0]["grade"], "custom_incentive_ceiling") 
-						# frappe.get_doc("Employee Grade", filtered_result[0]["grade"])
-						
-						# employee = filtered_result[0]["employee"]
+						incentive_ceiling = frappe.db.get_value("Employee Grade", filtered_result[0]["grade"], "custom_incentive_ceiling")
 						identifier = frappe.db.get_value("Shift Type", filtered_result[0]["shift"], "identifier")
 						
 						salary_structure_assignment = frappe.db.get_list("Salary Structure Assignment", filters={"employee": employee}, order_by='creation desc')
-						salary_structure_assignment_doc = frappe.get_doc("Salary Structure Assignment", salary_structure_assignment[0]["name"])
-						salary_structure_doc = frappe.get_doc("Salary Structure", salary_structure_assignment_doc.salary_structure)
-						gross = salary_structure_doc.total_earning
-						
-						if gross <= incentive_gross:
+						if len(salary_structure_assignment) > 0:
+							salary_structure_assignment_doc = frappe.get_doc("Salary Structure Assignment", salary_structure_assignment[0]["name"])
+							salary_structure_doc = frappe.get_doc("Salary Structure", salary_structure_assignment_doc.salary_structure)
+							gross = salary_structure_doc.total_earning
 							
-							for result in filtered_result[slicer:]:
-								extra_work = extra_work + result["worked_hours"]
-							# except Exception as e:
-							#     msg = str(e)
+							if gross <= incentive_gross:
+								
+								for result in filtered_result[slicer:]:
+									extra_work = extra_work + result["worked_hours"]
 							
-							comp_matrix = frappe.get_doc("Compensation Matrix", identifier)
-							if extra_work:
-								for index, i in enumerate(comp_matrix.items):
+								comp_matrix = frappe.get_doc("Compensation Matrix", identifier)
+								if extra_work:
+									for index, i in enumerate(comp_matrix.items):
+										
+										if i.get("from_hrs") <= extra_work <= i.get("to_hrs"):
+											additional_incentive = (gross/(frappe.utils.date_diff(month_last_date, month_first_date ) + 1)) * i.get("c_off_credit")
+											actual = (gross/(frappe.utils.date_diff(month_last_date, month_first_date ) + 1)) * i.get("c_off_credit")
+										
+										else:
+											if (index + 1) == len(comp_matrix.items):
+												if extra_work > i.get("to_hrs"):
+													additional_incentive = (gross/(frappe.utils.date_diff(month_last_date, month_first_date ) + 1)) * i.get("c_off_credit")
+													actual = (gross/(frappe.utils.date_diff(month_last_date, month_first_date ) + 1)) * i.get("c_off_credit")
+													
+								if additional_incentive > 0:
+									allocated_incentive_list = frappe.db.sql("""
+										SELECT
+											name
+										FROM
+											`tabAdditional Salary` la
+										WHERE
+											employee = %s
+											AND (la.payroll_date BETWEEN %s AND %s) 
+											AND la.salary_component = 'Incentives'
+											AND la.docstatus=1
+									""",(employee, month_first_date, month_last_date), as_dict=True)
 									
-									if i.get("from_hrs") <= extra_work <= i.get("to_hrs"):
-										additional_incentive = (gross/frappe.utils.date_diff(month_last_date, month_first_date ) + 1) * i.get("c_off_credit")
+									allocated_amount = 0
+									if allocated_incentive_list:
+										allocated_incentive = frappe.get_doc("Additional Salary", allocated_incentive_list[0].get("name"))
+										additional_incentive = additional_incentive + allocated_incentive.amount
+										
+										if additional_incentive <= incentive_ceiling:
+											allocated_incentive.cancel()
+											allocated_incentive.delete()
+											incentive_allocation = frappe.get_doc(dict(
+												doctype = "Additional Salary",
+												employee = employee,
+												payroll_date = month_last_date,
+												salary_component = "Incentives",
+												leave_type = "Compensatory Off",
+												amount = additional_incentive,
+												custom_reprocess_reference = self.name
+												))
+											incentive_allocation.insert()
+											incentive_allocation.submit()
+											exist = frappe.db.get_all("Incentive Log", filters={"employee": employee, "from_date": month_first_date,
+																						"to_date": month_last_date, 
+																						"work_date": frappe.utils.add_to_date(t_date, days=-1)})
+											if not exist:
+												incentive_log = frappe.get_doc(dict(
+													doctype = "Incentive Log",
+													employee = employee,
+													from_date = month_first_date,
+													to_date = month_last_date,
+													leave_type = "Compensatory Off",
+													incentive = actual,
+													work_date = frappe.utils.add_to_date(t_date, days=-1),
+													status = status
+													))
+									
+												incentive_log.insert()                                    
+										elif additional_incentive > incentive_ceiling:
+											allocated_incentive.cancel()
+											allocated_incentive.delete()
+											new_allocation = allocated_amount + (incentive_ceiling - allocated_amount)
+											extra = additional_incentive - incentive_ceiling
+											incentive_allocation = frappe.get_doc(dict(
+												doctype = "Additional Salary",
+												employee = employee,
+												payroll_date = month_last_date,
+												salary_component = "Incentives",
+												leave_type = "Compensatory Off",
+												amount = new_allocation,
+												custom_reprocess_reference = self.name
+												))
+											incentive_allocation.insert()
+											incentive_allocation.submit()
+											incentive_log_list = frappe.db.sql("""
+												SELECT
+													name,
+													sum(incentive) cur
+												FROM
+													`tabIncentive Log` la
+												WHERE
+													employee = %s
+													AND la.from_date = %s 
+													AND la.to_date = %s
+											""",(employee, month_first_date, month_last_date), as_dict=True)
+											if incentive_log_list:
+												# frappe.get_doc("Incentive Log", incentive_log_list[0])
+												# cur = frappe.db.get_value("Incentive Log", incentive_log_list[0], "incentive")
+												# frappe.db.set_value("Incentive Log", incentive_log_list[0], "incentive", cur + (additional_incentive - incentive_ceiling))
+												exist = frappe.db.get_all("Incentive Log", filters={"employee": employee, "from_date": month_first_date,
+																						"to_date": month_last_date, 
+																						"work_date": frappe.utils.add_to_date(t_date, days=-1)})
+												if not exist:
+													incentive_log = frappe.get_doc(dict(
+														doctype = "Incentive Log",
+														employee = employee,
+														from_date = month_first_date,
+														to_date = month_last_date,
+														leave_type = "Compensatory Off",
+														incentive = actual,
+														total_incentive = incentive_log_list[0].get("cur") + (additional_incentive - incentive_ceiling),
+														work_date = frappe.utils.add_to_date(t_date, days=-1),
+														status = status
+														))
+										
+													incentive_log.insert()
+											else:
+												exist = frappe.db.get_all("Incentive Log", filters={"employee": employee, "from_date": month_first_date,
+																						"to_date": month_last_date, 
+																						"work_date": frappe.utils.add_to_date(t_date, days=-1)})
+												if not exist:
+													incentive_log = frappe.get_doc(dict(
+														doctype = "Incentive Log",
+														employee = employee,
+														from_date = month_first_date,
+														to_date = month_last_date,
+														leave_type = "Compensatory Off",
+														incentive = actual,
+														total_incentive = actual,
+														work_date = frappe.utils.add_to_date(t_date, days=-1),
+														status = status
+														))
+										
+													incentive_log.insert()
 									else:
-										if (index + 1) == len(comp_matrix.items):
-											if extra_work > i.get("to_hrs"):
-												additional_incentive = (gross/frappe.utils.date_diff(month_last_date, month_first_date ) + 1) * i.get("c_off_credit")
-												
-												
-							if additional_incentive > 0:
-								
-								allocated_incentive_list = frappe.db.sql("""
-									SELECT
-										name
-									FROM
-										`tabAdditional Salary` la
-									WHERE
-										employee = %s
-										AND (la.payroll_date BETWEEN %s AND %s) 
-										AND la.salary_component = 'Incentives'
-										AND la.docstatus=1
-								""",(employee, month_first_date, month_last_date), as_dict=True)
-								
-								allocated_amount = 0
-								if allocated_incentive_list:
-									
-									allocated_incentive = frappe.get_doc("Additional Salary", allocated_incentive_list[0]["name"])
-									additional_incentive = additional_incentive + allocated_incentive.amount
-									
-									if additional_incentive <= incentive_ceiling:
-										allocated_incentive.cancel()
-										allocated_incentive.delete()
-										incentive_allocation = frappe.get_doc(dict(
-											doctype = "Additional Salary",
-											employee = employee,
-											payroll_date = month_last_date,
-											salary_component = "Incentives",
-											leave_type = "Compensatory Off",
-											amount = additional_incentive,
-											custom_reprocess_reference=self.name
-											))
-										incentive_allocation.insert()
-										incentive_allocation.submit()
-									elif additional_incentive > incentive_ceiling:
-										allocated_incentive.cancel()
-										allocated_incentive.delete()
-										new_allocation = allocated_amount + (incentive_ceiling - allocated_amount)
-										extra = additional_incentive - incentive_ceiling
-										incentive_allocation = frappe.get_doc(dict(
-											doctype = "Additional Salary",
-											employee = employee,
-											payroll_date = month_last_date,
-											salary_component = "Incentives",
-											leave_type = "Compensatory Off",
-											amount = new_allocation,
-											custom_reprocess_reference=self.name
-											))
-										incentive_allocation.insert()
-										incentive_allocation.submit()
-										incentive_log_list = frappe.db.sql("""
-											SELECT
-												name
-											FROM
-												`tabIncentive Log` la
-											WHERE
-												employee = %s
-												AND la.from_date = %s 
-												AND la.to_date = %s
-										""",(employee, month_first_date, month_last_date), as_dict=True)
-										if incentive_log_list:
-											# frappe.get_doc("Incentive Log", incentive_log_list[0])
-											frappe.db.set_value("Incentive Log", incentive_log_list[0], "incentive", additional_incentive - incentive_ceiling)
-										else:    
-											incentive_log = frappe.get_doc(dict(
-												doctype = "Incentive Log",
+										if additional_incentive <= incentive_ceiling:
+											incentive_allocation = frappe.get_doc(dict(
+												doctype = "Additional Salary",
 												employee = employee,
-												from_date = month_first_date,
-												to_date = month_last_date,
+												payroll_date = month_last_date,
+												salary_component = "Incentives",
 												leave_type = "Compensatory Off",
-												incentive = extra
+												amount = additional_incentive,
+												custom_reprocess_reference = self.name
 												))
-								
-											incentive_log.insert()
-								else:
-									if additional_incentive <= incentive_ceiling:
-										incentive_allocation = frappe.get_doc(dict(
-											doctype = "Additional Salary",
-											employee = employee,
-											payroll_date = month_last_date,
-											salary_component = "Incentives",
-											leave_type = "Compensatory Off",
-											amount = additional_incentive,
-											custom_reprocess_reference=self.name
-											))
-										incentive_allocation.insert()
-										incentive_allocation.submit()
-											
-									elif additional_incentive > incentive_ceiling:
-										new_allocation = allocated_amount + (incentive_ceiling - allocated_amount)
-										extra = additional_incentive - incentive_ceiling
-										incentive_allocation = frappe.get_doc(dict(
-											doctype = "Additional Salary",
-											employee = employee,
-											payroll_date = month_last_date,
-											salary_component = "Incentives",
-											amount = new_allocation,
-											custom_reprocess_reference=self.name
-											))
-										incentive_allocation.insert()
-										incentive_allocation.submit()
-										incentive_log_list = frappe.db.sql("""
-											SELECT
-												name
-											FROM
-												`tabIncentive Log` la
-											WHERE
-												employee = %s
-												AND la.from_date = %s 
-												AND la.to_date = %s
-										""",(employee, month_first_date, month_last_date), as_dict=True)
-										if incentive_log_list:
-											# frappe.get_doc("Incentive Log", incentive_log_list[0])
-											frappe.db.set_value("Incentive Log", incentive_log_list[0], "incentive", additional_incentive - incentive_ceiling)
-										else:    
-											incentive_log = frappe.get_doc(dict(
-												doctype = "Incentive Log",
+											incentive_allocation.insert()
+											incentive_allocation.submit()
+											exist = frappe.db.get_all("Incentive Log", filters={"employee": employee, "from_date": month_first_date,
+																						"to_date": month_last_date, 
+																						"work_date": frappe.utils.add_to_date(t_date, days=-1)})
+											if not exist:
+												incentive_log = frappe.get_doc(dict(
+													doctype = "Incentive Log",
+													employee = employee,
+													from_date = month_first_date,
+													to_date = month_last_date,
+													leave_type = "Compensatory Off",
+													incentive = actual,
+													total_incentive = additional_incentive,
+													work_date = frappe.utils.add_to_date(t_date, days=-1),
+													status = status
+													))
+									
+												incentive_log.insert()
+												
+										elif additional_incentive > incentive_ceiling:
+											new_allocation = allocated_amount + (incentive_ceiling - allocated_amount)
+											extra = additional_incentive - incentive_ceiling
+											incentive_allocation = frappe.get_doc(dict(
+												doctype = "Additional Salary",
 												employee = employee,
-												from_date = month_first_date,
-												to_date = month_last_date,
+												payroll_date = month_last_date,
+												salary_component = "Incentives",
 												leave_type = "Compensatory Off",
-												incentive = extra
+												amount = new_allocation,
+												custom_reprocess_reference = self.name
 												))
-								
-											incentive_log.insert()
-					
-				if filtered_result[0]["holiday_flag"] == 1:
-					
-					slicer = 0    
-					employee = filtered_result[0]["employee"]
-					incentive_gross = frappe.db.get_value("Employee Grade", filtered_result[0]["grade"], "custom_incentive_gross_amount") 
-					incentive_ceiling = frappe.db.get_value("Employee Grade", filtered_result[0]["grade"], "custom_incentive_ceiling") 
-					# frappe.get_doc("Employee Grade", filtered_result[0]["grade"])
-					
-					# employee = filtered_result[0]["employee"]
-					identifier = frappe.db.get_value("Shift Type", filtered_result[0]["shift"], "identifier")
-					
-					salary_structure_assignment = frappe.db.get_list("Salary Structure Assignment", filters={"employee": employee}, order_by='creation desc')
-					salary_structure_assignment_doc = frappe.get_doc("Salary Structure Assignment", salary_structure_assignment[0]["name"])
-					salary_structure_doc = frappe.get_doc("Salary Structure", salary_structure_assignment_doc.salary_structure)
-					gross = salary_structure_doc.total_earning
-					
-					if gross <= incentive_gross:
-						
-						for result in filtered_result[slicer:]:
-							extra_work = extra_work + result["worked_hours"]
-						# except Exception as e:
-						#     msg = str(e)
-						
-						comp_matrix = frappe.get_doc("Compensation Matrix", identifier)
-						if extra_work:
-							for index, i in enumerate(comp_matrix.items):
-								
-								if i.get("from_hrs") <= extra_work <= i.get("to_hrs"):
-									additional_incentive = (gross/frappe.utils.date_diff(month_last_date, month_first_date ) + 1) * i.get("c_off_credit")
-								else:
-									if (index + 1) == len(comp_matrix.items):
-										if extra_work > i.get("to_hrs"):
-											additional_incentive = (gross/frappe.utils.date_diff(month_last_date, month_first_date ) + 1) * i.get("c_off_credit")
-											
-						if additional_incentive > 0:
-							
-							allocated_incentive_list = frappe.db.sql("""
-								SELECT
-									name
-								FROM
-									`tabAdditional Salary` la
-								WHERE
-									employee = %s
-									AND (la.payroll_date BETWEEN %s AND %s) 
-									AND la.salary_component = 'Incentives'
-									AND la.docstatus=1
-							""",(employee, month_first_date, month_last_date), as_dict=True)
-							
-							allocated_amount = 0
-							if allocated_incentive_list:
-								
-								allocated_incentive = frappe.get_doc("Additional Salary", allocated_incentive_list[0]["name"])
-								additional_incentive = additional_incentive + allocated_incentive.amount
-								
-								if additional_incentive <= incentive_ceiling:
-									allocated_incentive.cancel()
-									allocated_incentive.delete()
-									incentive_allocation = frappe.get_doc(dict(
-										doctype = "Additional Salary",
-										employee = employee,
-										payroll_date = month_last_date,
-										salary_component = "Incentives",
-										amount = additional_incentive,
-										custom_reprocess_reference=self.name
-										))
-									incentive_allocation.insert()
-									incentive_allocation.submit()
-								elif additional_incentive > incentive_ceiling:
-									allocated_incentive.cancel()
-									allocated_incentive.delete()
-									new_allocation = allocated_amount + (incentive_ceiling - allocated_amount)
-									extra = additional_incentive - incentive_ceiling
-									incentive_allocation = frappe.get_doc(dict(
-										doctype = "Additional Salary",
-										employee = employee,
-										payroll_date = month_last_date,
-										salary_component = "Incentives",
-										amount = new_allocation,
-										custom_reprocess_reference=self.name
-										))
-									incentive_allocation.insert()
-									incentive_allocation.submit()
-									incentive_log_list = frappe.db.sql("""
-										SELECT
-											name
-										FROM
-											`tabIncentive Log` la
-										WHERE
-											employee = %s
-											AND la.from_date = %s 
-											AND la.to_date = %s
-									""",(employee, month_first_date, month_last_date), as_dict=True)
-									if incentive_log_list:
-										# frappe.get_doc("Incentive Log", incentive_log_list[0])
-										frappe.db.set_value("Incentive Log", incentive_log_list[0], "incentive", additional_incentive - incentive_ceiling)
-									else:    
-										incentive_log = frappe.get_doc(dict(
-											doctype = "Incentive Log",
-											employee = employee,
-											from_date = month_first_date,
-											to_date = month_last_date,
-											leave_type = "Compensatory Off",
-											incentive = extra
-											))
-							
-										incentive_log.insert()
-							else:
-								if additional_incentive <= incentive_ceiling:
-									incentive_allocation = frappe.get_doc(dict(
-										doctype = "Additional Salary",
-										employee = employee,
-										payroll_date = month_last_date,
-										salary_component = "Incentives",
-										amount = additional_incentive,
-										custom_reprocess_reference=self.name
-										))
-									incentive_allocation.insert()
-									incentive_allocation.submit()
-									
-								elif additional_incentive > incentive_ceiling:
-									
-									new_allocation = allocated_amount + (incentive_ceiling - allocated_amount)
-									extra = additional_incentive - incentive_ceiling
-									incentive_allocation = frappe.get_doc(dict(
-										doctype = "Additional Salary",
-										employee = employee,
-										payroll_date = month_last_date,
-										salary_component = "Incentives",
-										leave_type = "Compensatory Off",
-										amount = new_allocation,
-										custom_reprocess_reference=self.name
-										))
-									incentive_allocation.insert()
-									incentive_allocation.submit()
-									incentive_log_list = frappe.db.sql("""
-										SELECT
-											name
-										FROM
-											`tabIncentive Log` la
-										WHERE
-											employee = %s
-											AND la.from_date = %s 
-											AND la.to_date = %s
-									""",(employee, month_first_date, month_last_date), as_dict=True)
-									if incentive_log_list:
-										# frappe.get_doc("Incentive Log", incentive_log_list[0])
-										frappe.db.set_value("Incentive Log", incentive_log_list[0], "incentive", additional_incentive - incentive_ceiling)
-									else:    
-										incentive_log = frappe.get_doc(dict(
-											doctype = "Incentive Log",
-											employee = employee,
-											from_date = month_first_date,
-											to_date = month_last_date,
-											leave_type = "Compensatory Off",
-											incentive = extra
-											))
-							
-										incentive_log.insert()         
+											incentive_allocation.insert()
+											incentive_allocation.submit()
+											incentive_log_list = frappe.db.sql("""
+												SELECT
+													name,
+													sum(incentive) cur
+												FROM
+													`tabIncentive Log` la
+												WHERE
+													employee = %s
+													AND la.from_date = %s 
+													AND la.to_date = %s
+											""",(employee, month_first_date, month_last_date), as_dict=True)
+											if incentive_log_list:
+												# frappe.get_doc("Incentive Log", incentive_log_list[0])
+												# cur = frappe.db.get_value("Incentive Log", incentive_log_list[0], "incentive")
+												# frappe.db.set_value("Incentive Log", incentive_log_list[0], "incentive", cur + (additional_incentive - incentive_ceiling))
+												
+												exist = frappe.db.get_all("Incentive Log", filters={"employee": employee, "from_date": month_first_date,
+																						"to_date": month_last_date, 
+																						"work_date": frappe.utils.add_to_date(t_date, days=-1)})
+												if not exist:
+													incentive_log = frappe.get_doc(dict(
+														doctype = "Incentive Log",
+														employee = employee,
+														from_date = month_first_date,
+														to_date = month_last_date,
+														leave_type = "Compensatory Off",
+														incentive = actual,
+														total_incentive = incentive_log_list[0].get("cur") + (additional_incentive - incentive_ceiling),
+														work_date = frappe.utils.add_to_date(t_date, days=-1),
+														status = status
+														))
+													
+													incentive_log.insert()
+													
+											else:
+												exist = frappe.db.get_all("Incentive Log", filters={"employee": employee, "from_date": month_first_date,
+																						"to_date": month_last_date, 
+																						"work_date": frappe.utils.add_to_date(t_date, days=-1)})
+												if not exist:
+													incentive_log = frappe.get_doc(dict(
+														doctype = "Incentive Log",
+														employee = employee,
+														from_date = month_first_date,
+														to_date = month_last_date,
+														leave_type = "Compensatory Off",
+														incentive = actual,
+														total_incentive = actual,
+														work_date = frappe.utils.add_to_date(t_date, days=-1),
+														status = status
+														))
+										
+													incentive_log.insert()
+				except Exception as e:
+					msg = str(e)        
 
 	
