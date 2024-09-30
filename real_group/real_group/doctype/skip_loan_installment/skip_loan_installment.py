@@ -8,38 +8,68 @@ from frappe.utils import add_to_date, get_first_day
 
 class SkipLoanInstallment(Document):
 	
-	def before_save(self):
-		if len(self.upcoming_installment) == 0:
-			frappe.throw("Kindly Select the installment to Skip!!")
+	# def before_save(self):
+	# 	if len(self.upcoming_installment) == 0:
+	# 		frappe.throw("Kindly Select the installment to Skip!!")
 
 
 	def on_submit(self):
+
 		
-		if self.workflow_state == "Approved" and len(self.upcoming_installment) > 0:
-			installments = self.upcoming_installment
-			filtered_installment = [item for item in installments if item.get('skip') == 1]
-			total_skip = len(filtered_installment)
-			all_adds = frappe.db.get_list("Additional Salary", 
+		
+		# if self.workflow_state == "Approved" and len(self.upcoming_installment) > 0:
+		
+		if self.workflow_state == "Approved":
+
+			self_ins = frappe.get_doc("DocType", "Skip Loan Installment")
+			for field in self_ins.fields:
+				if field.fieldname == 'loan_installment':
+					field.fieldtype = 'Data'
+					field.options = ''
+					break
+
+			self_ins.save()
+			frappe.db.commit()
+			
+			pending_ads = frappe.db.get_list("Skip Loan Installment", 
 				filters = [
-						["Additional Salary","ref_docname","=",self.active_loans],
-						["Additional Salary","ref_doctype","=","Employee Advance"],
-						["Additional Salary","payroll_date",">", self.posting_date]
-						], 
-				fields=['name', 'payroll_date'],
-				order_by = 'payroll_date desc',
-				limit = 1)
-			last_date = str(all_adds[0].get("payroll_date"))
-			# frappe.throw(str(last_date))
-			last_installment_date = last_date
-			# last_installment_date = installments[-1].get("installment_date")
-			for rec in filtered_installment:
-				if rec.amount == 0 or rec.amount < 0:
-					frappe.throw(f"Installment Amount can not be 0 in row no {rec.idx}")
-				ads = frappe.get_doc("Additional Salary", rec.additional_salary)
+					["Skip Loan Installment","workflow_state","in",["Pending at HOD","Pending at HR"]],
+					["Skip Loan Installment","active_loans","=",self.active_loans],
+					["Skip Loan Installment","name","!=",self.name]
+					],
+				fields=['name'],
+				)
+			if len(pending_ads) > 0:
+				self_ins = frappe.get_doc("DocType", "Skip Loan Installment")
+				for field in self_ins.fields:
+					if field.fieldname == 'loan_installment':
+						field.fieldtype = 'Link'
+						field.options = 'Additional Salary'
+						break
+
+				self_ins.save()
+				frappe.db.commit()
+				frappe.throw(f"Request is already under process for this ref No:{pending_ads[0].get('name')} \n Kindly Contact Your HR")
+			else:
+				all_adds = frappe.db.get_list("Additional Salary", 
+					filters = [
+							["Additional Salary","ref_docname","=",self.active_loans],
+							["Additional Salary","ref_doctype","=","Employee Advance"],
+							["Additional Salary","payroll_date",">", self.posting_date]
+							], 
+					fields=['name', 'payroll_date'],
+					order_by = 'payroll_date desc',
+					limit = 1)
+				last_date = str(all_adds[0].get("payroll_date"))
+				last_installment_date = last_date
+
+				ads = frappe.get_doc("Additional Salary", self.loan_installment)
 				ads.cancel()
+
 				next_installment = get_first_day(add_to_date(last_installment_date, months = 1))
+
 				additional_salary=frappe.get_doc(dict(
-					amount = rec.amount,
+					amount = ads.amount,
 					doctype = "Additional Salary",
 					employee = self.employee,
 					employee_name = self.employee_name,
@@ -49,12 +79,23 @@ class SkipLoanInstallment(Document):
 					salary_component = "Loan",
 					payroll_date = next_installment,
 					type = "Deduction",
-					custom_skip_from_document = rec.additional_salary
+					custom_skip_from_document = ads.name
 					)
 				)
 				additional_salary.save()
 				additional_salary.submit()
-				last_installment_date = next_installment
+
+				self_ins = frappe.get_doc("DocType", "Skip Loan Installment")
+				for field in self_ins.fields:
+					if field.fieldname == 'loan_installment':
+						field.fieldtype = 'Link'
+						field.options = 'Additional Salary'
+						break
+
+				self_ins.save()
+				frappe.db.commit()
+
+
 
 
 @frappe.whitelist()
@@ -85,12 +126,12 @@ def get_additional_salary(employee,ref_doctype,ref_docname,posting_date):
 @frappe.validate_and_sanitize_search_inputs
 def get_employee_advance(doctype, txt, searchfield, start, page_len, filters):
 	employee = filters.get("employee")
-	values = {"employee": employee, "docstatus": 1, "txt":txt}
+	values = {"employee": employee, "txt":txt}
 
 	return frappe.db.sql("""
 		SELECT name
 		FROM `tabEmployee Advance`
-		WHERE docstatus = 1 
+		WHERE docstatus = 1
 			AND employee = %(employee)s
-			AND return_amount != advance_amount
+			AND return_amount != paid_amount
 	""", values=values, as_dict = 0)

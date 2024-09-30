@@ -932,24 +932,6 @@ def create_salary_slip(doc, method):
 			frappe.log_error(title="Salary slip", message=doc.as_json())			
 			cur = con.cursor()
 
-			bonus_tran = ""
-			if doc.custom_bonus_amount != 0:
-				series = get_next_series_no(doc.doctype, doc.company, doc.posting_date, cur)
-				# frappe.throw(str(series))
-				frappe.log_error("next Series",str(series))
-				frappe.db.set_value("Salary Slip", doc.name, "custom_erp_vrno", series)
-				
-				#Get BONUS TRANSACION Insert SQL
-				bonus_tran_query = get_bonus_transaction_insert_query(BONUS_TRANSACTION, 'RIPLRR.EMP_BONUS_TRAN', doc.name, series)
-				bonus_tran = bonus_tran_query.get("sql_query")
-				frappe.log_error("Bonus Transaction Insert" , str(bonus_tran))
-				# frappe.throw(str(bonus_tran))
-
-			#Get Attend Bal Insert SQL
-			attend_bal_queries = get_attendance_balance_insert_query(ATTENDANCE_BALANCE, 'RIPLRR.EMP_ATTEND_BAL', doc.name)
-			attend_sql_list = attend_bal_queries.get("sql_queries")
-			# frappe.throw(str(attend_sql_list))
-
 			#Get Salary Slip Insert SQL
 			sql_dict = get_salary_slip_insert_query(SALARY_SLIP_SALARY_TRANS, 'RIPLRR.EMP_SAL_TRAN', doc.name, doc.salary_structure)
 			
@@ -977,14 +959,32 @@ def create_salary_slip(doc, method):
 					if doc.custom_bonus_amount != 0:
 						# series = get_next_series_no(doc.doctype, doc.company, doc.posting_date, cur)
 						# frappe.log_error("next Series",str(series))
-						series = frappe.db.get_value("Salary Slip", doc.amended_from, "custom_erp_vrno")
+						check_acc_vrno = f"""
+											SELECT VRNO FROM RIPLRR.EMP_BONUS_TRAN 
+											WHERE EMP_CODE = '{doc.employee}' 
+												AND FROM_DATE = TO_DATE('{doc.start_date} 00:00:00', 'YYYY-MM-DD HH24:MI:SS') 
+												AND TO_DATE = TO_DATE('{doc.end_date} 00:00:00', 'YYYY-MM-DD HH24:MI:SS') 
+												AND ACC_VRNO IS NULL
+											"""
+						vrno_sql = cur.execute(check_acc_vrno)
+						vrno = cur.fetchall()
+						series = ""
+						if vrno:
+							# frappe.throw(str(vrno[0][0]))
+							series = vrno[0][0]
+						else:
+							frappe.throw("Please remove bonus account posting from ERP")
+						
+						# frappe.throw(f"Series - {str(series)}")
+
 						bonus_tran_update_dict = get_bonus_transaction_update_query(BONUS_TRANSACTION, 'RIPLRR.EMP_BONUS_TRAN', doc.name, series)
 						bonus_tran_update_sql = bonus_tran_update_dict.get("sql_query")
-						frappe.log_error("attend bal sql update list", bonus_tran_update_sql)
+						frappe.log_error("bonus_tran_update_sql", bonus_tran_update_sql)
+						
 						# frappe.throw(str(bonus_tran_update_sql))
 						if bonus_tran_update_sql != None:
 							cur.execute(bonus_tran_update_sql)
-					
+							frappe.db.set_value("Salary Slip", doc.name, "custom_erp_vrno", series)
 					
 					attend_bal_sql_update_dict = get_attendance_balance_update_query(ATTENDANCE_BALANCE, 'RIPLRR.EMP_ATTEND_BAL', doc.name)
 					attend_bal_sql_update_list = attend_bal_sql_update_dict.get("sql_queries")
@@ -1002,6 +1002,24 @@ def create_salary_slip(doc, method):
 
 
 			else: #else direct insert new salary slip
+
+				bonus_tran = ""
+				if doc.custom_bonus_amount != 0:
+					series = get_next_series_no(doc.doctype, doc.company, doc.posting_date, cur)
+					# frappe.throw(str(series))
+					frappe.log_error("next Series",str(series))
+					frappe.db.set_value("Salary Slip", doc.name, "custom_erp_vrno", series)
+					
+					#Get BONUS TRANSACION Insert SQL
+					bonus_tran_query = get_bonus_transaction_insert_query(BONUS_TRANSACTION, 'RIPLRR.EMP_BONUS_TRAN', doc.name, series)
+					bonus_tran = bonus_tran_query.get("sql_query")
+					frappe.log_error("Bonus Transaction Insert" , str(bonus_tran))
+					# frappe.throw(str(bonus_tran))
+
+				#Get Attend Bal Insert SQL
+				attend_bal_queries = get_attendance_balance_insert_query(ATTENDANCE_BALANCE, 'RIPLRR.EMP_ATTEND_BAL', doc.name)
+				attend_sql_list = attend_bal_queries.get("sql_queries")
+				# frappe.throw(str(attend_sql_list))
 				
 				if bonus_tran != "":
 					cur.execute(bonus_tran)
@@ -1632,7 +1650,7 @@ def get_bonus_transaction_insert_query(map, table_name, docname, series):
 			ss.start_date AS from_date,
 			ss.end_date AS to_date,
 			ss.custom_bonus_rate AS bonus_cal_rate,
-			ss.custom_bonus_amount AS bonus_amt,
+			ROUND(ss.custom_bonus_amount) AS bonus_amt,
 			%s AS vrno,
 			ss.posting_date AS vrdate,
 			ss.payment_days AS paydays,
@@ -1706,7 +1724,7 @@ def get_bonus_transaction_update_query(map, table_name, docname, series):
 			ss.start_date AS from_date,
 			ss.end_date AS to_date,
 			ss.custom_bonus_rate AS bonus_cal_rate,
-			ss.custom_bonus_amount AS bonus_amt,
+			ROUND(ss.custom_bonus_amount) AS bonus_amt,
 			%s AS vrno,
 			ss.posting_date AS vrdate,
 			ss.payment_days AS paydays,
@@ -1731,7 +1749,8 @@ def get_bonus_transaction_update_query(map, table_name, docname, series):
 	for key, value in map.items():
 		if value:
 			if value == 'emp_code':
-				conditions.append(f"{key} = '{bonus_tran[value]}' AND ENTITY_CODE = '{bonus_tran['entity_code']}' AND VRNO = '{bonus_tran['vrno']}'")
+				# conditions.append(f"{key} = '{bonus_tran[value]}' AND ENTITY_CODE = '{bonus_tran['entity_code']}' AND VRNO = '{bonus_tran['vrno']}'")
+				conditions.append(f"{key} = '{bonus_tran[value]}' AND ENTITY_CODE = '{bonus_tran['entity_code']}' AND FROM_DATE = TO_DATE('{bonus_tran['from_date']} 00:00:00', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE = TO_DATE('{bonus_tran['to_date']} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
 			else:
 				value_to_insert = bonus_tran[value]
 				if value_to_insert is None:

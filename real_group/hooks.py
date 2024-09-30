@@ -116,7 +116,8 @@ jinja = {
 override_doctype_class = {
 	"User": "real_group.overrides.CustomUser",
     "Employee": "real_group.overrides.CustomEmployee",
-    "Employee Checkin": "real_group.overrides.CustomEmployeeCheckin"
+    "Employee Checkin": "real_group.overrides.CustomEmployeeCheckin",
+    "Compensatory Leave Request": "real_group.overrides.CustomCompensatoryLeaveRequest"
 }
 
 # Document Events
@@ -132,15 +133,15 @@ override_doctype_class = {
 # }
 
 doc_events = {
-    "Employee": {
-        "after_insert": ["real_group.real_group.integration.create_employee"],
-        "on_update": ["real_group.real_group.integration.update_employee"]
-    },
+    # "Employee": {
+    #     "after_insert": ["real_group.real_group.integration.create_employee"],
+    #     "on_update": ["real_group.real_group.integration.update_employee"]
+    # },
 
-    "User": {
-        "after_insert": ["real_group.real_group.integration.create_user"],
-        "on_update": ["real_group.real_group.integration.update_user"]
-    },
+    # "User": {
+    #     "after_insert": ["real_group.real_group.integration.create_user"],
+    #     "on_update": ["real_group.real_group.integration.update_user"]
+    # },
 
     # "Salary Structure Assignment": {
     #     "on_submit": ["real_group.real_group.integration.create_salary_structure_assignment"]
@@ -162,9 +163,9 @@ scheduler_events = {
         "5 * * * *": [
             "real_group.real_group.attendance.process_attendance_log"
         ],
-        "* * * * *": [
-            "real_group.real_group.attendance.pull_data_from_postgre"
-        ],
+        # "* * * * *": [
+        #     "real_group.real_group.attendance.pull_data_from_postgre"
+        # ],
         "0 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_attendance_summary"
         ],
@@ -174,6 +175,9 @@ scheduler_events = {
         ],
         "59 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_single_check_in_applicable_grade"
+        ],
+        "01 0 * * *": [
+            "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
         ]    
     }
 }
@@ -284,3 +288,5 @@ fixtures = [
     {"dt": "Workflow"},
     {"dt": "Web Form", "filters": [["module", "=", "Real Group"]]}
 ]
+
+

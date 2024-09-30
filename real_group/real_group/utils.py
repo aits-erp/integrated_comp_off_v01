@@ -161,3 +161,12 @@ def existing_loan_summary(today, employee):
         </table> '''
 
     return html
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_employees(doctype, txt, searchfield, start, page_len, filters):
+	employee = filters.get("employee")
+	values = {"txt":txt}
+
+	return frappe.db.sql("""SELECT name, employee_name FROM `tabEmployee` WHERE status = 'Active' """, values=values, as_dict = 0)
