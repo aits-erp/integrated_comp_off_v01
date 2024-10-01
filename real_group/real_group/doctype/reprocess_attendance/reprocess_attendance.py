@@ -59,13 +59,13 @@ class ReprocessAttendance(Document):
 				SELECT name FROM `tabSalary Slip` WHERE %s = start_date AND employee = %s AND docstatus = 1
 				""", (fr_date, self.employee), as_dict = 1)
 			if salary_slip:
-				frappe.throw(f"Salary Slip Found! (\n Month -> {self.start_date} \n Employee -> {employee} \n Salary Slip -> {str(salary_slip)}")
+				frappe.throw(f"Salary Slip Found! (\n Month -> {self.month} \n Employee -> {employee} \n Salary Slip -> {str(salary_slip)}")
 		else:
 			salary_slip = frappe.db.sql("""
 				SELECT name FROM `tabSalary Slip` WHERE %s = start_date AND docstatus = 1
 				""", (fr_date), as_dict = 1)
 			if salary_slip:
-				frappe.throw(f"Salary Slip Found! (\n Month -> {self.start_date} \n Salary Slip -> {str(salary_slip)}")
+				frappe.throw(f"Salary Slip Found! (\n Month -> {self.month} \n Salary Slip -> {str(salary_slip)}")
 		
 
 		self.delete_attendance(fr_date, t_date)
