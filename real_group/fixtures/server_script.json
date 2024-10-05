@@ -28,7 +28,7 @@
   "doctype_event": "Before Save",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2024-08-20 13:51:27.840642",
+  "modified": "2024-10-05 15:03:51.909210",
   "module": "Real Group",
   "name": "Set Employee Attendance ID",
   "rate_limit_count": 5,
@@ -598,13 +598,13 @@
   "doctype_event": "Before Insert",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2024-08-20 14:44:47.402921",
+  "modified": "2024-10-05 17:11:33.360350",
   "module": "Real Group",
   "name": "create_employee_onboarding_form",
   "rate_limit_count": 5,
   "rate_limit_seconds": 86400,
   "reference_doctype": null,
-  "script": "job_applicant = frappe.form_dict.get(\"job_applicant\")\napplicant_name = frappe.form_dict.get(\"applicant_name\")\n\nencryption_key = frappe.utils.generate_hash()\nfrappe.db.set_value(\"Appointment Letter\", job_applicant, \"custom_encryption_key\", encryption_key)\n\nexisting_forms = frappe.db.get_all(\"Employee Onboarding Form\", filters={\"encryption_key\": encryption_key})\n\n# for f in existing_forms:\n#     d = frappe.get_doc(\"Employee Onboarding Form\", f.name)\n#     d.delete_doc()\n\n    # eof = frappe.new_doc(\"Employee Onboarding Form\")\n    # eof.doctype = \"Employee Onboarding Form\"\n    # eof.first_name = applicant_name.split()[0]\n    # eof.last_name = applicant_name.split()[-1]\n    # eof.personal_email = job_applicant\n    # eof.insert(ignore_mandatory=True)\n    # eof_name = eof.name\n    \nlink = f\"{frappe.utils.get_url()}/onboarding-form/new?encryption_key={encryption_key}\"\n\nmessage = f\"\"\"\n<p>Dear { applicant_name },</p>\n<br>\n<p>Welcome to the Real Group team! We are excited to have you on board and look forward to working together.</p>\n<br>\n<p>To help you get started smoothly, please find the attached employee onboarding form. Kindly fill out the form and return it to us at your earliest convenience.</p>\n<br>\n<p>Click Here to fill up <a href=\"{ link }\">Employee Onboarding Form</a></p>\n<br>\n<p>If you have any questions or need assistance while filling out the form, feel free to reach out to us.</p>\n\n<br><br>\nBest regards,\nHR Team\n\"\"\"\n\nfrappe.sendmail(\n\trecipients=job_applicant,\n\tsubject= f\"{applicant_name} - Employee Onboarding Form\",\n\tcontent=message,\n\theader=\"&nbsp;\"\n\t)\n\t\t\nfrappe.response[\"message\"] = {\n    \"status\": True,\n    \"encryption_key\": encryption_key\n}",
+  "script": "job_applicant = frappe.form_dict.get(\"job_applicant\")\napplicant_name = frappe.form_dict.get(\"applicant_name\")\n\nencryption_key = frappe.utils.generate_hash()\nfrappe.db.set_value(\"Appointment Letter\", job_applicant, \"custom_encryption_key\", encryption_key)\n\nexisting_forms = frappe.db.get_all(\"Employee Onboarding Form\", filters={\"encryption_key\": encryption_key})\n\n# for f in existing_forms:\n#     d = frappe.get_doc(\"Employee Onboarding Form\", f.name)\n#     d.delete_doc()\n\n    # eof = frappe.new_doc(\"Employee Onboarding Form\")\n    # eof.doctype = \"Employee Onboarding Form\"\n    # eof.first_name = applicant_name.split()[0]\n    # eof.last_name = applicant_name.split()[-1]\n    # eof.personal_email = job_applicant\n    # eof.insert(ignore_mandatory=True)\n    # eof_name = eof.name\n    \nlink = f\"{frappe.utils.get_url()}/onboarding-form/new?encryption_key={encryption_key}\"\n\nmessage = f\"\"\"\n<p>Dear { applicant_name },</p>\n<br>\n<p>Welcome to the Real Group team! We are excited to have you on board and look forward to working together.</p>\n<br>\n<p>To help you get started smoothly, please find the attached employee onboarding form. Kindly fill out the form and return it to us at your earliest convenience.</p>\n<br>\n<p>Click Here to fill up <a href=\"{ link }\">Employee Onboarding Form</a></p>\n<br>\n<p>If you have any questions or need assistance while filling out the form, feel free to reach out to us.</p>\n<br>\n<p>Send Your Below Digital proof on Email <a href=\"mailto:hr.ripl@realgroup.org\">hr.ripl@realgroup.org</a>:</p>\n<ul>\n\t<li>PAN Card</li>\n\t<li>Aadhar Card</li>\n\t<li>3 Month Bank Statement</li>\n\t<li>Qulification Certificates</li>\n\t<li>Residiential Address Proof</li>\n\t<li>Passport Size Photo</li>\n\t<li>Work Experience Certificate</li>\n</ul>\n\n<br><br>\nBest regards,\n<br>HR Team\n\"\"\"\n\nfrappe.sendmail(\n\trecipients=job_applicant,\n\tsubject= f\"{applicant_name} - Employee Onboarding Form\",\n\tcontent=message,\n\theader=\"&nbsp;\"\n\t)\n\t\t\nfrappe.response[\"message\"] = {\n    \"status\": True,\n    \"encryption_key\": encryption_key\n}",
   "script_type": "API"
  },
  {
@@ -617,13 +617,13 @@
   "doctype_event": "Before Save",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2024-08-20 15:20:38.915298",
+  "modified": "2024-10-05 16:46:26.814859",
   "module": "Real Group",
   "name": "Employee Onboarding Form",
   "rate_limit_count": 5,
   "rate_limit_seconds": 86400,
   "reference_doctype": "Employee Onboarding Form",
-  "script": "doc.full_name = f\"{doc.first_name} {doc.middle_name} {doc.last_name}\"",
+  "script": "doc.full_name = f\"{doc.first_name} {doc.middle_name} {doc.last_name}\"\n\n\nallocation_percentage = 0\n\nfor n in doc.nominee:\n    allocation_percentage = allocation_percentage + n.allocation_percentage\n    \nif allocation_percentage != 100:\n    frappe.throw(\"Incorrect Nominee Allocation Percentage, It shoud be 100% only.\")",
   "script_type": "DocType Event"
  },
  {
@@ -1062,5 +1062,24 @@
   "reference_doctype": null,
   "script": "employee_list = frappe.db.sql(f\"\"\"\n    SELECT\n        DISTINCT e.name, e.employee_name\n    FROM\n        `tabEmployee` e\n    WHERE\n        e.status = 'Active'\n\"\"\", as_dict=True)\n\nfor emp in employee_list:\n    comp_leave_ledger = frappe.db.sql(\"\"\"\n        SELECT\n            cll.employee,\n            cll.employee_name emp_name,\n            cll.branch,\n            cll.company,\n            cll.division,\n            cll.department,\n            cll.leave_count credit,\n            cll.leave_from,\n            cll.leave_expiry expiry_date,\n            DATE_SUB(cll.leave_from, INTERVAL 1 DAY) work_date,\n            cll.status\n        FROM\n            `tabCompensation Leave Ledger` cll\n        WHERE\n            cll.employee = %s\n            AND cll.leave_expiry = %s\n        ORDER BY\n            cll.creation ASC\n    \"\"\", (emp[\"name\"], frappe.utils.today()), as_dict=True)\n    \n    for i in comp_leave_ledger:\n        to_delete = frappe.db.get_all(\"Leave Allocation\", filters = {\"employee\": i[\"employee\"], \"from_date\": i[\"leave_from\"], \"docstatus\": 1})\n        \n        for d in to_delete:\n            leave_allocation = frappe.get_doc(\"Leave Allocation\", d[\"name\"])\n            leave_allocation.cancel()\n            leave_allocation.delete()",
   "script_type": "Scheduler Event"
+ },
+ {
+  "allow_guest": 0,
+  "api_method": null,
+  "cron_format": null,
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Server Script",
+  "doctype_event": "Before Validate",
+  "enable_rate_limit": 0,
+  "event_frequency": "All",
+  "modified": "2024-10-05 16:58:47.854788",
+  "module": "Real Group",
+  "name": "Employee Validations",
+  "rate_limit_count": 5,
+  "rate_limit_seconds": 86400,
+  "reference_doctype": "Employee",
+  "script": "if ' ' in doc.first_name:\n    frappe.throw(\"Spaces not allowed in First Name\")\n    \n    \n#Validate Nominee\n\nallocation_percentage = 0\n\nfor n in doc.custom_nominee:\n    allocation_percentage = allocation_percentage + n.allocation_percentage\n    \nif allocation_percentage != 100:\n    frappe.throw(\"Incorrect Nominee Allocation Percentage, It shoud be 100% only.\")\n",
+  "script_type": "DocType Event"
  }
 ]

@@ -81,7 +81,9 @@
   "educational_qualification_section",
   "education",
   "previous_work_experience_section",
-  "external_work_history"
+  "external_work_history",
+  "nominee_tab",
+  "nominee"
  ],
  "fields": [
   {
@@ -499,11 +501,23 @@
   {
    "fieldname": "column_break_gxww",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "nominee_tab",
+   "fieldtype": "Tab Break",
+   "label": "Nominee"
+  },
+  {
+   "fieldname": "nominee",
+   "fieldtype": "Table",
+   "label": "Nominee",
+   "options": "Employee Nominee",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-20 15:19:31.356033",
+ "modified": "2024-10-05 16:48:40.174395",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Employee Onboarding Form",
