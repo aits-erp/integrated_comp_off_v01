@@ -1,9 +1,10 @@
 import frappe
+from frappe import _
 from frappe.core.doctype.user.user import User
 from erpnext.setup.doctype.employee.employee import Employee
 from hrms.hr.doctype.employee_checkin.employee_checkin import EmployeeCheckin, validate_active_employee
 from hrms.hr.doctype.leave_application.leave_application import get_approved_leaves_for_period, get_leave_balance_on
-from frappe.utils import add_days, date_diff, flt, formatdate, get_link_to_form, getdate
+from frappe.utils import add_days, date_diff, flt, formatdate, get_link_to_form, getdate, cint, get_url
 from hrms.hr.doctype.compensatory_leave_request.compensatory_leave_request import CompensatoryLeaveRequest
 from hrms.hr.utils import (
 	create_additional_leave_ledger_entry,
@@ -13,6 +14,7 @@ from hrms.hr.utils import (
 	validate_dates,
 	validate_overlap,
 )
+
 
 class CustomUser(User):
 
@@ -147,3 +149,13 @@ def send_login_link(email: str):
 		args={"link": link, "minutes": expiry, "app_name": app_name},
 		now=True,
 	)
+
+def _generate_temporary_login_link(email: str, expiry: int):
+	assert isinstance(email, str)
+
+	if not frappe.db.exists("User", email):
+		frappe.throw(_("User with email address {0} does not exist").format(email), frappe.DoesNotExistError)
+	key = frappe.generate_hash()
+	frappe.cache.set_value(f"one_time_login_key:{key}", email, expires_in_sec=expiry * 60)
+
+	return get_url(f"/api/method/frappe.www.login.login_via_key?key={key}")

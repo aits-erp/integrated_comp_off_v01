@@ -1175,35 +1175,43 @@ def cancel_salary_slip(doc, method):
 def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure):
 	salary_slips = frappe.db.sql("""
 		SELECT
-		employee AS emp_code,
-		ss.start_date as from_date,
-		EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
-		UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month,
-		ss.modified,
-		sd.parentfield,
-		CASE 
-			WHEN sd.parentfield = 'earnings' THEN CONCAT('E', sd.idx)
-			WHEN sd.parentfield = 'deductions' THEN CONCAT('D', sd.idx)
-			ELSE sd.idx
-		END AS afno,
-		(SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1) AS afcode,
-		LEFT(UPPER(sd.salary_component), 15) AS afhead,
-		sd.custom_erp_rate AS afrate,
-		'rate_identifier' AS afratei,
-		(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
-		(SELECT erp_code FROM `tabDivision` WHERE name = ss.custom_division  LIMIT 1) as custom_division,
-		(SELECT erp_code FROM `tabEmployee Category` WHERE name = ss.custom_employee_category LIMIT 1) as custom_emp_category,
-		(SELECT erp_code FROM `tabPayroll Series` WHERE name = ss.custom_payroll_series LIMIT 1) as custom_payroll_series,
-		(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
-		IFNULL((SELECT ss_sd.amount FROM `tabSalary Detail` as ss_sd WHERE ss_sd.parent = ss.name AND (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = ss_sd.salary_component LIMIT 1) = (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1)), 0) AS afield,
-		IFNULL((SELECT ss_sd.amount FROM `tabSalary Detail` as ss_sd WHERE ss_sd.parent = ss.name AND (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = ss_sd.salary_component LIMIT 1) = (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1)), 0) AS actuals
-	FROM
-		`tabSalary Slip` as ss
-	LEFT JOIN
-		`tabSalary Detail` as sd ON sd.parent = ss.salary_structure
-	WHERE
-		ss.name = %s
-	""", (docname), as_dict =1)
+			employee AS emp_code,
+			ss.start_date AS from_date,
+			EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
+			UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month,
+			ss.modified,
+			sd.parentfield,
+			CASE 
+				WHEN sd.parentfield = 'earnings' THEN CONCAT('E', sd.idx)
+				WHEN sd.parentfield = 'deductions' THEN CONCAT('D', sd.idx)
+				ELSE sd.idx
+			END AS afno,
+			(SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1) AS afcode,
+			LEFT(UPPER(sd.salary_component), 15) AS afhead,
+			sd.custom_erp_rate AS afrate,
+			'rate_identifier' AS afratei,
+			(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company LIMIT 1) AS entity_code,
+			(SELECT erp_code FROM `tabDivision` WHERE name = ss.custom_division LIMIT 1) AS custom_division,
+			(SELECT erp_code FROM `tabEmployee Category` WHERE name = ss.custom_employee_category LIMIT 1) AS custom_emp_category,
+			(SELECT erp_code FROM `tabPayroll Series` WHERE name = ss.custom_payroll_series LIMIT 1) AS custom_payroll_series,
+			(SELECT username FROM `tabUser` WHERE name = ss.owner) AS user_code,
+			IFNULL(SUM(ss_sd.amount), 0) AS afield,
+			IFNULL(SUM(ss_sd.amount), 0) AS actuals
+		FROM
+			`tabSalary Slip` AS ss
+		LEFT JOIN
+			`tabSalary Detail` AS sd ON sd.parent = ss.salary_structure
+		LEFT JOIN
+			`tabSalary Detail` AS ss_sd ON ss_sd.parent = ss.name AND (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = ss_sd.salary_component LIMIT 1) = (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1)
+		WHERE
+			ss.name = %s
+		GROUP BY
+			employee, ss.start_date, custom_calendar_year, custom_month, ss.modified, sd.parentfield, afno, afcode, afhead
+	""", (docname), as_dict=1)
+
+
+	# frappe.log_error("Wait", salary_slips)
+	# frappe.throw("Wait")
 
 	if not salary_slips:
 		return None
@@ -1259,36 +1267,42 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure):
 	salary_slips = frappe.db.sql("""
 		SELECT
-		employee AS emp_code,
-		ss.start_date as from_date,
-		EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
-		UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month,
-		ss.modified,
-		sd.parentfield,
-		CASE 
-			WHEN sd.parentfield = 'earnings' THEN CONCAT('E', sd.idx)
-			WHEN sd.parentfield = 'deductions' THEN CONCAT('D', sd.idx)
-			ELSE sd.idx
-		END AS afno,
-		(SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1) AS afcode,
-		LEFT(UPPER(sd.salary_component), 15) AS afhead,
-		sd.custom_erp_rate AS afrate,
-		'rate_identifier' AS afratei,
-		(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
-		(SELECT erp_code FROM `tabDivision` WHERE name = ss.custom_division  LIMIT 1) as custom_division,
-		(SELECT erp_code FROM `tabEmployee Category` WHERE name = ss.custom_employee_category LIMIT 1) as custom_emp_category,
-		(SELECT erp_code FROM `tabPayroll Series` WHERE name = ss.custom_payroll_series LIMIT 1) as custom_payroll_series,
-		(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
-		IFNULL((SELECT ss_sd.amount FROM `tabSalary Detail` as ss_sd WHERE ss_sd.parent = ss.name AND (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = ss_sd.salary_component LIMIT 1) = (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1)), 0) AS afield,
-		IFNULL((SELECT ss_sd.amount FROM `tabSalary Detail` as ss_sd WHERE ss_sd.parent = ss.name AND (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = ss_sd.salary_component LIMIT 1) = (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1)), 0) AS actuals
-	FROM
-		`tabSalary Slip` as ss
-	LEFT JOIN
-		`tabSalary Detail` as sd ON sd.parent = ss.salary_structure
-	WHERE
-		ss.name = %s
-	""", (docname), as_dict =1)
+			employee AS emp_code,
+			ss.start_date AS from_date,
+			EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
+			UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month,
+			ss.modified,
+			sd.parentfield,
+			CASE 
+				WHEN sd.parentfield = 'earnings' THEN CONCAT('E', sd.idx)
+				WHEN sd.parentfield = 'deductions' THEN CONCAT('D', sd.idx)
+				ELSE sd.idx
+			END AS afno,
+			(SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1) AS afcode,
+			LEFT(UPPER(sd.salary_component), 15) AS afhead,
+			sd.custom_erp_rate AS afrate,
+			'rate_identifier' AS afratei,
+			(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company LIMIT 1) AS entity_code,
+			(SELECT erp_code FROM `tabDivision` WHERE name = ss.custom_division LIMIT 1) AS custom_division,
+			(SELECT erp_code FROM `tabEmployee Category` WHERE name = ss.custom_employee_category LIMIT 1) AS custom_emp_category,
+			(SELECT erp_code FROM `tabPayroll Series` WHERE name = ss.custom_payroll_series LIMIT 1) AS custom_payroll_series,
+			(SELECT username FROM `tabUser` WHERE name = ss.owner) AS user_code,
+			IFNULL(SUM(ss_sd.amount), 0) AS afield,
+			IFNULL(SUM(ss_sd.amount), 0) AS actuals
+		FROM
+			`tabSalary Slip` AS ss
+		LEFT JOIN
+			`tabSalary Detail` AS sd ON sd.parent = ss.salary_structure
+		LEFT JOIN
+			`tabSalary Detail` AS ss_sd ON ss_sd.parent = ss.name AND (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = ss_sd.salary_component LIMIT 1) = (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1)
+		WHERE
+			ss.name = %s
+		GROUP BY
+			employee, ss.start_date, custom_calendar_year, custom_month, ss.modified, sd.parentfield, afno, afcode, afhead
+	""", (docname), as_dict=1)
 
+	# frappe.log_error("Wait", salary_slips)
+	# frappe.throw("salary_slips")
 	
 
 	if not salary_slips:

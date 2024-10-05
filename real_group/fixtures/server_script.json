@@ -1016,13 +1016,13 @@
   "doctype_event": "Before Insert",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2024-09-30 11:04:10.432484",
+  "modified": "2024-10-03 21:02:07.492596",
   "module": "Real Group",
   "name": "pwa_get_salary_details",
   "rate_limit_count": 5,
   "rate_limit_seconds": 86400,
   "reference_doctype": null,
-  "script": "employee = frappe.form_dict.get(\"employee\")\n# employee = \"12405\"\ntoday = frappe.utils.today()\n\nrecords = frappe.db.get_list('Salary Slip',\n    filters=[\n        [\"Salary Slip\",\"start_date\",\"<\",today],\n        [\"Salary Slip\",\"docstatus\",\"=\",\"1\"],\n        [\"Salary Slip\",\"employee\",\"=\", employee]\n    ],\n    fields=['start_date', 'total_working_days', 'payment_days'],\n    order_by='start_date desc',\n    page_length=3\n)\n\nfor r in records:\n    month = frappe.utils.format_datetime(r.get('start_date'), 'MMMM')\n    r[\"month\"] = month\n    \nresult=[\n    {\"start_date\": \"2024-09-11\", \"payment_days\": 10, \"total_working_days\": 10, \"month\": \"September\"},\n    {\"start_date\": \"2024-09-11\", \"payment_days\": 10, \"total_working_days\": 10, \"month\": \"October\"},\n    {\"start_date\": \"2024-09-11\", \"payment_days\": 10, \"total_working_days\": 10, \"month\": \"November\"}\n    ]\n    \nmsg = []\nif len(records) > 0:\n    msg = records\nelse:\n    msg = []\n    \nfrappe.response[\"message\"] = msg\n\n\n\n\n\n",
+  "script": "employee = frappe.form_dict.get(\"employee\")\n# employee = \"12405\"\ntoday = frappe.utils.today()\n\nrecords = frappe.db.get_list('Salary Slip',\n    filters=[\n        [\"Salary Slip\",\"start_date\",\"<\",today],\n        [\"Salary Slip\",\"docstatus\",\"=\",\"1\"],\n        [\"Salary Slip\",\"employee\",\"=\", employee]\n    ],\n    fields=['start_date', 'total_working_days', 'payment_days'],\n    order_by='start_date desc',\n    page_length=3\n)\n\nfor r in records:\n    month = frappe.utils.format_datetime(r.get('start_date'), 'MMM-YYYY')\n    r[\"month\"] = month\n    \nresult=[\n    {\"start_date\": \"2024-09-11\", \"payment_days\": 10, \"total_working_days\": 10, \"month\": \"September\"},\n    {\"start_date\": \"2024-09-11\", \"payment_days\": 10, \"total_working_days\": 10, \"month\": \"October\"},\n    {\"start_date\": \"2024-09-11\", \"payment_days\": 10, \"total_working_days\": 10, \"month\": \"November\"}\n    ]\n    \nmsg = []\nif len(records) > 0:\n    msg = records\nelse:\n    msg = []\n    \nfrappe.response[\"message\"] = msg\n\n\n\n\n\n",
   "script_type": "API"
  },
  {

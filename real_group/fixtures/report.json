@@ -45,7 +45,8 @@
     "parenttype": "Report",
     "role": "Employee"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -93,7 +94,8 @@
     "parenttype": "Report",
     "role": "Employee"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -106,7 +108,7 @@
   "javascript": "frappe.query_reports[\"Custom Salary Register\"] = {\n    filters: [\n        {\n            \"fieldname\": \"company\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Company\",\n            \"label\": \"Company\",\n            \"on_change\": function() {\n                frappe.query_report.set_filter_value('employee', null);\n            }\n        },\n        {\n            \"fieldname\": \"branch\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Branch\",\n            \"label\": \"Branch\"\n        },\n        {\n            \"fieldname\": \"division\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Division\",\n            \"label\": \"Division\"\n        },\n        {\n            \"fieldname\": \"department\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Department\",\n            \"label\": \"Department\"\n        },\n        {\n            \"fieldname\": \"employee\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Employee\",\n            \"label\": \"Employee\",\n            \"get_query\": function() {\n                var company = frappe.query_report.get_filter_value(\"company\");\n                if (!company) {\n                    frappe.throw(__(\"Please select a company first\"));\n                }\n                return {\n                    filters: [\n                        [\"Employee\", \"company\", \"=\", company]\n                    ]\n                };\n            }\n        },\n        {\n            \"fieldname\": \"month\",\n            \"fieldtype\": \"Select\",\n            \"label\": \"Month\",\n            \"options\": [\"Jan\", \"Feb\", \"Mar\", \"Apr\",\"May\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"],\n            \"reqd\": 1\n        },\n        {\n            \"fieldname\": \"year\",\n            \"fieldtype\": \"Select\",\n            \"label\": \"Year\",\n            \"options\": [\"2023\", \"2024\"],\n            \"reqd\": 1\n        }\n    ]\n}\n",
   "json": null,
   "letter_head": null,
-  "modified": "2024-10-01 13:26:57.771741",
+  "modified": "2024-10-03 14:48:38.583135",
   "module": "Real Group",
   "name": "Custom Salary Register",
   "prepared_report": 0,
@@ -114,7 +116,7 @@
   "ref_doctype": "Salary Slip",
   "reference_report": null,
   "report_name": "Custom Salary Register",
-  "report_script": "year = filters.get(\"year\")\nmonth = filters.get(\"month\")\nemployee = filters.get(\"employee\")\ncompany = filters.get(\"company\")\nbranch = filters.get(\"branch\")\ndivision = filters.get(\"division\")\ndepartment = filters.get(\"department\")\n\nconditions = \"\"\nemp_condition = \"\"\ncompany_condition = \"\"\nbranch_condition = \"\"\ndivision_condition = \"\"\ndepartment_condition = \"\"\n\nif employee:\n    emp_condition = f\" and e.name = '{employee}'\"\nif company:\n    company_condition = f\" and e.company = '{company}'\"\nif branch:\n    branch_condition = f\" and e.branch = '{branch}'\"\nif division:\n    division_condition = f\" and e.custom_division = '{division}'\"\nif department:\n    department_condition = f\" and e.department = '{department}'\"\n\nconditions = f\"{emp_condition} {company_condition} {branch_condition} {division_condition} {department_condition}\"\n\ncolumns = [\n    {\"fieldname\": \"salary_slip\", \"fieldtype\": \"Data\", \"label\": \"Salary Slip ID\", \"width\": \"150px\"},\n    {\"fieldname\": \"emp\", \"fieldtype\": \"Data\", \"label\": \"Employee\", \"width\": \"150px\"},\n    {\"fieldname\": \"emp_name\", \"fieldtype\": \"Data\", \"label\": \"Employee Name\", \"width\": \"150px\"},\n    {\"fieldname\": \"father_name\", \"fieldtype\": \"Data\", \"label\": \"Father Name\", \"width\": \"150px\"},\n    {\"fieldname\": \"date_of_birth\", \"fieldtype\": \"Data\", \"label\": \"Date of Birth\", \"width\": \"150px\"},\n    {\"fieldname\": \"date_of_joining\", \"fieldtype\": \"Data\", \"label\": \"Date of Joining\", \"width\": \"150px\"},\n    {\"fieldname\": \"branch\", \"fieldtype\": \"Data\", \"label\": \"Branch\", \"width\": \"150px\"},\n    {\"fieldname\": \"department\", \"fieldtype\": \"Data\", \"label\": \"Department\", \"width\": \"150px\"},\n    {\"fieldname\": \"designation\", \"fieldtype\": \"Data\", \"label\": \"Designation\", \"width\": \"150px\"},\n    {\"fieldname\": \"bank_name\", \"fieldtype\": \"Data\", \"label\": \"Bank\", \"width\": \"150px\"},\n    {\"fieldname\": \"bank_ac_no\", \"fieldtype\": \"Data\", \"label\": \"Bank Account\", \"width\": \"150px\"},\n    {\"fieldname\": \"ifsc_code\", \"fieldtype\": \"Data\", \"label\": \"IFSC Code\", \"width\": \"150px\"},\n    {\"fieldname\": \"company\", \"fieldtype\": \"Data\", \"label\": \"Company\", \"width\": \"150px\"},\n    {\"fieldname\": \"gross\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Gross\", \"width\": \"150px\"},\n    {\"fieldname\": \"paid_days\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Paid Days\", \"width\": \"150px\"},\n    {\"fieldname\": \"present_real\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Present Days\", \"width\": \"150px\"},\n    {\"fieldname\": \"absent\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Absent\", \"width\": \"150px\"},\n    {\"fieldname\": \"casual_leave\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Casual Leave\", \"width\": \"150px\"},\n    {\"fieldname\": \"earned_leave\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Earned Leave\", \"width\": \"150px\"},\n    {\"fieldname\": \"tour_for_office\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Tour for Office\", \"width\": \"150px\"},\n    {\"fieldname\": \"od\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"OD\", \"width\": \"150px\"},\n    {\"fieldname\": \"month_days\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Month Days\", \"width\": \"150px\"},\n    {\"fieldname\": \"weekly_off\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Weekly Off\", \"width\": \"150px\"},\n    {\"fieldname\": \"holiday\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Holiday\", \"width\": \"150px\"},\n    {\"fieldname\": \"working_days\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Working Days\", \"width\": \"150px\"},\n    {\"fieldname\": \"loan_opening_balance\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Loan Opening Balance\", \"width\": \"150px\"},\n    {\"fieldname\": \"amount_to_deduct\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Amount To Deduct\", \"width\": \"150px\"},\n    {\"fieldname\": \"deducted_amount\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Deducted Amount\", \"width\": \"150px\"},\n    {\"fieldname\": \"loan_closing\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Loan Closing\", \"width\": \"150px\"},\n\n    {\"fieldname\": \"earned_basic_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Earned Basic\", \"width\": \"150px\"},\n    {\"fieldname\": \"conveyance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Conveyance\", \"width\": \"150px\"},\n    {\"fieldname\": \"canteen_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Canteen Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"children_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Children Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"education_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Education Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"house_rent_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"House Rent Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"special_pay_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Special Pay\", \"width\": \"150px\"},\n    {\"fieldname\": \"washing_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Washing Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"over_time_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Over Time\", \"width\": \"150px\"},\n    {\"fieldname\": \"incentive_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Incentive\", \"width\": \"150px\"},\n    {\"fieldname\": \"transport_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Transport Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"misc_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"MISC\", \"width\": \"150px\"},\n    {\"fieldname\": \"gross_pay_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Gross Pay\", \"width\": \"150px\"},\n\n    {\"fieldname\": \"earned_basic_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Earned Basic\", \"width\": \"150px\"},\n    {\"fieldname\": \"conveyance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Conveyance\", \"width\": \"150px\"},\n    {\"fieldname\": \"canteen_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Canteen Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"children_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Children Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"education_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Education Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"house_rent_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"House Rent Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"special_pay_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Special Pay\", \"width\": \"150px\"},\n    {\"fieldname\": \"washing_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Washing Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"gross_pay_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Gross Pay\", \"width\": \"150px\"},\n    {\"fieldname\": \"over_time_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Over Time\", \"width\": \"150px\"},\n    {\"fieldname\": \"incentive_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Incentive\", \"width\": \"150px\"},\n    {\"fieldname\": \"gross_pay_total_earned\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Total Earned\", \"width\": \"150px\"},\n    {\"fieldname\": \"employee_provident_fund\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Employee Provident Fund\", \"width\": \"150px\"},\n    {\"fieldname\": \"esic\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"ESIC\", \"width\": \"150px\"},\n    {\"fieldname\": \"loan\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Loan\", \"width\": \"150px\"},\n    {\"fieldname\": \"salary_advance\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Salary Advance\", \"width\": \"150px\"},\n    {\"fieldname\": \"income_tax\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Income Tax\", \"width\": \"150px\"},\n    {\"fieldname\": \"misc\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"MISC\", \"width\": \"150px\"},\n    {\"fieldname\": \"labour_welfare_fund\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Labour Welfare Fund\", \"width\": \"150px\"},\n    {\"fieldname\": \"transport_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Transport Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"glwf\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"GLWF\", \"width\": \"150px\"},\n    \n    {\"fieldname\": \"total_deduction\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Total Deductions\", \"width\": \"150px\"},\n    {\"fieldname\": \"net_payment\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Net Payment\", \"width\": \"150px\"},\n    {\"fieldname\": \"remark\", \"fieldtype\": \"Data\", \"precision\": \"0\", \"label\": \"Remark\", \"width\": \"150px\"}\n]\n\nresult = []\n\nmonth_days = {    \n    \"Jan\": {\"from_date\": \"01-01\", \"to_date\": \"01-31\"},    \n    \"Feb\": {\"from_date\": \"02-01\", \"to_date\": \"02-29\"},\n    \"Mar\": {\"from_date\": \"03-01\", \"to_date\": \"03-31\"},    \n    \"Apr\": {\"from_date\": \"04-01\", \"to_date\": \"04-30\"},    \n    \"May\": {\"from_date\": \"05-01\", \"to_date\": \"05-31\"},    \n    \"Jun\": {\"from_date\": \"06-01\", \"to_date\": \"06-30\"},    \n    \"Jul\": {\"from_date\": \"07-01\", \"to_date\": \"07-31\"},    \n    \"Aug\": {\"from_date\": \"08-01\", \"to_date\": \"08-31\"},    \n    \"Sep\": {\"from_date\": \"09-01\", \"to_date\": \"09-30\"},    \n    \"Oct\": {\"from_date\": \"10-01\", \"to_date\": \"10-31\"},    \n    \"Nov\": {\"from_date\": \"11-01\", \"to_date\": \"11-30\"},    \n    \"Dec\": {\"from_date\": \"12-01\", \"to_date\": \"12-31\"} \n}\n\nfrom_date = \"\"\nto_date = \"\"\nfirst_day_next_month = \"\"\nfirst_day_last_month = \"\"\nif month and year:\n    if month in month_days:\n        from_date = str(year) + \"-\" + month_days[month][\"from_date\"] + \" \" + \"00:00:00\"\n        to_date = str(year) + \"-\" + month_days[month][\"to_date\"] + \" \" + \"23:59:59\"\n        first_day_next_month = str(year) + \"-\" + month_days[month][\"to_date\"]\n        first_day_last_month = str(year) + \"-\" + month_days[month][\"from_date\"]\n        \n\nsql = frappe.db.sql(f\"\"\"\n    SELECT \n        ss.name as salary_slip,\n        e.name as emp,\n        e.employee_name as emp_name,\n        e.custom_father_name as father_name,\n        e.first_name,\n        e.date_of_birth,\n        e.date_of_joining,\n        e.branch,\n        e.department,\n        e.designation,\n        e.bank_name,\n        e.bank_ac_no,\n        e.ifsc_code,\n        e.company,\n        e.holiday_list,\n        ssa.base as gross_pay_alotted,\n        ss.payment_days as paid_days,\n        ss.absent_days as absent,\n        MAX(CASE WHEN ssle.leave_type = 'Casual Leave' THEN ssle.used_leaves ELSE 0 END) as casual_leave,\n        MAX(CASE WHEN ssle.leave_type = 'Earned Leave' THEN ssle.used_leaves ELSE 0 END) as earned_leave,\n        MAX(CASE WHEN ssle.leave_type = 'Earned Leave' THEN ssle.used_leaves ELSE 0 END) as earned_leave,\n        ss.total_working_days as month_days,\n        \n        MAX(CASE WHEN sd.salary_component = 'Basic' THEN sd.amount ELSE 0 END) as earned_basic_actual,\n        MAX(CASE WHEN sd.salary_component = 'Conveyance' THEN sd.amount ELSE 0 END) conveyance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Canteen Allowance' THEN sd.amount ELSE 0 END) canteen_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Children Allowance' THEN sd.amount ELSE 0 END) children_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Education Allowance' THEN sd.amount ELSE 0 END) education_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'House Rent Allowance' THEN sd.amount ELSE 0 END) house_rent_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Special Pay' THEN sd.amount ELSE 0 END) special_pay_actual,\n        MAX(CASE WHEN sd.salary_component = 'Washing Allowance' THEN sd.amount ELSE 0 END) washing_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Over Time' THEN sd.amount ELSE 0 END) over_time_actual,\n        MAX(CASE WHEN sd.salary_component = 'Incentives' THEN sd.amount ELSE 0 END) incentive_actual,\n        MAX(CASE WHEN sd.salary_component = 'Local Transport Allowance' THEN sd.amount ELSE 0 END) transport_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Other Benefits' THEN sd.amount ELSE 0 END) misc_actual,\n        MAX(CASE WHEN sd.salary_component = 'Provident Fund' THEN sd.amount ELSE 0 END) employee_provident_fund,\n        MAX(CASE WHEN sd.salary_component = 'Employee State Insurance' THEN sd.amount ELSE 0 END) esic,\n        MAX(CASE WHEN sd.salary_component = 'Labour Welfare Fund' THEN sd.amount ELSE 0 END) labour_welfare_fund,\n        MAX(CASE WHEN sd.salary_component = 'Govt Labour Welfare Fund' THEN sd.amount ELSE 0 END) glwf,\n        MAX(CASE WHEN sd.salary_component = 'Income Tax' THEN sd.amount ELSE 0 END) income_tax,\n        ss.gross_pay as gross_pay_total_earned,\n        ss.total_deduction,\n        ss.rounded_total as net_payment\n    FROM\n        `tabSalary Slip` ss\n    LEFT JOIN\n        `tabEmployee` e ON e.name = ss.employee\n    LEFT JOIN\n        `tabSalary Structure Assignment` ssa ON ssa.employee = ss.employee\n    LEFT JOIN\n        `tabSalary Slip Leave` ssle ON ssle.parent = ss.name\n    LEFT JOIN\n        `tabSalary Detail` sd ON sd.parent = ss.name\n    WHERE\n        1=1\n        {conditions}\n        AND (start_date BETWEEN '{from_date}' AND '{to_date}'\n        AND end_date BETWEEN '{from_date}' AND '{to_date}')\n        -- AND ss.docstatus <> 2\n        -- AND ss.docstatus = 1\n    GROUP BY\n        ss.name\n\"\"\", as_dict=True)\n\nfor res in sql:\n    sst_name = res[\"emp\"]\n    salary_structure_sql = frappe.db.sql(f\"\"\"\n        SELECT\n            sst.name as remark,\n            MAX(CASE WHEN sd.salary_component = 'Basic' THEN sd.amount ELSE 0 END) as earned_basic_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Conveyance' THEN sd.amount ELSE 0 END) conveyance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Canteen Allowance' THEN sd.amount ELSE 0 END) canteen_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Children Allowance' THEN sd.amount ELSE 0 END) children_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Education Allowance' THEN sd.amount ELSE 0 END) education_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'House Rent Allowance' THEN sd.amount ELSE 0 END) house_rent_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Special Pay' THEN sd.amount ELSE 0 END) special_pay_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Washing Allowance' THEN sd.amount ELSE 0 END) washing_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Over Time' THEN sd.amount ELSE 0 END) over_time_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Incentives' THEN sd.amount ELSE 0 END) incentive_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Local Transport Allowance' THEN sd.amount ELSE 0 END) transport_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Other Benefits' THEN sd.amount ELSE 0 END) misc_alotted,\n            MAX(sst.total_earning) as gross\n        FROM\n            `tabSalary Structure` sst\n        LEFT JOIN\n            `tabSalary Detail` sd ON sd.parent = sst.name\n        WHERE\n            sst.name = '{sst_name}'\n    \"\"\", as_dict=True)\n    for i in salary_structure_sql:\n        res[\"gross\"] = i[\"gross\"]\n        res[\"earned_basic_alotted\"] = i[\"earned_basic_alotted\"]\n        res[\"conveyance_alotted\"] = i[\"conveyance_alotted\"]\n        res[\"canteen_allowance_alotted\"] = i[\"canteen_allowance_alotted\"]\n        res[\"children_allowance_alotted\"] = i[\"children_allowance_alotted\"]\n        res[\"education_allowance_alotted\"] = i[\"education_allowance_alotted\"]\n        res[\"house_rent_allowance_alotted\"] = i[\"house_rent_allowance_alotted\"]\n        res[\"special_pay_alotted\"] = i[\"special_pay_alotted\"]\n        res[\"washing_allowance_alotted\"] = i[\"washing_allowance_alotted\"]\n        res[\"over_time_alotted\"] = i[\"over_time_alotted\"]\n        res[\"incentive_alotted\"] = i[\"incentive_alotted\"]\n        res[\"transport_allowance_alotted\"] = i[\"transport_allowance_alotted\"]\n        res[\"misc_alotted\"] = i[\"misc_alotted\"]\n      \n        \n    holiday_sql = frappe.db.sql(f\"\"\"\n        SELECT\n            SUM(CASE WHEN h.weekly_off = 0 THEN 1 ELSE 0 END) AS holiday,\n            SUM(CASE WHEN h.weekly_off = 1 THEN 1 ELSE 0 END) AS w_off\n        FROM\n            `tabHoliday List` hl\n        LEFT JOIN\n            `tabHoliday` h ON hl.name = h.parent\n        WHERE\n            hl.name = 'Holiday List Plant 2024 - SAT'\n            AND h.holiday_date BETWEEN '{from_date}' AND '{to_date}'\n    \"\"\", as_dict=True)\n\n    if holiday_sql:\n        for h in holiday_sql:\n            res[\"holiday\"] = h[\"holiday\"]\n            res[\"weekly_off\"] = h[\"w_off\"]\n            res[\"working_days\"] = res[\"month_days\"] - h[\"holiday\"] - h[\"w_off\"] \n            \n    att_sql = frappe.db.sql(f\"\"\"\n        SELECT\n            SUM(CASE WHEN att.status = 'Present' THEN 1 ELSE 0 END) AS present,\n            SUM(CASE WHEN att.status = 'Half Day' THEN 1 ELSE 0 END) AS half_day,\n            SUM(CASE WHEN att.status = 'Absent' THEN 1 ELSE 0 END) AS absent\n            \n        FROM\n            `tabAttendance` att\n        WHERE\n            att.employee = {res['emp']}\n            AND att.attendance_date BETWEEN '{from_date}' AND '{to_date}'\n            AND docstatus = 1\n    \"\"\", as_dict=True)\n\n    if att_sql:\n        for h in att_sql:\n            res[\"present_real\"] = h[\"present\"]\n            res[\"absent\"] = h[\"absent\"]\n    \n    result.append(res)\n    \ndata = columns, result",
+  "report_script": "year = filters.get(\"year\")\nmonth = filters.get(\"month\")\nemployee = filters.get(\"employee\")\ncompany = filters.get(\"company\")\nbranch = filters.get(\"branch\")\ndivision = filters.get(\"division\")\ndepartment = filters.get(\"department\")\n\nconditions = \"\"\nemp_condition = \"\"\ncompany_condition = \"\"\nbranch_condition = \"\"\ndivision_condition = \"\"\ndepartment_condition = \"\"\n\nif employee:\n    emp_condition = f\" and e.name = '{employee}'\"\nif company:\n    company_condition = f\" and e.company = '{company}'\"\nif branch:\n    branch_condition = f\" and e.branch = '{branch}'\"\nif division:\n    division_condition = f\" and e.custom_division = '{division}'\"\nif department:\n    department_condition = f\" and e.department = '{department}'\"\n\nconditions = f\"{emp_condition} {company_condition} {branch_condition} {division_condition} {department_condition}\"\n\ncolumns = [\n    {\"fieldname\": \"salary_slip\", \"fieldtype\": \"Data\", \"label\": \"Salary Slip ID\", \"width\": \"150px\"},\n    {\"fieldname\": \"emp\", \"fieldtype\": \"Data\", \"label\": \"Employee\", \"width\": \"150px\"},\n    {\"fieldname\": \"emp_name\", \"fieldtype\": \"Data\", \"label\": \"Employee Name\", \"width\": \"150px\"},\n    {\"fieldname\": \"father_name\", \"fieldtype\": \"Data\", \"label\": \"Father Name\", \"width\": \"150px\"},\n    {\"fieldname\": \"date_of_birth\", \"fieldtype\": \"Data\", \"label\": \"Date of Birth\", \"width\": \"150px\"},\n    {\"fieldname\": \"date_of_joining\", \"fieldtype\": \"Data\", \"label\": \"Date of Joining\", \"width\": \"150px\"},\n    {\"fieldname\": \"branch\", \"fieldtype\": \"Data\", \"label\": \"Branch\", \"width\": \"150px\"},\n    {\"fieldname\": \"department\", \"fieldtype\": \"Data\", \"label\": \"Department\", \"width\": \"150px\"},\n    {\"fieldname\": \"designation\", \"fieldtype\": \"Data\", \"label\": \"Designation\", \"width\": \"150px\"},\n    {\"fieldname\": \"bank_name\", \"fieldtype\": \"Data\", \"label\": \"Bank\", \"width\": \"150px\"},\n    {\"fieldname\": \"bank_ac_no\", \"fieldtype\": \"Data\", \"label\": \"Bank Account\", \"width\": \"150px\"},\n    {\"fieldname\": \"ifsc_code\", \"fieldtype\": \"Data\", \"label\": \"IFSC Code\", \"width\": \"150px\"},\n    {\"fieldname\": \"company\", \"fieldtype\": \"Data\", \"label\": \"Company\", \"width\": \"150px\"},\n    {\"fieldname\": \"gross\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Gross\", \"width\": \"150px\"},\n    {\"fieldname\": \"paid_days\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Paid Days\", \"width\": \"150px\"},\n    {\"fieldname\": \"present_real\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Present Days\", \"width\": \"150px\"},\n    {\"fieldname\": \"absent\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Absent\", \"width\": \"150px\"},\n    {\"fieldname\": \"casual_leave\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Casual Leave\", \"width\": \"150px\"},\n    {\"fieldname\": \"earned_leave\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Earned Leave\", \"width\": \"150px\"},\n    {\"fieldname\": \"tour_for_office\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Tour for Office\", \"width\": \"150px\"},\n    {\"fieldname\": \"od\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"OD\", \"width\": \"150px\"},\n    {\"fieldname\": \"month_days\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Month Days\", \"width\": \"150px\"},\n    {\"fieldname\": \"weekly_off\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Weekly Off\", \"width\": \"150px\"},\n    {\"fieldname\": \"holiday\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Holiday\", \"width\": \"150px\"},\n    {\"fieldname\": \"working_days\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Working Days\", \"width\": \"150px\"},\n    {\"fieldname\": \"loan_opening_balance\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Loan Opening Balance\", \"width\": \"150px\"},\n    {\"fieldname\": \"amount_to_deduct\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Amount To Deduct\", \"width\": \"150px\"},\n    {\"fieldname\": \"deducted_amount\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Deducted Amount\", \"width\": \"150px\"},\n    {\"fieldname\": \"loan_closing\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Loan Closing\", \"width\": \"150px\"},\n\n    {\"fieldname\": \"earned_basic_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Earned Basic\", \"width\": \"150px\"},\n    {\"fieldname\": \"conveyance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Conveyance\", \"width\": \"150px\"},\n    {\"fieldname\": \"canteen_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Canteen Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"children_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Children Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"education_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Education Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"house_rent_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"House Rent Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"special_pay_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Special Pay\", \"width\": \"150px\"},\n    {\"fieldname\": \"washing_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Washing Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"over_time_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Over Time\", \"width\": \"150px\"},\n    {\"fieldname\": \"incentive_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Incentive\", \"width\": \"150px\"},\n    {\"fieldname\": \"transport_allowance_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Transport Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"misc_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"MISC\", \"width\": \"150px\"},\n    {\"fieldname\": \"gross_pay_alotted\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Gross Pay\", \"width\": \"150px\"},\n\n    {\"fieldname\": \"earned_basic_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Earned Basic\", \"width\": \"150px\"},\n    {\"fieldname\": \"conveyance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Conveyance\", \"width\": \"150px\"},\n    {\"fieldname\": \"canteen_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Canteen Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"children_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Children Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"education_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Education Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"house_rent_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"House Rent Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"special_pay_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Special Pay\", \"width\": \"150px\"},\n    {\"fieldname\": \"washing_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Washing Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"gross_pay_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Gross Pay\", \"width\": \"150px\"},\n    {\"fieldname\": \"over_time_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Over Time\", \"width\": \"150px\"},\n    {\"fieldname\": \"incentive_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Incentive\", \"width\": \"150px\"},\n    {\"fieldname\": \"gross_pay_total_earned\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Total Earned\", \"width\": \"150px\"},\n    {\"fieldname\": \"employee_provident_fund\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Employee Provident Fund\", \"width\": \"150px\"},\n    {\"fieldname\": \"esic\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"ESIC\", \"width\": \"150px\"},\n    {\"fieldname\": \"loan\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Loan\", \"width\": \"150px\"},\n    {\"fieldname\": \"salary_advance\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Salary Advance\", \"width\": \"150px\"},\n    {\"fieldname\": \"income_tax\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Income Tax\", \"width\": \"150px\"},\n    {\"fieldname\": \"misc_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"MISC\", \"width\": \"150px\"},\n    {\"fieldname\": \"labour_welfare_fund\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Labour Welfare Fund\", \"width\": \"150px\"},\n    {\"fieldname\": \"transport_allowance_actual\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Transport Allowance\", \"width\": \"150px\"},\n    {\"fieldname\": \"glwf\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"GLWF\", \"width\": \"150px\"},\n    \n    {\"fieldname\": \"total_deduction\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Total Deductions\", \"width\": \"150px\"},\n    {\"fieldname\": \"net_payment\", \"fieldtype\": \"Float\", \"precision\": \"0\", \"label\": \"Net Payment\", \"width\": \"150px\"},\n    {\"fieldname\": \"remark\", \"fieldtype\": \"Data\", \"precision\": \"0\", \"label\": \"Remark\", \"width\": \"150px\"}\n]\n\nresult = []\n\nmonth_days = {    \n    \"Jan\": {\"from_date\": \"01-01\", \"to_date\": \"01-31\"},    \n    \"Feb\": {\"from_date\": \"02-01\", \"to_date\": \"02-29\"},\n    \"Mar\": {\"from_date\": \"03-01\", \"to_date\": \"03-31\"},    \n    \"Apr\": {\"from_date\": \"04-01\", \"to_date\": \"04-30\"},    \n    \"May\": {\"from_date\": \"05-01\", \"to_date\": \"05-31\"},    \n    \"Jun\": {\"from_date\": \"06-01\", \"to_date\": \"06-30\"},    \n    \"Jul\": {\"from_date\": \"07-01\", \"to_date\": \"07-31\"},    \n    \"Aug\": {\"from_date\": \"08-01\", \"to_date\": \"08-31\"},    \n    \"Sep\": {\"from_date\": \"09-01\", \"to_date\": \"09-30\"},    \n    \"Oct\": {\"from_date\": \"10-01\", \"to_date\": \"10-31\"},    \n    \"Nov\": {\"from_date\": \"11-01\", \"to_date\": \"11-30\"},    \n    \"Dec\": {\"from_date\": \"12-01\", \"to_date\": \"12-31\"} \n}\n\nfrom_date = \"\"\nto_date = \"\"\nfirst_day_next_month = \"\"\nfirst_day_last_month = \"\"\nif month and year:\n    if month in month_days:\n        from_date = str(year) + \"-\" + month_days[month][\"from_date\"] + \" \" + \"00:00:00\"\n        to_date = str(year) + \"-\" + month_days[month][\"to_date\"] + \" \" + \"23:59:59\"\n        first_day_next_month = str(year) + \"-\" + month_days[month][\"to_date\"]\n        first_day_last_month = str(year) + \"-\" + month_days[month][\"from_date\"]\n        \n\nsql = frappe.db.sql(f\"\"\"\n    SELECT \n        ss.name as salary_slip,\n        e.name as emp,\n        e.employee_name as emp_name,\n        e.custom_father_name as father_name,\n        e.first_name,\n        e.date_of_birth,\n        e.date_of_joining,\n        e.branch,\n        e.department,\n        e.designation,\n        e.bank_name,\n        e.bank_ac_no,\n        e.ifsc_code,\n        e.company,\n        e.holiday_list,\n        ssa.base as gross_pay_alotted,\n        ss.payment_days as paid_days,\n        ss.absent_days as absent,\n        MAX(CASE WHEN ssle.leave_type = 'Casual Leave' THEN ssle.used_leaves ELSE 0 END) as casual_leave,\n        MAX(CASE WHEN ssle.leave_type = 'Earned Leave' THEN ssle.used_leaves ELSE 0 END) as earned_leave,\n        MAX(CASE WHEN ssle.leave_type = 'Earned Leave' THEN ssle.used_leaves ELSE 0 END) as earned_leave,\n        ss.total_working_days as month_days,\n        \n        MAX(CASE WHEN sd.salary_component = 'Basic' THEN sd.amount ELSE 0 END) as earned_basic_actual,\n        ROUND(MAX(CASE WHEN sd.salary_component = 'Conveyance' THEN sd.amount ELSE 0 END), 0) conveyance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Canteen Allowance' THEN sd.amount ELSE 0 END) canteen_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Children Hostel Allowance' THEN sd.amount ELSE 0 END) children_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Education Allowance' THEN sd.amount ELSE 0 END) education_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'House Rent Allowance' THEN sd.amount ELSE 0 END) house_rent_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Special Allowances' THEN sd.amount ELSE 0 END) special_pay_actual,\n        MAX(CASE WHEN sd.salary_component = 'Washing Allowance' THEN sd.amount ELSE 0 END) washing_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Over Time' THEN sd.amount ELSE 0 END) over_time_actual,\n        MAX(CASE WHEN sd.salary_component = 'Incentives' THEN sd.amount ELSE 0 END) incentive_actual,\n        MAX(CASE WHEN sd.salary_component = 'Local Transport Allowance' THEN sd.amount ELSE 0 END) transport_allowance_actual,\n        MAX(CASE WHEN sd.salary_component = 'Miscellaneous' THEN sd.amount ELSE 0 END) misc_actual,\n        MAX(CASE WHEN sd.salary_component = 'Provident Fund' THEN sd.amount ELSE 0 END) employee_provident_fund,\n        MAX(CASE WHEN sd.salary_component = 'Employee State Insurance' THEN sd.amount ELSE 0 END) esic,\n        MAX(CASE WHEN sd.salary_component = 'Labour Welfare Fund' THEN sd.amount ELSE 0 END) labour_welfare_fund,\n        MAX(CASE WHEN sd.salary_component = 'Govt Labour Welfare Fund' THEN sd.amount ELSE 0 END) glwf,\n        MAX(CASE WHEN sd.salary_component = 'Income Tax' THEN sd.amount ELSE 0 END) income_tax,\n        SUM(CASE WHEN sd.salary_component = 'Loan' THEN sd.amount ELSE 0 END) amount_to_deduct,\n        MAX(CASE WHEN sd.salary_component = 'Loan' THEN sd.amount ELSE 0 END) deducted_amount,\n        MAX(CASE WHEN sd.salary_component = 'Loan' THEN sd.amount ELSE 0 END) salary_advance,\n        ss.gross_pay as gross_pay_total_earned,\n        ss.total_deduction,\n        ss.rounded_total as net_payment,\n        ss.gross_pay - MAX(CASE WHEN sd.salary_component = 'Incentives' THEN sd.amount ELSE 0 END) as gross_pay_actual\n    FROM\n        `tabSalary Slip` ss\n    LEFT JOIN\n        `tabEmployee` e ON e.name = ss.employee\n    LEFT JOIN\n        `tabSalary Structure Assignment` ssa ON ssa.employee = ss.employee\n    LEFT JOIN\n        `tabSalary Slip Leave` ssle ON ssle.parent = ss.name\n    LEFT JOIN\n        `tabSalary Detail` sd ON sd.parent = ss.name\n    WHERE\n        1=1\n        {conditions}\n        AND (start_date BETWEEN '{from_date}' AND '{to_date}'\n        AND end_date BETWEEN '{from_date}' AND '{to_date}')\n        -- AND ss.docstatus <> 2\n        -- AND ss.docstatus = 1\n    GROUP BY\n        ss.name\n\"\"\", as_dict=True)\n\nfor res in sql:\n    sst_name = res[\"emp\"]\n    salary_structure_sql = frappe.db.sql(f\"\"\"\n        SELECT\n            sst.name as remark,\n            MAX(CASE WHEN sd.salary_component = 'Basic' THEN sd.amount ELSE 0 END) as earned_basic_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Conveyance' THEN sd.amount ELSE 0 END) conveyance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Canteen Allowance' THEN sd.amount ELSE 0 END) canteen_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Children Hostel Allowance' THEN sd.amount ELSE 0 END) children_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Education Allowance' THEN sd.amount ELSE 0 END) education_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'House Rent Allowance' THEN sd.amount ELSE 0 END) house_rent_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Special Allowances' THEN sd.amount ELSE 0 END) special_pay_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Washing Allowance' THEN sd.amount ELSE 0 END) washing_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Over Time' THEN sd.amount ELSE 0 END) over_time_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Incentives' THEN sd.amount ELSE 0 END) incentive_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Local Transport Allowance' THEN sd.amount ELSE 0 END) transport_allowance_alotted,\n            MAX(CASE WHEN sd.salary_component = 'Miscellaneous' THEN sd.amount ELSE 0 END) misc_alotted,\n            MAX(sst.total_earning) as gross\n        FROM\n            `tabSalary Structure` sst\n        LEFT JOIN\n            `tabSalary Detail` sd ON sd.parent = sst.name\n        WHERE\n            sst.name = '{sst_name}'\n    \"\"\", as_dict=True)\n    for i in salary_structure_sql:\n        res[\"gross\"] = i[\"gross\"]\n        res[\"earned_basic_alotted\"] = i[\"earned_basic_alotted\"]\n        res[\"conveyance_alotted\"] = i[\"conveyance_alotted\"]\n        res[\"canteen_allowance_alotted\"] = i[\"canteen_allowance_alotted\"]\n        res[\"children_allowance_alotted\"] = i[\"children_allowance_alotted\"]\n        res[\"education_allowance_alotted\"] = i[\"education_allowance_alotted\"]\n        res[\"house_rent_allowance_alotted\"] = i[\"house_rent_allowance_alotted\"]\n        res[\"special_pay_alotted\"] = i[\"special_pay_alotted\"]\n        res[\"washing_allowance_alotted\"] = i[\"washing_allowance_alotted\"]\n        res[\"over_time_alotted\"] = i[\"over_time_alotted\"]\n        res[\"incentive_alotted\"] = i[\"incentive_alotted\"]\n        res[\"transport_allowance_alotted\"] = i[\"transport_allowance_alotted\"]\n        res[\"misc_alotted\"] = i[\"misc_alotted\"]\n    \n    #res[\"gross_pay_actual\"] = res[\"gross_pay_total_earned\"] - res[\"incentive_actual\"]\n        \n    holiday_sql = frappe.db.sql(f\"\"\"\n        SELECT\n            SUM(CASE WHEN h.weekly_off = 0 THEN 1 ELSE 0 END) AS holiday,\n            SUM(CASE WHEN h.weekly_off = 1 THEN 1 ELSE 0 END) AS w_off\n        FROM\n            `tabHoliday List` hl\n        LEFT JOIN\n            `tabHoliday` h ON hl.name = h.parent\n        WHERE\n            hl.name = 'Holiday List Plant 2024 - SAT'\n            AND h.holiday_date BETWEEN '{from_date}' AND '{to_date}'\n    \"\"\", as_dict=True)\n\n    if holiday_sql:\n        for h in holiday_sql:\n            res[\"holiday\"] = h[\"holiday\"]\n            res[\"weekly_off\"] = h[\"w_off\"]\n            res[\"working_days\"] = res[\"month_days\"] - h[\"holiday\"] - h[\"w_off\"] \n            \n    att_sql = frappe.db.sql(f\"\"\"\n        SELECT\n            SUM(CASE WHEN att.status = 'Present' THEN 1 ELSE 0 END) AS present,\n            SUM(CASE WHEN att.status = 'Half Day' THEN 1 ELSE 0 END) AS half_day,\n            SUM(CASE WHEN att.status = 'Absent' THEN 1 ELSE 0 END) AS absent\n            \n        FROM\n            `tabAttendance` att\n        WHERE\n            att.employee = {res['emp']}\n            AND att.attendance_date BETWEEN '{from_date}' AND '{to_date}'\n            AND docstatus = 1\n    \"\"\", as_dict=True)\n\n    if att_sql:\n        for h in att_sql:\n            res[\"present_real\"] = h[\"present\"]\n            res[\"absent\"] = h[\"absent\"]\n    \n    \n    installment_sql = frappe.db.sql(\"\"\"\n        SELECT\n            ads.name additional_salary,\n            ads.amount,\n            ads.payroll_date,\n            ads.ref_docname,\n            ads.ref_doctype,\n            ads.employee,\n            ea.name,\n            ea.advance_amount as sanctioned_amount\n        FROM\n            `tabEmployee Advance` ea\n        LEFT JOIN\n            `tabAdditional Salary` ads ON ads.ref_docname = ea.name\n        WHERE \n            ads.payroll_date BETWEEN %s AND %s\n            AND ads.employee = %s\n            AND ads.ref_doctype = 'Employee Advance'\n    \"\"\", (from_date, to_date, res.get(\"emp\")), as_dict=True)\n    total_loan = 0\n    opening_loan = 0\n    if installment_sql:\n        for i in installment_sql:\n            total_loan = total_loan + i.get(\"sanctioned_amount\")\n            opening_loan_sql = frappe.db.sql(\"\"\"\n                SELECT\n                    ads.name additional_salary,\n                    SUM(ads.amount) amount,\n                    ads.payroll_date,\n                    ads.ref_docname,\n                    ads.ref_doctype\n                FROM\n                    `tabEmployee Advance` ea\n                LEFT JOIN\n                    `tabAdditional Salary` ads ON ads.ref_docname = ea.name\n                WHERE \n                    ads.payroll_date < %s\n                    AND ads.employee = %s\n                    AND ads.ref_doctype = %s\n                \n            \"\"\", (i.get(\"payroll_date\"), i.get(\"employee\"), i.get(\"ref_doctype\")), as_dict=True)\n            if opening_loan_sql[0]['amount']:\n                opening_loan = i.get(\"sanctioned_amount\") - opening_loan_sql[0]['amount']\n                res[\"loan_opening_balance\"] = opening_loan\n            else:\n                opening_loan = opening_loan + i.get(\"sanctioned_amount\")\n                res[\"loan_opening_balance\"] = opening_loan\n                \n            closing_loan_sql = frappe.db.sql(\"\"\"\n                SELECT\n                    ads.name additional_salary,\n                    SUM(ads.amount) amount,\n                    ads.payroll_date,\n                    ads.ref_docname,\n                    ads.ref_doctype\n                FROM\n                    `tabEmployee Advance` ea\n                LEFT JOIN\n                    `tabAdditional Salary` ads ON ads.ref_docname = ea.name\n                WHERE \n                    ads.payroll_date > %s\n                    AND ads.employee = %s\n                    AND ads.ref_doctype = %s\n                \n            \"\"\", (i.get(\"payroll_date\"), i.get(\"employee\"), i.get(\"ref_doctype\")), as_dict=True)\n            \n            if closing_loan_sql[0]['amount']:\n                res[\"loan_closing\"] = closing_loan_sql[0]['amount']\n            else:\n                res[\"loan_opening_balance\"] = 0\n    else:\n        res[\"loan_opening_balance\"] = 0\n\n    res[\"loan\"] = total_loan\n    \n    sal_slip = frappe.get_doc(\"Salary Slip\", res.get(\"salary_slip\"))\n    \n    amt_to_deduct = 0\n    for i in sal_slip.deductions:\n        if i.get(\"salary_component\") == \"Loan\":\n            amt_to_deduct = amt_to_deduct + i.get(\"amount\")\n    res[\"amount_to_deduct\"] = amt_to_deduct\n    res[\"deducted_amount\"] = amt_to_deduct\n    res[\"salary_advance\"] = amt_to_deduct\n    \n    result.append(res)\n    \ndata = columns, result",
   "report_type": "Script Report",
   "roles": [
    {
@@ -135,7 +137,8 @@
     "parenttype": "Report",
     "role": "Employee"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -183,7 +186,8 @@
     "parenttype": "Report",
     "role": "Employee Self Service"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -237,7 +241,8 @@
     "parenttype": "Report",
     "role": "Employee Self Service"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -285,7 +290,8 @@
     "parenttype": "Report",
     "role": "Employee Self Service"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -333,7 +339,8 @@
     "parenttype": "Report",
     "role": "Employee"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -381,7 +388,8 @@
     "parenttype": "Report",
     "role": "Employee"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -429,7 +437,8 @@
     "parenttype": "Report",
     "role": "Employee Self Service"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -477,7 +486,8 @@
     "parenttype": "Report",
     "role": "Employee Self Service"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -525,7 +535,8 @@
     "parenttype": "Report",
     "role": "Employee"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -573,7 +584,8 @@
     "parenttype": "Report",
     "role": "Employee"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -615,7 +627,8 @@
     "parenttype": "Report",
     "role": "Employee"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -687,7 +700,8 @@
     "parenttype": "Report",
     "role": "HOD"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -735,7 +749,8 @@
     "parenttype": "Report",
     "role": "Employee Self Service"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -807,7 +822,8 @@
     "parenttype": "Report",
     "role": "HOD"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -879,7 +895,8 @@
     "parenttype": "Report",
     "role": "HOD"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -921,7 +938,8 @@
     "parenttype": "Report",
     "role": "HR User"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -969,7 +987,8 @@
     "parenttype": "Report",
     "role": "Employee"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -1041,7 +1060,8 @@
     "parenttype": "Report",
     "role": "HOD"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -1083,7 +1103,8 @@
     "parenttype": "Report",
     "role": "Employee"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -1155,7 +1176,8 @@
     "parenttype": "Report",
     "role": "HOD"
    }
-  ]
+  ],
+  "timeout": 0
  },
  {
   "add_total_row": 0,
@@ -1227,6 +1249,7 @@
     "parenttype": "Report",
     "role": "HOD"
    }
-  ]
+  ],
+  "timeout": 0
  }
 ]
