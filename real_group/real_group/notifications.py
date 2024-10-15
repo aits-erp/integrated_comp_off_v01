@@ -41,7 +41,8 @@ def get_birthday_reminder_text_and_message():
 def send_birthday_reminder(recipients, reminder_text, message, sender=None):
 	frappe.sendmail(
 		sender=sender,
-		recipients=sender,
+		# recipients='yogeshsharma@realgroup.org',
+		# recipients=sender,
 		bcc=recipients,
 		subject=reminder_text,
 		content=message,

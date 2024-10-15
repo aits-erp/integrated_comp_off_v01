@@ -163,9 +163,9 @@ scheduler_events = {
         "5 * * * *": [
             "real_group.real_group.attendance.process_attendance_log"
         ],
-        # "* * * * *": [
-        #     "real_group.real_group.attendance.pull_data_from_postgre"
-        # ],
+        "* * * * *": [
+            "real_group.real_group.attendance.pull_data_from_postgre"
+        ],
         "0 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_attendance_summary"
         ],

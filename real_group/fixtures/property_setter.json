@@ -2017,22 +2017,6 @@
  },
  {
   "default_value": null,
-  "doc_type": "Purchase Receipt",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocField",
-  "field_name": "provisional_expense_account",
-  "is_system_generated": 0,
-  "modified": "2024-09-12 20:21:16.115938",
-  "module": "Real Group",
-  "name": "Purchase Receipt-provisional_expense_account-hidden",
-  "property": "hidden",
-  "property_type": "Check",
-  "row_name": null,
-  "value": "1"
- },
- {
-  "default_value": null,
   "doc_type": "Employee",
   "docstatus": 0,
   "doctype": "Property Setter",
