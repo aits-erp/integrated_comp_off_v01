@@ -15,6 +15,7 @@
   "month",
   "year",
   "employee",
+  "reprocess_attendance_bulk",
   "section_break_msfd",
   "amended_from"
  ],
@@ -38,7 +39,8 @@
    "fieldname": "employee",
    "fieldtype": "Link",
    "label": "Employee",
-   "options": "Employee"
+   "options": "Employee",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_ipax",
@@ -93,6 +95,14 @@
    "label": "Year",
    "options": "\n2023\n2024",
    "reqd": 1
+  },
+  {
+   "fieldname": "reprocess_attendance_bulk",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Reprocess Attendance Bulk",
+   "options": "Reprocess Attendance Bulk",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
@@ -111,7 +121,7 @@
    "link_fieldname": "custom_reprocess_reference"
   }
  ],
- "modified": "2024-10-01 22:12:33.120682",
+ "modified": "2024-10-17 13:52:51.848006",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Reprocess Attendance",
@@ -145,6 +155,7 @@
    "write": 1
   }
  ],
+ "queue_in_background": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

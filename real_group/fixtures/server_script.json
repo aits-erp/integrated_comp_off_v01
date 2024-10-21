@@ -1092,13 +1092,13 @@
   "doctype_event": "Before Validate",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2024-10-05 16:58:47.854788",
+  "modified": "2024-10-17 12:33:58.064270",
   "module": "Real Group",
   "name": "Employee Validations",
   "rate_limit_count": 5,
   "rate_limit_seconds": 86400,
   "reference_doctype": "Employee",
-  "script": "if ' ' in doc.first_name:\n    frappe.throw(\"Spaces not allowed in First Name\")\n    \n    \n#Validate Nominee\n\nallocation_percentage = 0\n\nfor n in doc.custom_nominee:\n    allocation_percentage = allocation_percentage + n.allocation_percentage\n    \nif allocation_percentage != 100:\n    frappe.throw(\"Incorrect Nominee Allocation Percentage, It shoud be 100% only.\")\n",
+  "script": "if ' ' in doc.first_name:\n    frappe.throw(\"Spaces not allowed in First Name\")\n\nallocation_percentage = 0\n\nfor n in doc.custom_nominee:\n    allocation_percentage = allocation_percentage + n.allocation_percentage\n    \nif allocation_percentage != 100:\n    frappe.throw(\"Incorrect Nominee Allocation Percentage, It shoud be 100% only.\")\n",
   "script_type": "DocType Event"
  }
 ]

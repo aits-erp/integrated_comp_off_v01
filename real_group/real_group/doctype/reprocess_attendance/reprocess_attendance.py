@@ -59,7 +59,7 @@ class ReprocessAttendance(Document):
 				SELECT name FROM `tabSalary Slip` WHERE %s = start_date AND employee = %s AND docstatus = 1
 				""", (fr_date, self.employee), as_dict = 1)
 			if salary_slip:
-				frappe.throw(f"Salary Slip Found! (\n Month -> {self.month} \n Employee -> {employee} \n Salary Slip -> {str(salary_slip)}")
+				frappe.throw(f"Salary Slip Found! (\n Month -> {self.month} \n Employee -> {self.employee} \n Salary Slip -> {str(salary_slip)}")
 		else:
 			salary_slip = frappe.db.sql("""
 				SELECT name FROM `tabSalary Slip` WHERE %s = start_date AND docstatus = 1
@@ -89,133 +89,168 @@ class ReprocessAttendance(Document):
 
 
 		filtered_result = []
+		if not x.get("result"):
+			cur_date = fr_date
+			# emp_grade = frappe.db.get_value("Employee", self.employee, "grade")
+			# attendance_applicable = frappe.get_doc("Employee Grade", )
+			emp_grade = frappe.db.get_value("Employee", self.employee, "grade")
+			is_active = frappe.db.get_value("Employee", self.employee, "status")
+			emp_grade_doc = frappe.get_doc("Employee Grade", emp_grade)
 
-		for i in x.get("result"):
-			i["attendance_date"] = str(i.get("date"))
-			if i["in_time"] is None and i["out_time"] is None:
-				continue
-			elif i.get("attendance") == "Missing In and Out":
-				continue
-			else:
-				filtered_result.append(i)
+			if is_active == "Active":
+				if  emp_grade_doc.custom_no_punch_applicable == 0 or emp_grade_doc.custom_single_punch_applicable == 0:
+					while cur_date <= t_date:
+						attendance_exists = frappe.db.get_all("Attendance", fields=["name"], filters={"employee": self.employee, "attendance_date": cur_date, "docstatus": "1"})
+						for a in attendance_exists:
+							att = frappe.get_doc("Attendance", a.get("name"))
+							att.cancel()
+							att.delete()
+						if not attendance_exists:
+							attendance = frappe.new_doc("Attendance")
+							attendance.update(
+								{
+									"doctype": "Attendance",
+									"employee": self.employee,
+									"attendance_date": cur_date,
+									"status": "Absent",
+									"custom_attendance_tag": "No Punch Data",
+									# "custom_half_type": half_type,
+									# "custom_reason": r.get("attendance"),
+									# "shift": r.get("shift"),
+									# "late_entry": 1 if r.get("late_entry") == 'Yes' else 0,
+									# "early_exit": 1 if r.get("early_exit") == 'Yes' else 0,
+									"custom_reprocess_reference": self.name
+								}
+							).save()
+							attendance.submit()
+							cur_date = frappe.utils.add_to_date(cur_date, days=1)
+		else:
+			for i in x.get("result"):
+				i["attendance_date"] = str(i.get("date"))
+				if i["in_time"] is None and i["out_time"] is None:
+					continue
+				elif i.get("attendance") == "Missing In and Out":
+					continue
+				else:
+					filtered_result.append(i)
 
-		filtered_result.sort(key=itemgetter('employee'))
+			filtered_result.sort(key=itemgetter('employee'))
 
-		for key, group in groupby(filtered_result, key=itemgetter('employee')):
+			for key, group in groupby(filtered_result, key=itemgetter('employee')):
 
-			ssa = frappe.db.count("Salary Structure Assignment", filters = {"employee": key, "docstatus": 1})
-			if ssa == 0:
-				frappe.throw(f"Salary Structure Assignment! Not Found For (Employee -> {key} )")
+				ssa = frappe.db.count("Salary Structure Assignment", filters = {"employee": key, "docstatus": 1})
+				if ssa == 0:
+					frappe.throw(f"Salary Structure Assignment! Not Found For (Employee -> {key} )")
 
-			grouped = {}
-			for item in group:
-				date = item["attendance_date"]
-				if date not in grouped:
-					grouped[date] = item
+				grouped = {}
+				for item in group:
+					date = item["attendance_date"]
+					if date not in grouped:
+						grouped[date] = item
 
-			inner_filtered_result = list(grouped.values())
+				inner_filtered_result = list(grouped.values())
 
-			start_date = fr_date
-			end_date = t_date
+				start_date = fr_date
+				end_date = t_date
 
-			missing_dates = []
+				missing_dates = []
 
-			current_date = start_date
-			while current_date <= end_date:
-				missing_dates.append({"attendance_date": str(current_date), "attendance": "Absent", "employee": key})
-				current_date += frappe.utils.get_timedelta("24:00:00")
+				current_date = start_date
+				while current_date <= end_date:
+					missing_dates.append({"attendance_date": str(current_date), "attendance": "Absent", "employee": key})
+					current_date += frappe.utils.get_timedelta("24:00:00")
 
-			merged_dict = {item["attendance_date"]: item for item in missing_dates + inner_filtered_result}
+				merged_dict = {item["attendance_date"]: item for item in missing_dates + inner_filtered_result}
 
-			merged_list = list(merged_dict.values())
+				merged_list = list(merged_dict.values())
 
-			for r in merged_list:
+				for r in merged_list:
 
-				holiday_sql = frappe.db.sql(f"""
-					SELECT
-						h.name, h.holiday_date, h.weekly_off
-					FROM
-						`tabHoliday List` hl
-					LEFT JOIN
-						`tabHoliday` h ON hl.name = h.parent
-					WHERE
-						hl.name = '{frappe.db.get_value("Employee", r.get("employee"), "holiday_list")}'
-						AND h.holiday_date = '{r.get("attendance_date")}'
-					GROUP BY
-						h.holiday_date
-				""", as_dict = True)
+					holiday_sql = frappe.db.sql(f"""
+						SELECT
+							h.name, h.holiday_date, h.weekly_off
+						FROM
+							`tabHoliday List` hl
+						LEFT JOIN
+							`tabHoliday` h ON hl.name = h.parent
+						WHERE
+							hl.name = '{frappe.db.get_value("Employee", r.get("employee"), "holiday_list")}'
+							AND h.holiday_date = '{r.get("attendance_date")}'
+						GROUP BY
+							h.holiday_date
+					""", as_dict = True)
 
-				attendance_tag = ""
-
-				
-				if r.get("attendance") == 'POH' or r.get("attendance") == 'POW':
-					mark_attendance = 'Present'
-				elif r.get("attendance") is None or r.get('attendance') == '':
-					mark_attendance = 'Absent'
-				else:	
-					mark_attendance = r.get("attendance")
-					#attendance_tag = "l"
-					#frappe.log_error("reprocess_attendance", {"attendance": r.get("attendance"), "mark_attendance": mark_attendance, "r": r})
-				attendance_date = r.get("attendance_date")
-
-				if holiday_sql and r.get("attendance") in ('Present', 'Half Day', 'Absent'):
-					if holiday_sql[0].weekly_off == 1:
-						attendance_tag = "POW"
-
-					if holiday_sql[0].weekly_off == 0:
-						attendance_tag = "POH"
-
-				if r.get("attendance") in ('Absent','Missing In', 'Missing Out', 'Invalid Punch'):
-					mark_attendance = 'Absent'
 					attendance_tag = ""
 
-				half_type = ""
-				if r.get("attendance") is not None:
-					if r.get("attendance") in ('Half Day'):
-						half_type = "First Half"
-						shift = frappe.get_doc("Shift Type", r.get("shift"))
-						half_day_time = shift.start_time + shift.custom_half_day_threshold
+					
+					if r.get("attendance") == 'POH' or r.get("attendance") == 'POW':
+						mark_attendance = 'Present'
+					elif r.get("attendance") is None or r.get('attendance') == '':
+						mark_attendance = 'Absent'
+					else:	
+						mark_attendance = r.get("attendance")
+						#attendance_tag = "l"
+						#frappe.log_error("reprocess_attendance", {"attendance": r.get("attendance"), "mark_attendance": mark_attendance, "r": r})
+					attendance_date = r.get("attendance_date")
 
-						if r.get("in_time") > half_day_time:
-							half_type = "Second Half"
+					if holiday_sql and r.get("attendance") in ('Present', 'Half Day', 'Absent'):
+						if holiday_sql[0].weekly_off == 1:
+							attendance_tag = "POW"
 
-				# attendance_exists = frappe.db.get_all("Attendance", fields=["name"], filters={"employee": r.get("employee"), "attendance_date": r.get("attendance_date"), "docstatus": "1"})
-				# for a in attendance_exists:
-				# 	att = frappe.get_doc("Attendance", a.get("name"))
-				# 	att.cancel()
-				# 	att.delete()
+						if holiday_sql[0].weekly_off == 0:
+							attendance_tag = "POH"
+
+					if r.get("attendance") in ('Absent','Missing In', 'Missing Out', 'Invalid Punch'):
+						mark_attendance = 'Absent'
+						attendance_tag = ""
+
+					half_type = ""
+					if r.get("attendance") is not None:
+						if r.get("attendance") in ('Half Day'):
+							half_type = "First Half"
+							shift = frappe.get_doc("Shift Type", r.get("shift"))
+							half_day_time = shift.start_time + shift.custom_half_day_threshold
+
+							if r.get("in_time") > half_day_time:
+								half_type = "Second Half"
+
+					attendance_exists = frappe.db.get_all("Attendance", fields=["name"], filters={"employee": r.get("employee"), "attendance_date": r.get("attendance_date"), "docstatus": "1"})
+					for a in attendance_exists:
+						att = frappe.get_doc("Attendance", a.get("name"))
+						att.cancel()
+						att.delete()
 
 
-				if not holiday_sql or mark_attendance in ('Half Day', 'Present'):
+					if not holiday_sql or mark_attendance in ('Half Day', 'Present'):
 
-					attendance = frappe.new_doc("Attendance")
-					attendance.update(
-						{
-							"doctype": "Attendance",
-							"employee": r.get("employee"),
-							"attendance_date": attendance_date,
-							"status": mark_attendance,
-							"custom_attendance_tag": attendance_tag,
-							"custom_half_type": half_type,
-							"custom_reason": r.get("attendance"),
-							"shift": r.get("shift"),
-							"late_entry": 1 if r.get("late_entry") == 'Yes' else 0,
-							"early_exit": 1 if r.get("early_exit") == 'Yes' else 0,
-							"custom_reprocess_reference": self.name
-						}
-					).save()
-					attendance.submit()
+						attendance = frappe.new_doc("Attendance")
+						attendance.update(
+							{
+								"doctype": "Attendance",
+								"employee": r.get("employee"),
+								"attendance_date": attendance_date,
+								"status": mark_attendance,
+								"custom_attendance_tag": attendance_tag,
+								"custom_half_type": half_type,
+								"custom_reason": r.get("attendance"),
+								"shift": r.get("shift"),
+								"late_entry": 1 if r.get("late_entry") == 'Yes' else 0,
+								"early_exit": 1 if r.get("early_exit") == 'Yes' else 0,
+								"custom_reprocess_reference": self.name
+							}
+						).save()
+						attendance.submit()
 
-				previous_date = frappe.utils.add_to_date(attendance_date, days=-1)
+					previous_date = frappe.utils.add_to_date(attendance_date, days=-1)
 
-				
-				self.process_compensation(self.company, self.branch, self.month, self.year, r.get("employee"), filtered_result)
-				self.process_incentive(previous_date, attendance_date, r.get("employee"))
+					
+					self.process_compensation(self.company, self.branch, self.month, self.year, r.get("employee"), filtered_result)
+					self.process_incentive(previous_date, attendance_date, r.get("employee"))
 
-				# checkins = frappe.db.get_all("Employee Checkin", filters=[["Employee Checkin","employee","=",r.employee],["Employee Checkin","time","Between",[yesterday,yesterday]]])
-				# for c in checkins:
-				# 	print(c.name)
-				# 	frappe.db.set_value("Employee Checkin", c.name, "attendance", attendance.name)
+					# checkins = frappe.db.get_all("Employee Checkin", filters=[["Employee Checkin","employee","=",r.employee],["Employee Checkin","time","Between",[yesterday,yesterday]]])
+					# for c in checkins:
+					# 	print(c.name)
+					# 	frappe.db.set_value("Employee Checkin", c.name, "attendance", attendance.name)
 
 	def delete_attendance(self, fr_date=None, t_date=None):
 		all_attendance = []

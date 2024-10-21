@@ -388,10 +388,27 @@ def process_attendance_from_attendance_summary():
 		ignore_prepared_report=True
 	)
 	filtered_result = []
+	all_employee = frappe.db.sql(f"""
+		SELECT 
+			e.name
+		FROM 
+			`tabEmployee` e
+		LEFT JOIN 
+			`tabEmployee Grade` eg ON eg.name = e.grade
+		WHERE 
+			status = 'Active' 
+			AND eg.custom_single_punch_applicable = 0 
+			AND eg.custom_no_punch_applicable = 0
+	""",as_dict=1)
 	
+	all_emp_list = {emp["name"] for emp in all_employee}
+
+	emp_filter = set()
 
 	for i in x.get("result"):
 		employee_code = i.get("employee")
+		if employee_code in all_emp_list and employee_code not in emp_filter:
+			emp_filter.add(employee_code)
 		i["attendance_date"] = str(i.get("date"))
 		if i["in_time"] is None and i["out_time"] is None:
 			continue
@@ -506,6 +523,34 @@ def process_attendance_from_attendance_summary():
 						}
 					).save()
 					attendance.submit()
+	# cur_date = fr_date
+	# for empl in emp_filter:
+		
+	# 	while cur_date <= t_date:
+	# 		attendance_exists = frappe.db.get_all("Attendance", fields=["name"], filters={"employee": empl, "attendance_date": cur_date, "docstatus": "1"})
+	# 		# for a in attendance_exists:
+	# 		# 	att = frappe.get_doc("Attendance", a.get("name"))
+	# 		# 	att.cancel()
+	# 		# 	att.delete()
+	# 		if not attendance_exists:
+	# 			attendance = frappe.new_doc("Attendance")
+	# 			attendance.update(
+	# 				{
+	# 					"doctype": "Attendance",
+	# 					"employee": empl,
+	# 					"attendance_date": cur_date,
+	# 					"status": "Absent",
+	# 					"custom_attendance_tag": "No Punch Data",
+	# 					# "custom_half_type": half_type,
+	# 					# "custom_reason": r.get("attendance"),
+	# 					# "shift": r.get("shift"),
+	# 					# "late_entry": 1 if r.get("late_entry") == 'Yes' else 0,
+	# 					# "early_exit": 1 if r.get("early_exit") == 'Yes' else 0,
+	# 					# "custom_reprocess_reference": self.name
+	# 				}
+	# 			).save()
+	# 			attendance.submit()
+	# 		frappe.utils.add_to_date(cur_date, days=1)
 
 def process_attendance_from_no_check_in_applicable_grade():
 	employees = frappe.db.sql("""
