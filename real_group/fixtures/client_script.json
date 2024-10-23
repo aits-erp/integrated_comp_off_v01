@@ -234,11 +234,11 @@
   "docstatus": 0,
   "doctype": "Client Script",
   "dt": "Attendance",
-  "enabled": 0,
-  "modified": "2024-10-17 16:44:51.534616",
+  "enabled": 1,
+  "modified": "2024-10-23 11:12:00.208189",
   "module": "Real Group",
   "name": "Attendance",
-  "script": "frappe.listview_settings['Attendance'] = {\n    onload: function(listview) {\n        listview.page.clear_actions_menu();\n    }\n};",
+  "script": "frappe.listview_settings['Attendance'] = {\n    onload: function(listview) {\n        // listview.page.clear_actions_menu();\n        cur_list.page.remove_inner_button('Mark Attendance')\n    }\n};",
   "view": "List"
  }
 ]
