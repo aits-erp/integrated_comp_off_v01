@@ -959,13 +959,13 @@
   "doctype_event": "Before Save",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2024-09-20 11:45:00.020809",
+  "modified": "2024-10-22 15:20:40.740264",
   "module": "Real Group",
   "name": "Employee Advance Validation",
   "rate_limit_count": 5,
   "rate_limit_seconds": 86400,
   "reference_doctype": "Employee Advance",
-  "script": "e_adv = frappe.db.get_value(\"Loan Purpose\", doc.custom_loan_purpose, 'loan_amount')\n\n    \nif doc.custom_requested_amount > e_adv:\n    frappe.throw(\"Requested Amount can not be greater then Loan Amount\")\n\nif doc.advance_amount > e_adv:\n    frappe.throw(\"Senctioned Amount can not be greater then Loan Amount\")\n    \n# if doc.workflow_state == 'Pending at HR':\n#     if doc.paid_amount == 0:\n#         frappe.throw(\"Paid Amount can not be Zero\")\n    ",
+  "script": "e_adv = frappe.db.get_value(\"Loan Purpose\", doc.custom_loan_purpose, 'loan_amount')\n\nif e_adv:    \n    if doc.custom_requested_amount > e_adv:\n        frappe.throw(\"Requested Amount can not be greater then Loan Amount\")\n    \n    if doc.advance_amount > e_adv:\n        frappe.throw(\"Senctioned Amount can not be greater then Loan Amount\")\nelse:\n    frappe.throw(\"Kindly check Loan Amount in Loan Purpose\")\n    \n# if doc.workflow_state == 'Pending at HR':\n#     if doc.paid_amount == 0:\n#         frappe.throw(\"Paid Amount can not be Zero\")\n    ",
   "script_type": "DocType Event"
  },
  {
@@ -1092,13 +1092,13 @@
   "doctype_event": "Before Validate",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2024-10-17 12:33:58.064270",
+  "modified": "2024-10-22 12:37:55.049192",
   "module": "Real Group",
   "name": "Employee Validations",
   "rate_limit_count": 5,
   "rate_limit_seconds": 86400,
   "reference_doctype": "Employee",
-  "script": "if ' ' in doc.first_name:\n    frappe.throw(\"Spaces not allowed in First Name\")\n\nallocation_percentage = 0\n\nfor n in doc.custom_nominee:\n    allocation_percentage = allocation_percentage + n.allocation_percentage\n    \nif allocation_percentage != 100:\n    frappe.throw(\"Incorrect Nominee Allocation Percentage, It shoud be 100% only.\")\n",
+  "script": "if ' ' in doc.first_name:\n    frappe.throw(\"Spaces not allowed in First Name\")\n\nallocation_percentage = 0\n\nfor n in doc.custom_nominee:\n    allocation_percentage = allocation_percentage + n.allocation_percentage\n    \nif allocation_percentage != 100:\n    frappe.throw(\"Incorrect Nominee Allocation Percentage, It shoud be 100% only.\")\n\nif len(doc.custom_aadhar_number) != 12:\n    frappe.throw(\"Aadhar Number should have 12 digits\")\n\nif not doc.custom_aadhar_number.isdigit():\n    frappe.throw(\"Aadhar Number should have only digits\")\n\n\n",
   "script_type": "DocType Event"
  }
 ]
