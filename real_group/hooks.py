@@ -143,13 +143,14 @@ doc_events = {
     #     "on_update": ["real_group.real_group.integration.update_user"]
     # },
 
-    # "Salary Structure Assignment": {
-    #     "on_submit": ["real_group.real_group.integration.create_salary_structure_assignment"]
-    # },
+    "Salary Structure Assignment": {
+        # "on_submit": ["real_group.real_group.integration.create_salary_structure_assignment"],
+        "before_save": ["real_group.real_group.arrears.process_arrear"]
+    },
 
     "Salary Slip": {
-        "on_submit": ["real_group.real_group.integration.create_salary_slip"],
-        "on_cancel": ["real_group.real_group.integration.cancel_salary_slip"]
+    #     "on_submit": ["real_group.real_group.integration.create_salary_slip"],
+    #     "on_cancel": ["real_group.real_group.integration.cancel_salary_slip"]
     }
 }
         # "after_insert": ["real_group.real_group.integration.create_employee", "real_group.real_group.integration.create_account", "real_group.real_group.integration.create_user"],
