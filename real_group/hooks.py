@@ -145,12 +145,13 @@ doc_events = {
 
     "Salary Structure Assignment": {
         # "on_submit": ["real_group.real_group.integration.create_salary_structure_assignment"],
-        "before_save": ["real_group.real_group.arrears.process_arrear"]
+        # "before_save": ["real_group.real_group.arrears.process_arrear"]
     },
 
     "Salary Slip": {
     #     "on_submit": ["real_group.real_group.integration.create_salary_slip"],
-    #     "on_cancel": ["real_group.real_group.integration.cancel_salary_slip"]
+    #     "on_cancel": ["real_group.real_group.integration.cancel_salary_slip"],
+        # "before_save": ["real_group.real_group.arrears.arrears_in_current_sal_slip"]
     }
 }
         # "after_insert": ["real_group.real_group.integration.create_employee", "real_group.real_group.integration.create_account", "real_group.real_group.integration.create_user"],
@@ -164,9 +165,9 @@ scheduler_events = {
         "5 * * * *": [
             "real_group.real_group.attendance.process_attendance_log"
         ],
-        "* * * * *": [
-            "real_group.real_group.attendance.pull_data_from_postgre"
-        ],
+        # "* * * * *": [
+        #     "real_group.real_group.attendance.pull_data_from_postgre"
+        # ],
         "0 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_attendance_summary"
         ],
@@ -292,6 +293,8 @@ fixtures = [
     {"dt": "Client Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Workflow"},
+    {"dt": "Workflow State"},
+    {"dt": "Workflow Action Master"},
     {"dt": "Web Form", "filters": [["module", "=", "Real Group"]]}
 ]
 

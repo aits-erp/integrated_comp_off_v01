@@ -343,7 +343,26 @@ def reset_attendance_log(bio_id):
 	frappe.db.commit()
 
 @frappe.whitelist()
+@frappe.whitelist()
 def process_attendance_from_attendance_summary():
+
+	all_employee = frappe.db.sql(f"""
+		SELECT 
+			e.name
+		FROM 
+			`tabEmployee` e
+		LEFT JOIN 
+			`tabEmployee Grade` eg ON eg.name = e.grade
+		WHERE 
+			status = 'Active' 
+			AND eg.custom_single_punch_applicable = 0 
+			AND eg.custom_no_punch_applicable = 0
+	""",as_dict=1)
+
+	for emp in all_employee:
+		frappe.enqueue("real_group.real_group.attendance.process_attendance_from_attendance_summary_queue", queue="long", timeout=3600, employee=emp.name, company=emp.company)
+
+def process_attendance_from_attendance_summary_queue(employee, company):
 
 	# employee_list = frappe.db.sql(f"""
 	# 	SELECT
@@ -379,15 +398,16 @@ def process_attendance_from_attendance_summary():
 		"frappe.desk.query_report.run",
 		report_name="Biometric Attendance Summary To Mark Attendance",
 		filters={
-			"company": "",
+			"company": company,
 			"branch": "",
 			"month": month,
 			"year": year,
-			"employee": ""
+			"employee": employee
 		},
 		ignore_prepared_report=True
 	)
 	filtered_result = []
+	
 	all_employee = frappe.db.sql(f"""
 		SELECT 
 			e.name
@@ -399,8 +419,9 @@ def process_attendance_from_attendance_summary():
 			status = 'Active' 
 			AND eg.custom_single_punch_applicable = 0 
 			AND eg.custom_no_punch_applicable = 0
-	""",as_dict=1)
-	
+			AND e.name = %s
+	""", employee, as_dict=1)
+
 	all_emp_list = {emp["name"] for emp in all_employee}
 
 	emp_filter = set()
