@@ -482,9 +482,9 @@ USER_MAP = {
     # "USER_SETTING" : "user_setting",
     # "OPEN_OFFICE_SOURCE_PATH" : "open_office_source_path",
     # "OPEN_OFFICE_CSV_PATH" : "open_office_csv_path",
-    # "PASSWD_TYPE" : "passwd_type",
+    # "PASSWD_TYPE" : "passwd_type",# aaaaaaa
     "PASSWD_RESET_DAYS" : "passwd_reset_days",
-    # "CLOSE_DATE" : "close_date",
+    # "CLOSE_DATE" : "close_date", #aaaaa
     # "DOC_REF_KEY" : "doc_ref_key",
     # "ACC_CODE" : "acc_code",
     # "START_DATE" : "start_date",
@@ -497,8 +497,22 @@ USER_MAP = {
     # "REPORTING_TO_USER_CODE" : reporting_to_user_code,
     "CREATEDBY" : 'created_by',
     "CREATEDDATE" : 'creation',
-    "LASTUPDATE" : 'modified',
-              
+    "LASTUPDATE" : 'modified',         
+}
+UPDATE_USER_MAP = {
+    # "USER_CODE" : "name",
+    "USER_NAME" : "full_name",
+    "PASSWORD" : "password",
+    "DEPT_CODE" : "department",
+    # "INSPDEPT_STR" : "inspdept_str",
+    # "USER_LEVEL" : "user_level",
+    "EMP_CODE" : "emp_code",
+    "USER_STATUS" : "user_status",
+    # "PASSWD_TYPE" : "passwd_type",
+    "PASSWD_RESET_DAYS" : "passwd_reset_days",
+    "CLOSE_DATE" : "close_date",
+    "REPORTING_TO_USER_CODE" : 'reporting_to_user_code',
+    "LASTUPDATE" : 'modified',          
 }
 
 SALARY_STRUCTURE_RATE_MAST = {

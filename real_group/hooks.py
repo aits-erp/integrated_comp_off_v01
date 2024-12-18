@@ -117,7 +117,8 @@ override_doctype_class = {
 	"User": "real_group.overrides.CustomUser",
     "Employee": "real_group.overrides.CustomEmployee",
     "Employee Checkin": "real_group.overrides.CustomEmployeeCheckin",
-    "Compensatory Leave Request": "real_group.overrides.CustomCompensatoryLeaveRequest"
+    "Compensatory Leave Request": "real_group.overrides.CustomCompensatoryLeaveRequest",
+    # "Leave Application": "real_group.overrides.CustomLeaveApplication", # Need not do override
 }
 
 # Document Events
@@ -133,29 +134,27 @@ override_doctype_class = {
 # }
 
 doc_events = {
-    # "Employee": {
-    #     "after_insert": ["real_group.real_group.integration.create_employee"],
-    #     "on_update": ["real_group.real_group.integration.update_employee"]
-    # },
-
-    # "User": {
-    #     "after_insert": ["real_group.real_group.integration.create_user"],
-    #     "on_update": ["real_group.real_group.integration.update_user"]
-    # },
-
-    "Salary Structure Assignment": {
-        # "on_submit": ["real_group.real_group.integration.create_salary_structure_assignment"],
-        # "before_save": ["real_group.real_group.arrears.process_arrear"]
+    "Employee": {
+        "after_insert": ["real_group.real_group.integration.create_employee"],
+        "on_update": ["real_group.real_group.integration.update_employee"]
     },
 
+    "User": {
+        "after_insert": ["real_group.real_group.integration.create_user"],
+        "on_update": ["real_group.real_group.integration.update_user"],
+        "update_password": ["real_group.real_group.integration.update_user_password"]
+    },
+
+    # "Salary Structure Assignment": {
+    #     "before_save": ["real_group.real_group.arrears.process_arrear"]
+    # },
+
     "Salary Slip": {
-    #     "on_submit": ["real_group.real_group.integration.create_salary_slip"],
-    #     "on_cancel": ["real_group.real_group.integration.cancel_salary_slip"],
-        # "before_save": ["real_group.real_group.arrears.arrears_in_current_sal_slip"]
+        "on_submit": ["real_group.real_group.integration.create_salary_slip"],
+        "on_cancel": ["real_group.real_group.integration.cancel_salary_slip"],
+    #    "before_save": ["real_group.real_group.arrears.arrears_in_current_sal_slip"]
     }
 }
-        # "after_insert": ["real_group.real_group.integration.create_employee", "real_group.real_group.integration.create_account", "real_group.real_group.integration.create_user"],
-        # "on_update": ["real_group.real_group.integration.update_employee", "real_group.real_group.integration.update_account", "real_group.real_group.integration.update_user" ]
 
 # Scheduled Tasks
 # ---------------
@@ -210,9 +209,10 @@ scheduler_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "real_group.event.get_events"
-# }
+override_whitelisted_methods = {
+	# "frappe.desk.doctype.event.event.get_events": "real_group.event.get_events",
+    "frappe.core.doctype.user.user.update_password": "real_group.real_group.integration.update_user_password"
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
@@ -287,14 +287,13 @@ login.send_login_link = custom_send_login_link
 fixtures = [
     {"dt": "Custom Field", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Report", "filters": [["module", "=", "Real Group"]]},
-    # {"dt": "DocType", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Print Format", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Server Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Client Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Workflow"},
-    {"dt": "Workflow State"},
-    {"dt": "Workflow Action Master"},
+    # {"dt": "Workflow"},
+    # {"dt": "Workflow State"},
+    # {"dt": "Workflow Action Master"},
     {"dt": "Web Form", "filters": [["module", "=", "Real Group"]]}
 ]
 

@@ -357,6 +357,7 @@ def process_attendance_from_attendance_summary():
 			status = 'Active' 
 			AND eg.custom_single_punch_applicable = 0 
 			AND eg.custom_no_punch_applicable = 0
+			AND e.name = '52364'
 	""",as_dict=1)
 
 	for emp in all_employee:
@@ -387,7 +388,7 @@ def process_attendance_from_attendance_summary_queue(employee, company):
 	# employee_list = [{"name": "50003", "employee_name": "OMPRAKASH", "company": "API Ispat and Powertech Private Limited", "branch": "Plant"},
 	# {"name": "50004", "employee_name": "DIWAKAR", "company": "API Ispat and Powertech Private Limited", "branch": "Plant"}]
 
-	attendance_for_date = frappe.utils.getdate()
+	attendance_for_date = frappe.utils.getdate("2024-12-30")
 	year = str(attendance_for_date.year)
 	month = attendance_for_date.strftime("%b")	
 	month_number = datetime.strptime(month, "%b").month
@@ -433,7 +434,7 @@ def process_attendance_from_attendance_summary_queue(employee, company):
 		i["attendance_date"] = str(i.get("date"))
 		if i["in_time"] is None and i["out_time"] is None:
 			continue
-		elif i.get("attendance") == "Missing In and Out":
+		elif i.get("attendance") == "Missing In and Out" or i.get("attendance") == "Not Present":
 			continue
 		elif i.get("attendance") == "" or i.get("attendance") is None:
 			continue

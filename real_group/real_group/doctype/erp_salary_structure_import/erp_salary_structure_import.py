@@ -24,7 +24,7 @@ class ERPSalaryStructureImport(Document):
 		for employee in self.details:
 			emp_code = employee.employee
 
-			componant_rates = employee_rate_master(emp_code)
+			componant_rates = employee_rate_master(emp_code, company)
 			frappe.log_error("componant_rate", componant_rates)
 		
 			salary_structure = frappe.get_doc(dict(

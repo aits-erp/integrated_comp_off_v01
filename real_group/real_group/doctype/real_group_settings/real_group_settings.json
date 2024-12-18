@@ -21,14 +21,8 @@
   "component_for_incentive",
   "column_break_zgvn",
   "esic_deduction_limit",
-  "oracle_credentials_section",
-  "database",
-  "column_break_ebyu",
-  "host",
-  "column_break_lnzw",
-  "password",
-  "column_break_ahyl",
-  "username"
+  "section_break_lrim",
+  "oracle_credentials_details"
  ],
  "fields": [
   {
@@ -115,47 +109,20 @@
    "label": "ESIC Deduction Limit"
   },
   {
-   "fieldname": "oracle_credentials_section",
+   "fieldname": "section_break_lrim",
    "fieldtype": "Section Break",
    "label": "Oracle Credentials"
   },
   {
-   "fieldname": "column_break_lnzw",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "password",
-   "fieldtype": "Password",
-   "label": "Password"
-  },
-  {
-   "fieldname": "column_break_ahyl",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "username",
-   "fieldtype": "Data",
-   "label": "Username"
-  },
-  {
-   "fieldname": "database",
-   "fieldtype": "Data",
-   "label": "Database"
-  },
-  {
-   "fieldname": "column_break_ebyu",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "host",
-   "fieldtype": "Data",
-   "label": "Host"
+   "fieldname": "oracle_credentials_details",
+   "fieldtype": "Table",
+   "options": "Oracle Credentials"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2024-08-24 19:49:42.374814",
+ "modified": "2024-12-18 16:07:53.692934",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Real Group Settings",

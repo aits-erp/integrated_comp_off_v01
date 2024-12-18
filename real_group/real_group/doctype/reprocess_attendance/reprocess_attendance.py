@@ -76,7 +76,7 @@ class ReprocessAttendance(Document):
 
 		x = frappe.call(
 			"frappe.desk.query_report.run",
-			report_name="Biometric Attendance Summary",
+			report_name="Biometric Attendance Summary To Mark Attendance",
 			filters={
 				"company": self.company,
 				"branch":self.branch,
@@ -129,7 +129,7 @@ class ReprocessAttendance(Document):
 				i["attendance_date"] = str(i.get("date"))
 				if i["in_time"] is None and i["out_time"] is None:
 					continue
-				elif i.get("attendance") == "Missing In and Out":
+				elif i.get("attendance") == "Missing In and Out" or i.get("attendance") == "Not Present":
 					continue
 				else:
 					filtered_result.append(i)
@@ -219,27 +219,29 @@ class ReprocessAttendance(Document):
 						att = frappe.get_doc("Attendance", a.get("name"))
 						att.cancel()
 						att.delete()
+					# joining_date = frappe.db.get_value("Employee", r.get("employee"), "date_of_joining")
+					# if joining_date < attendance_date or joining_date >= attendance_date:
+					# 	frappe.throw("ABCD")
+					if self.creation >= attendance_date:
+						if not holiday_sql or mark_attendance in ('Half Day', 'Present'):
 
-
-					if not holiday_sql or mark_attendance in ('Half Day', 'Present'):
-
-						attendance = frappe.new_doc("Attendance")
-						attendance.update(
-							{
-								"doctype": "Attendance",
-								"employee": r.get("employee"),
-								"attendance_date": attendance_date,
-								"status": mark_attendance,
-								"custom_attendance_tag": attendance_tag,
-								"custom_half_type": half_type,
-								"custom_reason": r.get("attendance"),
-								"shift": r.get("shift"),
-								"late_entry": 1 if r.get("late_entry") == 'Yes' else 0,
-								"early_exit": 1 if r.get("early_exit") == 'Yes' else 0,
-								"custom_reprocess_reference": self.name
-							}
-						).save()
-						attendance.submit()
+							attendance = frappe.new_doc("Attendance")
+							attendance.update(
+								{
+									"doctype": "Attendance",
+									"employee": r.get("employee"),
+									"attendance_date": attendance_date,
+									"status": mark_attendance,
+									"custom_attendance_tag": attendance_tag,
+									"custom_half_type": half_type,
+									"custom_reason": r.get("attendance"),
+									"shift": r.get("shift"),
+									"late_entry": 1 if r.get("late_entry") == 'Yes' else 0,
+									"early_exit": 1 if r.get("early_exit") == 'Yes' else 0,
+									"custom_reprocess_reference": self.name
+								}
+							).save()
+							attendance.submit()
 
 					previous_date = frappe.utils.add_to_date(attendance_date, days=-1)
 
@@ -340,7 +342,10 @@ class ReprocessAttendance(Document):
 			work_date = work[1]
 			matrix_id = "0" + work[2]
 			emp_grade = frappe.get_doc("Employee Grade", work[3])
-			comp_matrix = frappe.get_doc("Compensation Matrix", identifier)
+			matrix_id = str(identifier)
+			if len(matrix_id) == 7:
+				matrix_id = "0" + matrix_id
+			comp_matrix = frappe.get_doc("Compensation Matrix", matrix_id)
 			comp_off_validity = emp_grade.custom_comp_off_validity #frappe.db.get_value("Employee Grade", emp_grade, "custom_comp_off_validity")
 			holiday_list = frappe.get_doc("Holiday List", frappe.db.get_value("Employee", work_emp, "holiday_list"))
 			all_holidays = [x.get("holiday_date") for x in holiday_list.holidays]
@@ -585,8 +590,10 @@ class ReprocessAttendance(Document):
 								
 								for result in filtered_result[slicer:]:
 									extra_work = extra_work + result["worked_hours"]
-							
-								comp_matrix = frappe.get_doc("Compensation Matrix", identifier)
+								matrix_id = str(identifier)
+								if len(matrix_id) == 7:
+									matrix_id = "0" + matrix_id
+								comp_matrix = frappe.get_doc("Compensation Matrix", matrix_id)
 								if extra_work:
 									for index, i in enumerate(comp_matrix.items):
 										

@@ -4,8 +4,9 @@ from frappe.core.doctype.user.user import User
 from erpnext.setup.doctype.employee.employee import Employee
 from hrms.hr.doctype.employee_checkin.employee_checkin import EmployeeCheckin, validate_active_employee
 from hrms.hr.doctype.leave_application.leave_application import get_approved_leaves_for_period, get_leave_balance_on
-from frappe.utils import add_days, date_diff, flt, formatdate, get_link_to_form, getdate, cint, get_url
+from frappe.utils import add_days, date_diff, flt, formatdate, get_link_to_form, getdate, cint, get_url, format_date, get_url_to_list
 from hrms.hr.doctype.compensatory_leave_request.compensatory_leave_request import CompensatoryLeaveRequest
+from hrms.hr.doctype.leave_application.leave_application import LeaveApplication
 from hrms.hr.utils import (
 	create_additional_leave_ledger_entry,
 	get_holiday_dates_for_employee,
@@ -14,7 +15,6 @@ from hrms.hr.utils import (
 	validate_dates,
 	validate_overlap,
 )
-
 
 class CustomUser(User):
 
@@ -78,7 +78,7 @@ class CustomCompensatoryLeaveRequest(CompensatoryLeaveRequest):
 				leave_allocation = self.create_leave_allocation(leave_period, date_difference)
 			self.db_set("leave_allocation", leave_allocation.name)
 		else:
-			comp_leave_valid_from = frappe.bold(format_date(comp_leave_valid_from))
+			comp_leave_valid_from = frappe.bold(frappe.utils.format_date(comp_leave_valid_from))
 			msg = _("This compensatory leave will be applicable from {0}.").format(comp_leave_valid_from)
 			msg += " " + _(
 				"Currently, there is no {0} leave period for this date to create/update leave allocation."
@@ -159,3 +159,138 @@ def _generate_temporary_login_link(email: str, expiry: int):
 	frappe.cache.set_value(f"one_time_login_key:{key}", email, expires_in_sec=expiry * 60)
 
 	return get_url(f"/api/method/frappe.www.login.login_via_key?key={key}")
+
+# Keep it for few months unless we need to override.
+
+# class CustomLeaveApplication(LeaveApplication):
+# 	def create_or_update_attendance(self, attendance_name, date):
+		
+# 		if self.half_day == 1:
+# 			if self.from_date == self.to_date:
+# 				half_day_date = self.from_date
+# 				from_time = str(half_day_date) + " " + "00:00:00"
+# 				to_time = str(half_day_date) + " " + "23:59:59"
+# 				query = frappe.db.sql(f"""
+# 					SELECT
+# 						ec.employee AS employee,
+# 						MIN(CASE WHEN ec.log_type = 'IN' THEN TIME(ec.time) END) AS in_time,
+# 						MAX(CASE WHEN ec.log_type = 'OUT' THEN TIME(ec.time) END) AS out_time,
+# 						ec.shift
+# 					FROM 
+# 						`tabEmployee Checkin` ec
+# 					WHERE
+# 						ec.time BETWEEN '{from_time}' AND '{to_time}'
+# 						AND ec.employee = '{self.employee}'
+# 					GROUP BY
+# 						ec.employee, ec.shift
+# 				""", as_dict=True)
+# 				if len(query) > 0:	
+# 					for i in query:	
+# 						if (i.get("in_time") is not None and i.get("in_time") != "") and (i.get("out_time") is not None and i.get("out_time") != ""):
+# 							shift = frappe.get_doc("Shift Type", query[0].get("shift"))
+# 							if query[0].get("out_time") - query[0].get("in_time") > shift.custom_present_threshold:
+# 								status = "Present"
+# 								if attendance_name:
+# 									# update existing attendance, change absent to on leave
+# 									doc = frappe.get_doc("Attendance", attendance_name)
+# 									doc.db_set({"status": status, "leave_type": self.leave_type, "leave_application": self.name})
+# 								else:
+# 									# make new attendance and submit it
+# 									doc = frappe.new_doc("Attendance")
+# 									doc.employee = self.employee
+# 									doc.employee_name = self.employee_name
+# 									doc.attendance_date = date
+# 									doc.company = self.company
+# 									doc.leave_type = self.leave_type
+# 									doc.leave_application = self.name
+# 									doc.status = status
+# 									doc.flags.ignore_validate = True
+# 									doc.insert(ignore_permissions=True)
+# 									doc.submit()
+# 			elif (self.half_day_date is not None or self.half_day_date != ""):
+# 				half_day_date = self.half_day_date
+# 				from_time = str(half_day_date) + " " + "00:00:00"
+# 				to_time = str(half_day_date) + " " + "23:59:59"
+# 				query = frappe.db.sql(f"""
+# 					SELECT
+# 						ec.employee AS employee,
+# 						MIN(CASE WHEN ec.log_type = 'IN' THEN TIME(ec.time) END) AS in_time,
+# 						MAX(CASE WHEN ec.log_type = 'OUT' THEN TIME(ec.time) END) AS out_time,
+# 						ec.shift
+# 					FROM 
+# 						`tabEmployee Checkin` ec
+# 					WHERE
+# 						ec.time BETWEEN '{from_time}' AND '{to_time}'
+# 						AND ec.employee = '{self.employee}'
+# 					GROUP BY
+# 						ec.employee, ec.shift
+# 				""", as_dict=True)
+
+# 				if len(query) > 0:	
+# 					for i in query:	
+# 						if (i.get("in_time") is not None and i.get("in_time") != "") and (i.get("out_time") is not None and i.get("out_time") != ""):
+# 							shift = frappe.get_doc("Shift Type", query[0].get("shift"))
+# 							if query[0].get("out_time") - query[0].get("in_time") > shift.custom_half_day_threshold:
+# 								status = "Present"
+# 								if attendance_name:
+# 									# update existing attendance, change absent to on leave
+# 									doc = frappe.get_doc("Attendance", attendance_name)
+# 									doc.db_set({"status": status, "leave_type": self.leave_type, "leave_application": self.name})
+# 								else:
+# 									# make new attendance and submit it
+# 									doc = frappe.new_doc("Attendance")
+# 									doc.employee = self.employee
+# 									doc.employee_name = self.employee_name
+# 									doc.attendance_date = date
+# 									doc.company = self.company
+# 									doc.leave_type = self.leave_type
+# 									doc.leave_application = self.name
+# 									doc.status = status
+# 									doc.flags.ignore_validate = True
+# 									doc.insert(ignore_permissions=True)
+# 									doc.submit()
+# 			else:
+# 				status = (
+# 					"Half Day" if self.half_day_date and getdate(date) == getdate(self.half_day_date) else "On Leave"
+# 				)
+# 				if attendance_name:
+# 					# update existing attendance, change absent to on leave
+# 					doc = frappe.get_doc("Attendance", attendance_name)
+# 					doc.db_set({"status": status, "leave_type": self.leave_type, "leave_application": self.name})
+# 				else:
+# 					# make new attendance and submit it
+# 					doc = frappe.new_doc("Attendance")
+# 					doc.employee = self.employee
+# 					doc.employee_name = self.employee_name
+# 					doc.attendance_date = date
+# 					doc.company = self.company
+# 					doc.leave_type = self.leave_type
+# 					doc.leave_application = self.name
+# 					doc.status = status
+# 					doc.flags.ignore_validate = True
+# 					doc.insert(ignore_permissions=True)
+# 					doc.submit()
+		
+# 		else:
+# 			status = (
+# 				"Half Day" if self.half_day_date and getdate(date) == getdate(self.half_day_date) else "On Leave"
+# 			)
+# 			if attendance_name:
+# 				# update existing attendance, change absent to on leave
+# 				doc = frappe.get_doc("Attendance", attendance_name)
+# 				doc.db_set({"status": status, "leave_type": self.leave_type, "leave_application": self.name})
+# 			else:
+# 				# make new attendance and submit it
+# 				doc = frappe.new_doc("Attendance")
+# 				doc.employee = self.employee
+# 				doc.employee_name = self.employee_name
+# 				doc.attendance_date = date
+# 				doc.company = self.company
+# 				doc.leave_type = self.leave_type
+# 				doc.leave_application = self.name
+# 				doc.status = status
+# 				doc.flags.ignore_validate = True
+# 				doc.insert(ignore_permissions=True)
+# 				doc.submit()
+
+

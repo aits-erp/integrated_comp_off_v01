@@ -13,12 +13,14 @@ class ReprocessAttendanceBulk(Document):
 		branch = self.branch
 		division = self.division
 		department = self.department
+		employee = self.employee
 
 		conditions = ""
 		company_condition = ""
 		branch_condition = ""
 		division_condition = ""
 		department_condition = ""
+		employee_condition = ""
 
 		if company:
 			company_condition = f" and company = '{company}'"
@@ -28,36 +30,53 @@ class ReprocessAttendanceBulk(Document):
 			division_condition = f" and custom_division = '{division}'"
 		if department:
 			department_condition = f" and department = '{department}'"
+		if employee:
+			employee_condition = f" and employee = '{employee}'"
 
-		conditions = f"{company_condition} {branch_condition} {division_condition} {department_condition}"
+		conditions = f"{company_condition} {branch_condition} {division_condition} {department_condition} {employee_condition}"
 
-		all_employee = frappe.db.sql(f"""
-			SELECT 
-				e.name
-			FROM 
-				`tabEmployee` e
-			LEFT JOIN 
-				`tabEmployee Grade` eg ON eg.name = e.grade
-			WHERE 
-				status = 'Active' 
-				AND eg.custom_single_punch_applicable = 0 
-				AND eg.custom_no_punch_applicable = 0
-		""",as_dict=1)
-
-		for rec in all_employee:
+		if employee:
 			reprocess_attendance = frappe.get_doc(dict(
-					doctype="Reprocess Attendance",
-					company=self.company,
-					branch=self.branch,
-					division=self.division,
-					department=self.department,
-					month=self.month,
-					year=self.year,
-					reprocess_attendance_bulk=self.name,
-					employee=rec.name,
-				))
+				doctype="Reprocess Attendance",
+				company=self.company,
+				branch=self.branch,
+				division=self.division,
+				department=self.department,
+				month=self.month,
+				year=self.year,
+				reprocess_attendance_bulk=self.name,
+				employee=self.employee,
+			))
 			reprocess_attendance.save()
 			savedocs(reprocess_attendance.as_json(), "Submit")
+		else:
+			all_employee = frappe.db.sql(f"""
+				SELECT 
+					e.name
+				FROM 
+					`tabEmployee` e
+				LEFT JOIN 
+					`tabEmployee Grade` eg ON eg.name = e.grade
+				WHERE 
+					status = 'Active' 
+					AND eg.custom_single_punch_applicable = 0 
+					AND eg.custom_no_punch_applicable = 0
+			""",as_dict=1)
+
+			for rec in all_employee:
+				reprocess_attendance = frappe.get_doc(dict(
+						doctype="Reprocess Attendance",
+						company=self.company,
+						branch=self.branch,
+						division=self.division,
+						department=self.department,
+						month=self.month,
+						year=self.year,
+						reprocess_attendance_bulk=self.name,
+						employee=rec.name,
+					))
+				reprocess_attendance.save()
+				savedocs(reprocess_attendance.as_json(), "Submit")
 
 			# reprocess_attendance.submit()
 

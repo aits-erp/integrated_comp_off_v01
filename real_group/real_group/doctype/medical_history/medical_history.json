@@ -27,6 +27,7 @@
   "esic_no",
   "type_of_examination",
   "company",
+  "designation",
   "section_break_dlxq",
   "random_check",
   "biochemistry_section",
@@ -487,6 +488,13 @@
    "fieldname": "individual_color_identification",
    "fieldtype": "Table",
    "options": "Individual Colour Identification"
+  },
+  {
+   "fetch_from": "employee_code.designation",
+   "fieldname": "designation",
+   "fieldtype": "Link",
+   "label": "Designation",
+   "options": "Designation"
   }
  ],
  "index_web_pages_for_search": 1,
@@ -498,7 +506,7 @@
    "link_fieldname": "employee"
   }
  ],
- "modified": "2024-11-08 14:20:24.750332",
+ "modified": "2024-11-14 14:32:27.069549",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Medical History",
