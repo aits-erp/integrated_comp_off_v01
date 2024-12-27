@@ -161,7 +161,7 @@ doc_events = {
 
 scheduler_events = {
     "cron": {
-        "5 * * * *": [
+        "*/5 * * * *": [
             "real_group.real_group.attendance.process_attendance_log"
         ],
         # "* * * * *": [
@@ -286,7 +286,7 @@ login.send_login_link = custom_send_login_link
 
 fixtures = [
     {"dt": "Custom Field", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Report", "filters": [["module", "=", "Real Group"]]},
+    # {"dt": "Report", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Print Format", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Server Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Client Script", "filters": [["module", "=", "Real Group"]]},

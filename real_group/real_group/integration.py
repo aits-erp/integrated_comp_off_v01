@@ -482,9 +482,9 @@ def create_user(doc, method):
 	if frappe.db.exists('Employee',doc.username):
 		company = frappe.db.get_value('Employee', doc.username, 'company')
 	else:
-		frappe.thorw(f"Employee not found for the user -> {doc.username}")
+		frappe.throw(f"Employee not found for the user -> {doc.username}")
 
-	con = oracle_connection(doc.company)
+	con = oracle_connection(company)
 	if con == None:
 		pass 
 	else:
@@ -547,7 +547,7 @@ def update_user(doc, method):
 	if frappe.db.exists('Employee',doc.username):
 		company = frappe.db.get_value('Employee', doc.username, 'company')
 	else:
-		frappe.thorw(f"Employee not found for the user -> {doc.username}")
+		frappe.throw(f"Employee not found for the user -> {doc.username}")
 
 	con = oracle_connection(company)
 	if con == None:
@@ -712,8 +712,8 @@ def get_user_update_query(map, table_name, user_code, today):
 				ELSE ''
 			END as user_status,
 			CASE
-				WHEN u.enabled = 0 THEN ''
-				ELSE u.modified
+				WHEN u.enabled = 0 THEN u.modified
+				ELSE ''
 			END as close_date,
 			(SELECT custom_erp_code FROM `tabDepartment` WHERE name = e.department  LIMIT 1) as department,
 			e.name as emp_code,
@@ -755,10 +755,8 @@ def get_user_update_query(map, table_name, user_code, today):
 			elif 'passwd_reset_days' in str(value):
 				set_clauses.append(f"{key} = {int(value_to_update)}")
 
-			# elif 'user_level' in str(value):
-			# 	set_clauses.append(f"{key} = {int(value_to_update)}")
 
-			elif isinstance(value, str) and 'DATE' in key.upper():
+			elif isinstance(value, str) and 'DATE' in key.upper() and value_to_update != '':
 				set_clauses.append(f"{key} = TIMESTAMP '{value_to_update}'")
 
 			else:
@@ -828,7 +826,7 @@ def create_salary_slip(doc, method):
 						vrno = cur.fetchall()
 						series = ""
 						if vrno:
-							# frappe.throw(str(vrno[0][0]))
+							#frappe.throw(str(vrno[0][0]))
 							series = vrno[0][0]
 						else:
 							frappe.throw("Please remove bonus account posting from ERP")

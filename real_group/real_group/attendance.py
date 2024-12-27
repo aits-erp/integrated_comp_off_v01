@@ -357,7 +357,6 @@ def process_attendance_from_attendance_summary():
 			status = 'Active' 
 			AND eg.custom_single_punch_applicable = 0 
 			AND eg.custom_no_punch_applicable = 0
-			AND e.name = '52364'
 	""",as_dict=1)
 
 	for emp in all_employee:
@@ -388,7 +387,7 @@ def process_attendance_from_attendance_summary_queue(employee, company):
 	# employee_list = [{"name": "50003", "employee_name": "OMPRAKASH", "company": "API Ispat and Powertech Private Limited", "branch": "Plant"},
 	# {"name": "50004", "employee_name": "DIWAKAR", "company": "API Ispat and Powertech Private Limited", "branch": "Plant"}]
 
-	attendance_for_date = frappe.utils.getdate("2024-12-30")
+	attendance_for_date = frappe.utils.getdate()
 	year = str(attendance_for_date.year)
 	month = attendance_for_date.strftime("%b")	
 	month_number = datetime.strptime(month, "%b").month
@@ -525,7 +524,7 @@ def process_attendance_from_attendance_summary_queue(employee, company):
 			# 	att = frappe.get_doc("Attendance", a.get("name"))
 			# 	att.cancel()
 			# 	att.delete()
-
+			
 			if not attendance_exists:
 				if not holiday_sql or mark_attendance in ('Half Day', 'Present'):
 

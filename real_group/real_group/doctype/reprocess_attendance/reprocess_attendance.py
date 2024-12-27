@@ -219,29 +219,32 @@ class ReprocessAttendance(Document):
 						att = frappe.get_doc("Attendance", a.get("name"))
 						att.cancel()
 						att.delete()
-					# joining_date = frappe.db.get_value("Employee", r.get("employee"), "date_of_joining")
-					# if joining_date < attendance_date or joining_date >= attendance_date:
-					# 	frappe.throw("ABCD")
+					
+					
+					# frappe.log_error("error_row", {"attdate_type": type(attendance_date), "attdate": attendance_date, "self.creation": self.creation, "date_of_joining": date_of_joining, "emp": r.get("employee")})
+					# frappe.throw("dddd")
 					if self.creation >= attendance_date:
 						if not holiday_sql or mark_attendance in ('Half Day', 'Present'):
-
-							attendance = frappe.new_doc("Attendance")
-							attendance.update(
-								{
-									"doctype": "Attendance",
-									"employee": r.get("employee"),
-									"attendance_date": attendance_date,
-									"status": mark_attendance,
-									"custom_attendance_tag": attendance_tag,
-									"custom_half_type": half_type,
-									"custom_reason": r.get("attendance"),
-									"shift": r.get("shift"),
-									"late_entry": 1 if r.get("late_entry") == 'Yes' else 0,
-									"early_exit": 1 if r.get("early_exit") == 'Yes' else 0,
-									"custom_reprocess_reference": self.name
-								}
-							).save()
-							attendance.submit()
+							date_of_joining = frappe.db.get_value("Employee", r.get("employee"), "date_of_joining")
+							# frappe.log_error("date_of_joining", date_of_joining)
+							if date_of_joining <= frappe.utils.getdate(attendance_date):
+								attendance = frappe.new_doc("Attendance")
+								attendance.update(
+									{
+										"doctype": "Attendance",
+										"employee": r.get("employee"),
+										"attendance_date": attendance_date,
+										"status": mark_attendance,
+										"custom_attendance_tag": attendance_tag,
+										"custom_half_type": half_type,
+										"custom_reason": r.get("attendance"),
+										"shift": r.get("shift"),
+										"late_entry": 1 if r.get("late_entry") == 'Yes' else 0,
+										"early_exit": 1 if r.get("early_exit") == 'Yes' else 0,
+										"custom_reprocess_reference": self.name
+									}
+								).save()
+								attendance.submit()
 
 					previous_date = frappe.utils.add_to_date(attendance_date, days=-1)
 
