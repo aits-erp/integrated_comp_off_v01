@@ -145,9 +145,14 @@ doc_events = {
         "update_password": ["real_group.real_group.integration.update_user_password"]
     },
 
-    # "Salary Structure Assignment": {
-    #     "before_save": ["real_group.real_group.arrears.process_arrear"]
-    # },
+    "Salary Structure Assignment": {
+        "before_save": [
+            # "real_group.real_group.arrears.process_arrear",
+        ],
+        "before_submit": [
+            "real_group.real_group.integration.insert_salary_structure"
+        ]
+    },
 
     "Salary Slip": {
         "on_submit": ["real_group.real_group.integration.create_salary_slip"],
@@ -167,7 +172,7 @@ scheduler_events = {
         # "* * * * *": [
         #     "real_group.real_group.attendance.pull_data_from_postgre"
         # ],
-        "0 23 * * *": [
+        "1 00 * * *": [
             "real_group.real_group.attendance.process_attendance_from_attendance_summary"
         ],
         "0 9 * * *": [
@@ -177,9 +182,12 @@ scheduler_events = {
         "59 23 * * *": [
             "real_group.real_group.attendance.process_attendance_from_single_check_in_applicable_grade"
         ],
-        "01 0 * * *": [
-            "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
-        ]    
+        # "01 0 * * *": [
+        #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
+        # ],
+        "5 0 2 * *": [
+            "real_group.real_group.attendance.process_attendance_for_last_day_of_month"
+        ]
     }
 }
 
@@ -286,14 +294,21 @@ login.send_login_link = custom_send_login_link
 
 fixtures = [
     {"dt": "Custom Field", "filters": [["module", "=", "Real Group"]]},
-    # {"dt": "Report", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Report", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Print Format", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Server Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Client Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
-    # {"dt": "Workflow"},
-    # {"dt": "Workflow State"},
-    # {"dt": "Workflow Action Master"},
+    {"dt": "Workflow"},
+    {"dt": "Workflow State"},
+    {"dt": "Workflow Action Master"},
+    {"dt": "Website Theme"},
+    {"dt": "DocType", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Notification", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Dashboard Chart", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Notification", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Page", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Web Form", "filters": [["module", "=", "Real Group"]]}
 ]
 

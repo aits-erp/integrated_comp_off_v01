@@ -4,6 +4,13 @@ import cx_Oracle
 import json
 from datetime import datetime
 from real_group.real_group.employee_map import EMPLOYEE_MAP, ACCOUNT_MAP, USER_MAP, UPDATE_USER_MAP, SALARY_STRUCTURE_RATE_MAST, SALARY_SLIP_SALARY_TRANS, ATTENDANCE_BALANCE, BONUS_TRANSACTION
+from frappe.core.doctype.user.user import _get_user_for_update_password
+
+from passlib.context import CryptContext
+from frappe.query_builder import Table
+
+
+
 # from real_group.real_group.account_map import ACCOUNT_MAP
 # from real_group.real_group.user_map import USER_MAP
 
@@ -690,89 +697,169 @@ def get_user_update_query(map, table_name, user_code, today):
 	# frappe.throw(str(user_pass))
 	if password:
 		user_pass = password
+
+		fy = frappe.db.sql(f"SELECT name FROM `tabFiscal Year` WHERE '{today}' BETWEEN year_start_date AND year_end_date", as_dict = 1)
+
+		if fy:
+			fiscal_year = fy[0].name[2:4]
+		else:
+			frappe.throw("Fiscal Year Not defined for the Today Date")
+		
+		reset_days = frappe.db.get_value("System Settings", 'System Settings', 'force_user_to_reset_password')
+		
+		user_values = frappe.db.sql("""
+			SELECT
+				u.full_name as full_name,
+				%s as password,
+				CASE
+					WHEN u.enabled = 0 THEN 'L'
+					ELSE ''
+				END as user_status,
+				CASE
+					WHEN u.enabled = 0 THEN u.modified
+					ELSE ''
+				END as close_date,
+				(SELECT custom_erp_code FROM `tabDepartment` WHERE name = e.department  LIMIT 1) as department,
+				e.name as emp_code,
+				%s as passwd_reset_days,
+				u.modified,
+				e.reports_to as reporting_to_user_code
+			FROM
+				`tabUser` u
+			LEFT JOIN
+				`tabEmployee` e ON e.name = u.name
+			WHERE
+				u.name = %s
+		""", (user_pass, reset_days, user_code), as_dict=True)
+
+		if not user_values:
+			return None
+
+		frappe.db.set_value("Virtual Password", "Virtual Password", "virtual_pass", "" )
+
+		user_values = user_values[0]
+
+		set_clauses = []
+
+		for key, value in map.items():
+			if value:   
+				value_to_update = user_values[value]
+				if value_to_update is None:
+					set_clauses.append(f"{key} = ''")
+
+				elif value_to_update == 'name':
+					continue
+
+				elif 'password' in str(value):
+					set_clauses.append(f"{key} = (SELECT RIPLRR.LHS_UTILITY.GET_ENCRYPT('{value_to_update}') FROM DUAL)")
+				
+				elif 'TO_DATE' in str(value):
+					set_clauses.append(f"{key} = {value_to_update}")
+
+				elif 'passwd_reset_days' in str(value):
+					set_clauses.append(f"{key} = {int(value_to_update)}")
+
+
+				elif isinstance(value, str) and 'DATE' in key.upper() and value_to_update != '':
+					set_clauses.append(f"{key} = TIMESTAMP '{value_to_update}'")
+
+				else:
+					set_clauses.append(f"{key} = '{value_to_update}'")
+
+
+		sql = f"""
+			UPDATE {table_name}
+			SET
+				{', '.join(set_clauses)}
+			WHERE
+				USER_CODE = '{user_code}'
+		"""
+
+		return sql
+
 	else:
-		user_default_pass = f'{user_code}@123'
-		user_pass = user_default_pass
-	# today = doc.creation.split(' ')[0]
-	fy = frappe.db.sql(f"SELECT name FROM `tabFiscal Year` WHERE '{today}' BETWEEN year_start_date AND year_end_date", as_dict = 1)
-	# frappe.throw(str(fy))
-	if fy:
-		fiscal_year = fy[0].name[2:4]
-	else:
-		frappe.throw("Fiscal Year Not defined for the Today Date")
-	
-	reset_days = frappe.db.get_value("System Settings", 'System Settings', 'force_user_to_reset_password')
-	
-	user_values = frappe.db.sql("""
-		SELECT
-			u.full_name as full_name,
-			%s as password,
-			CASE
-				WHEN u.enabled = 0 THEN 'L'
-				ELSE ''
-			END as user_status,
-			CASE
-				WHEN u.enabled = 0 THEN u.modified
-				ELSE ''
-			END as close_date,
-			(SELECT custom_erp_code FROM `tabDepartment` WHERE name = e.department  LIMIT 1) as department,
-			e.name as emp_code,
-			%s as passwd_reset_days,
-			u.modified,
-			e.reports_to as reporting_to_user_code
-		FROM
-			`tabUser` u
-		LEFT JOIN
-			`tabEmployee` e ON e.name = u.name
-		WHERE
-			u.name = %s
-	""", (user_pass, reset_days, user_code), as_dict=True)
+		
+		user_pass = "unidentified"
 
-	if not user_values:
-		return None
+		fy = frappe.db.sql(f"SELECT name FROM `tabFiscal Year` WHERE '{today}' BETWEEN year_start_date AND year_end_date", as_dict = 1)
 
-	frappe.db.set_value("Virtual Password", "Virtual Password", "virtual_pass", "" )
+		if fy:
+			fiscal_year = fy[0].name[2:4]
+		else:
+			frappe.throw("Fiscal Year Not defined for the Today Date")
+		
+		reset_days = frappe.db.get_value("System Settings", 'System Settings', 'force_user_to_reset_password')
+		
+		user_values = frappe.db.sql("""
+			SELECT
+				u.full_name as full_name,
+				%s as password,
+				CASE
+					WHEN u.enabled = 0 THEN 'L'
+					ELSE ''
+				END as user_status,
+				CASE
+					WHEN u.enabled = 0 THEN u.modified
+					ELSE ''
+				END as close_date,
+				(SELECT custom_erp_code FROM `tabDepartment` WHERE name = e.department  LIMIT 1) as department,
+				e.name as emp_code,
+				%s as passwd_reset_days,
+				u.modified,
+				e.reports_to as reporting_to_user_code
+			FROM
+				`tabUser` u
+			LEFT JOIN
+				`tabEmployee` e ON e.name = u.name
+			WHERE
+				u.name = %s
+		""", (user_pass, reset_days, user_code), as_dict=True)
 
-	user_values = user_values[0]
+		if not user_values:
+			return None
 
-	set_clauses = []
+		frappe.db.set_value("Virtual Password", "Virtual Password", "virtual_pass", "" )
 
-	for key, value in map.items():
-		if value:   
-			value_to_update = user_values[value]
-			if value_to_update is None:
-				set_clauses.append(f"{key} = ''")
+		user_values = user_values[0]
 
-			elif value_to_update == 'name':
-				continue
+		set_clauses = []
 
-			elif 'password' in str(value):
-				set_clauses.append(f"{key} = (SELECT RIPLRR.LHS_UTILITY.GET_ENCRYPT('{value_to_update}') FROM DUAL)")
-			
-			elif 'TO_DATE' in str(value):
-				set_clauses.append(f"{key} = {value_to_update}")
+		for key, value in map.items():
+			if value:   
+				value_to_update = user_values[value]
+				if value_to_update is None:
+					set_clauses.append(f"{key} = ''")
 
-			elif 'passwd_reset_days' in str(value):
-				set_clauses.append(f"{key} = {int(value_to_update)}")
+				elif value_to_update == 'name':
+					continue
+
+				elif 'password' in str(value):
+					continue
+				
+				elif 'TO_DATE' in str(value):
+					set_clauses.append(f"{key} = {value_to_update}")
+
+				elif 'passwd_reset_days' in str(value):
+					set_clauses.append(f"{key} = {int(value_to_update)}")
 
 
-			elif isinstance(value, str) and 'DATE' in key.upper() and value_to_update != '':
-				set_clauses.append(f"{key} = TIMESTAMP '{value_to_update}'")
+				elif isinstance(value, str) and 'DATE' in key.upper() and value_to_update != '':
+					set_clauses.append(f"{key} = TIMESTAMP '{value_to_update}'")
 
-			else:
-				set_clauses.append(f"{key} = '{value_to_update}'")
+				else:
+					set_clauses.append(f"{key} = '{value_to_update}'")
 
-	# frappe.log_error(title="set_clauses", message=set_clauses)
 
-	sql = f"""
-		UPDATE {table_name}
-		SET
-			{', '.join(set_clauses)}
-		WHERE
-			USER_CODE = '{user_code}'
-	"""
+		sql = f"""
+			UPDATE {table_name}
+			SET
+				{', '.join(set_clauses)}
+			WHERE
+				USER_CODE = '{user_code}'
+		"""
 
-	return sql
+		return sql
+
 
 #----------------Salary Slip CRUD Operation
 
@@ -798,7 +885,7 @@ def create_salary_slip(doc, method):
 			
 			#Check for the same month salary slip if exist
 			check_for_existing_record_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}'"
-			frappe.log_error("check_for_existing_record_sql", check_for_existing_record_sql)
+			# frappe.log_error("check_for_existing_record_sql", check_for_existing_record_sql)
 			my_count_for_existing = cur.execute(check_for_existing_record_sql)
 			result_for_existing = cur.fetchall() 
 			if result_for_existing: #if salary slip exist then check is already trasaction done on erp 
@@ -822,6 +909,7 @@ def create_salary_slip(doc, method):
 												AND TO_DATE = TO_DATE('{doc.end_date} 00:00:00', 'YYYY-MM-DD HH24:MI:SS') 
 												AND ACC_VRNO IS NULL
 											"""
+						# frappe.throw(str(check_acc_vrno))
 						vrno_sql = cur.execute(check_acc_vrno)
 						vrno = cur.fetchall()
 						series = ""
@@ -829,6 +917,7 @@ def create_salary_slip(doc, method):
 							#frappe.throw(str(vrno[0][0]))
 							series = vrno[0][0]
 						else:
+
 							frappe.throw("Please remove bonus account posting from ERP")
 						
 						# frappe.throw(f"Series - {str(series)}")
@@ -894,7 +983,7 @@ def create_salary_slip(doc, method):
 			con.rollback()
 
 		except Exception as er:
-			frappe.log_error(title="Oracle Exception", message=er)
+			frappe.log_error(title="Oracle Exception", message=f"{er}\n{sql_dict}")
 			frappe.throw(f'Oracle Exception: {str(er)}')
 			con.rollback()
 
@@ -980,7 +1069,7 @@ def cancel_salary_slip(doc, method):
 
 			#Check for the same month salary slip if exist
 			check_for_existing_record_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}'"
-			frappe.log_error("Check TO update before insert zero", check_for_existing_record_sql)
+			# frappe.log_error("Check TO update before insert zero", check_for_existing_record_sql)
 			my_count_for_existing = cur.execute(check_for_existing_record_sql)
 			result_for_existing = cur.fetchall() 
 
@@ -1038,7 +1127,11 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 			END AS afno,
 			(SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1) AS afcode,
 			LEFT(UPPER(sd.salary_component), 15) AS afhead,
-			sd.custom_erp_rate AS afrate,
+			CASE 
+				WHEN sd.custom_erp_rate_indicator = 'D' AND sd.salary_component = 'Labour Welfare Fund' THEN ss_sd.amount
+				WHEN sd.custom_erp_rate_indicator IN ('L', 'D', 'R') AND sd.salary_component != 'Labour Welfare Fund' THEN sd.amount
+				WHEN sd.custom_erp_rate_indicator IN ('P', 'Q', 'C', 'F') THEN sd.custom_erp_rate
+			END AS afrate,
 			'rate_identifier' AS afratei,
 			(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company LIMIT 1) AS entity_code,
 			(SELECT erp_code FROM `tabDivision` WHERE name = ss.custom_division LIMIT 1) AS custom_division,
@@ -1046,7 +1139,12 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 			(SELECT erp_code FROM `tabPayroll Series` WHERE name = ss.custom_payroll_series LIMIT 1) AS custom_payroll_series,
 			(SELECT username FROM `tabUser` WHERE name = ss.owner) AS user_code,
 			IFNULL(SUM(ss_sd.amount), 0) AS afield,
-			IFNULL(SUM(ss_sd.amount), 0) AS actuals
+			-- sd.amount AS actuals,
+			CASE 
+				WHEN sd.custom_erp_rate_indicator = 'D' AND sd.salary_component = 'Labour Welfare Fund' THEN ss_sd.amount
+				WHEN sd.custom_erp_rate_indicator IN ('L', 'D', 'R') AND sd.salary_component != 'Labour Welfare Fund' THEN sd.amount
+				WHEN sd.custom_erp_rate_indicator IN ('P', 'Q', 'C', 'F') THEN ss_sd.amount
+			END AS actuals
 		FROM
 			`tabSalary Slip` AS ss
 		LEFT JOIN
@@ -1060,11 +1158,33 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 	""", (docname), as_dict=1)
 
 
-	# frappe.log_error("Wait", salary_slips)
+	frappe.log_error("Wait", salary_slips)
 	# frappe.throw("Wait")
 
 	if not salary_slips:
 		return None
+
+	# update Provident fund actuals
+	basic_actuals = next((item['actuals'] or 0 for item in salary_slips if item['afhead'] == 'BASIC'), 0)
+	pf_expected = round(basic_actuals * 0.12, 0)
+
+	# update ESIC actuals
+	esic_actuals_sum = sum((item['actuals'] or 0) for item in salary_slips if item['afno'].startswith('E'))
+	esic_base = round(esic_actuals_sum * 0.0075, 0)
+
+	for item in salary_slips:
+		if item['afcode'] == 'PF':
+			if item.get('actuals') is not None and item.get('actuals') > 0:
+				item['actuals'] = pf_expected
+			elif item.get('actuals') is None:
+				item['actuals'] = 0
+				item['afrate'] = 0
+		if item['afcode'] == 'ESIC':
+			if item.get('actuals') is not None and item.get('actuals') > 0:
+				item['actuals'] = esic_base
+			elif item.get('actuals') is None:
+				item['actuals'] = 0
+				item['afrate'] = 0
 
 	sql_queries = []
 	for salary_slip in salary_slips:
@@ -1079,6 +1199,7 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 				elif value_to_insert == 'rate_identifier':
 					get_indicator_query = f"SELECT AFRATEI FROM RIPLRR.EMP_CONFIG_MAST WHERE AFCODE = '{salary_slip['afcode']}' AND EMP_CATG = '{salary_slip['custom_emp_category']}' AND ENTITY_CODE = '{salary_slip['entity_code']}' AND TO_DATE IS NULL"
 					values.append(f'({get_indicator_query})')
+
 				else:
 					if 'from_date' in value:
 						values.append(f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
@@ -1089,7 +1210,7 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 						values.append(value_to_insert)
 					else:
 						values.append(f"{value_to_insert}")
-
+		
 		formatted_values = []
 		for elem in values:
 			if type(elem) == int or type(elem) == float:
@@ -1100,6 +1221,7 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 					formatted_values.append(elem_str)
 				else:
 					formatted_values.append("'" + elem_str + "'")
+		
 		sql = f"""
 			INSERT INTO {table_name}
 				({','.join([str(elem) for elem in keys])})
@@ -1130,7 +1252,12 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 			END AS afno,
 			(SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1) AS afcode,
 			LEFT(UPPER(sd.salary_component), 15) AS afhead,
-			sd.custom_erp_rate AS afrate,
+			-- sd.custom_erp_rate AS afrate,
+			CASE 
+				WHEN sd.custom_erp_rate_indicator = 'D' AND sd.salary_component = 'Labour Welfare Fund' THEN ss_sd.amount
+				WHEN sd.custom_erp_rate_indicator IN ('L', 'D', 'R') AND sd.salary_component != 'Labour Welfare Fund' THEN sd.amount
+				WHEN sd.custom_erp_rate_indicator IN ('P', 'Q', 'C', 'F') THEN sd.custom_erp_rate
+			END AS afrate,
 			'rate_identifier' AS afratei,
 			(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company LIMIT 1) AS entity_code,
 			(SELECT erp_code FROM `tabDivision` WHERE name = ss.custom_division LIMIT 1) AS custom_division,
@@ -1138,7 +1265,13 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 			(SELECT erp_code FROM `tabPayroll Series` WHERE name = ss.custom_payroll_series LIMIT 1) AS custom_payroll_series,
 			(SELECT username FROM `tabUser` WHERE name = ss.owner) AS user_code,
 			IFNULL(SUM(ss_sd.amount), 0) AS afield,
-			IFNULL(SUM(ss_sd.amount), 0) AS actuals
+			-- IFNULL(SUM(ss_sd.amount), 0) AS actuals,
+			-- sd.amount AS actuals
+			CASE 
+				WHEN sd.custom_erp_rate_indicator = 'D' AND sd.salary_component = 'Labour Welfare Fund' THEN ss_sd.amount
+				WHEN sd.custom_erp_rate_indicator IN ('L', 'D', 'R') AND sd.salary_component != 'Labour Welfare Fund' THEN sd.amount
+				WHEN sd.custom_erp_rate_indicator IN ('P', 'Q', 'C', 'F') THEN ss_sd.amount
+			END AS actuals
 		FROM
 			`tabSalary Slip` AS ss
 		LEFT JOIN
@@ -1151,12 +1284,34 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 			employee, ss.start_date, custom_calendar_year, custom_month, ss.modified, sd.parentfield, afno, afcode, afhead
 	""", (docname), as_dict=1)
 
-	# frappe.log_error("Wait", salary_slips)
+	frappe.log_error("Wait Update", salary_slips)
 	# frappe.throw("salary_slips")
 	
 
 	if not salary_slips:
 		return None
+
+	# update Provident fund actuals
+	basic_actuals = next((item['actuals'] or 0 for item in salary_slips if item['afhead'] == 'BASIC'), 0)
+	pf_expected = round(basic_actuals * 0.12, 0)
+
+	# update ESIC actuals
+	esic_actuals_sum = sum((item['actuals'] or 0) for item in salary_slips if item['afno'].startswith('E'))
+	esic_base = round(esic_actuals_sum * 0.0075, 0)
+
+	for item in salary_slips:
+		if item['afcode'] == 'PF':
+			if item.get('actuals') is not None and item.get('actuals') > 0:
+				item['actuals'] = pf_expected
+			elif item.get('actuals') is None:
+				item['actuals'] = 0
+				item['afrate'] = 0
+		if item['afcode'] == 'ESIC':
+			if item.get('actuals') is not None and item.get('actuals') > 0:
+				item['actuals'] = esic_base
+			elif item.get('actuals') is None:
+				item['actuals'] = 0
+				item['afrate'] = 0
 
 	sql_queries = []
 	for salary_slip in salary_slips:
@@ -1173,6 +1328,7 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 					elif value_to_insert == 'rate_identifier':
 						get_indicator_query = f"SELECT AFRATEI FROM RIPLRR.EMP_CONFIG_MAST WHERE AFCODE = '{salary_slip['afcode']}' AND EMP_CATG = '{salary_slip['custom_emp_category']}' AND ENTITY_CODE = '{salary_slip['entity_code']}' AND TO_DATE IS NULL"
 						sets.append(f"{key} = ({get_indicator_query})")
+						
 					else:
 						if 'from_date' in value:
 							sets.append(f"{key} = TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
@@ -1229,40 +1385,56 @@ def get_attendance_balance_insert_query(map, table_name, docname):
 	leave_approver = salary_slip[0].get("leave_approver")
 
 	#fetching the data from standard report(Monthly Attendance Sheet) don't need to change
+	month_characters = {
+		1: "Jan",
+		2: "Feb",
+		3: "Mar",
+		4: "Apr",
+		5: "May",
+		6: "Jun",
+		7: "Jul",
+		8: "Aug",
+		9: "Sep",
+		10: "Oct",
+		11: "Nov",
+		12: "Dec"
+	}
+
+	#fetching the data from standard report(Monthly Attendance Sheet) don't need to change
 	result = frappe.call(
 		"frappe.desk.query_report.run",
-		report_name="Monthly Attendance Sheet",
+		report_name="Monthly Attendance Report",
 		filters={
-			"month":month,
+			"month":month_characters[month],
 			"year":cal_year,
 			"employee":employee,
-			"company":company,
-			"summarized_view":1
+			"company":company
 		},
 		ignore_prepared_report=True
-		)
-
+	)
+	
 	temp_result = result["result"][0]
 	#needs to map new leave type here
 	temp_result = {
 			"PRESENT": temp_result.get("total_present", 0.0),
 			"ABSENT_LOP" : temp_result.get("total_absent", 0.0) + temp_result.get("leave_without_pay", 0.0) ,
-			"HOLIDAY" : temp_result.get("total_holidays", 0.0),
+			"HOLIDAY" : temp_result.get("total_holiday_leave", 0.0),
 			"OPTIONAL_LEAVE" : temp_result.get("optional_leave", 0.0),
 			"SICK_LEAVE" : temp_result.get("sick_leave", 0.0),
 			"ESIC_LEAVE" : temp_result.get("esic_leave", 0.0),
-			"COMPENSATORY_OFF" : temp_result.get("compensatory_off", 0.0),
-			"CASUAL_LEAVE" : temp_result.get("casual_leave", 0.0),
-			"EARNED_LEAVE" : temp_result.get("earned_leave", 0.0),
+			"COMPENSATORY_OFF" : temp_result.get("total_compensatory_off", 0.0),
+			"CASUAL_LEAVE" : temp_result.get("total_casual_leave", 0.0),
+			"EARNED_LEAVE" : temp_result.get("total_earned_leave", 0.0),
 			"NIGHT" : temp_result.get("night", 0.0),
-			"TOUR" : temp_result.get("tour", 0.0),
+			"TOUR" : temp_result.get("total_tour", 0.0),
 			"APPROVED_LEAVE" : temp_result.get("approved_leave", 0.0),
-			"WEEKLY_OFF" : temp_result.get("weekly_off", 0.0),
-			"OUTDOOR_DUTY_LEAVE" : temp_result.get("outdoor_duty_leave", 0.0),
+			"WEEKLY_OFF" : temp_result.get("total_wo", 0.0),
+			"OUTDOOR_DUTY_LEAVE" : temp_result.get("total_od", 0.0),
 			"LATE_PENALTY" : temp_result.get("late_penalty", 0.0),
 			"FULL_AND_FINAL_EARNING" : temp_result.get("full_and_final_earning", 0.0),
 			"FULL_AND_FINAL_DEDUCTION" : temp_result.get("full_and_final_deduction", 0.0)
 		}
+
 
 
 	final_result = []
@@ -1278,7 +1450,13 @@ def get_attendance_balance_insert_query(map, table_name, docname):
 		"OUTDOOR_DUTY_LEAVE": "O",
 		"LATE_PENALTY": "N",
 		"FULL_AND_FINAL_EARNING": "F",
-		"FULL_AND_FINAL_DEDUCTION": "D"
+		"FULL_AND_FINAL_DEDUCTION": "D",
+		"EARNED_LEAVE": "E",
+		"CASUAL_LEAVE": "L",
+		"COMPENSATORY_OFF": "C",
+		"SICK_LEAVE" : "S",
+		"ESIC_LEAVE" : "I",
+		"OPTIONAL_LEAVE" : "X"
 	}
 
 	for rec in temp_result:
@@ -1384,37 +1562,50 @@ def get_attendance_balance_update_query(map, table_name, docname):
 	usercode = salary_slip[0].get("user_code")
 	leave_approver = salary_slip[0].get("leave_approver")
 
+	month_characters = {
+		1: "Jan",
+		2: "Feb",
+		3: "Mar",
+		4: "Apr",
+		5: "May",
+		6: "Jun",
+		7: "Jul",
+		8: "Aug",
+		9: "Sep",
+		10: "Oct",
+		11: "Nov",
+		12: "Dec"
+	}
+
 	#fetching the data from standard report(Monthly Attendance Sheet) don't need to change
 	result = frappe.call(
 		"frappe.desk.query_report.run",
-		report_name="Monthly Attendance Sheet",
+		report_name="Monthly Attendance Report",
 		filters={
-			"month":month,
+			"month":month_characters[month],
 			"year":cal_year,
 			"employee":employee,
-			"company":company,
-			"summarized_view":1
+			"company":company
 		},
 		ignore_prepared_report=True
 		)
-
 	temp_result = result["result"][0]
 	#needs to map new leave type here
 	temp_result = {
 			"PRESENT": temp_result.get("total_present", 0.0),
-			"ABSENT_LOP" : temp_result.get("total_absent", 0.0) + temp_result.get("leave_without_pay", 0.0) ,
-			"HOLIDAY" : temp_result.get("total_holidays", 0.0),
+			"ABSENT_LOP" : temp_result.get("total_absent", 0.0),
+			"HOLIDAY" : temp_result.get("total_holiday_leave", 0.0),
 			"OPTIONAL_LEAVE" : temp_result.get("optional_leave", 0.0),
 			"SICK_LEAVE" : temp_result.get("sick_leave", 0.0),
 			"ESIC_LEAVE" : temp_result.get("esic_leave", 0.0),
-			"COMPENSATORY_OFF" : temp_result.get("compensatory_off", 0.0),
-			"CASUAL_LEAVE" : temp_result.get("casual_leave", 0.0),
-			"EARNED_LEAVE" : temp_result.get("earned_leave", 0.0),
+			"COMPENSATORY_OFF" : temp_result.get("total_compensatory_off", 0.0),
+			"CASUAL_LEAVE" : temp_result.get("total_casual_leave", 0.0),
+			"EARNED_LEAVE" : temp_result.get("total_earned_leave", 0.0),
 			"NIGHT" : temp_result.get("night", 0.0),
-			"TOUR" : temp_result.get("tour", 0.0),
+			"TOUR" : temp_result.get("total_tour", 0.0),
 			"APPROVED_LEAVE" : temp_result.get("approved_leave", 0.0),
-			"WEEKLY_OFF" : temp_result.get("weekly_off", 0.0),
-			"OUTDOOR_DUTY_LEAVE" : temp_result.get("outdoor_duty_leave", 0.0),
+			"WEEKLY_OFF" : temp_result.get("total_wo", 0.0),
+			"OUTDOOR_DUTY_LEAVE" : temp_result.get("total_od", 0.0),
 			"LATE_PENALTY" : temp_result.get("late_penalty", 0.0),
 			"FULL_AND_FINAL_EARNING" : temp_result.get("full_and_final_earning", 0.0),
 			"FULL_AND_FINAL_DEDUCTION" : temp_result.get("full_and_final_deduction", 0.0)
@@ -1434,9 +1625,15 @@ def get_attendance_balance_update_query(map, table_name, docname):
 		"OUTDOOR_DUTY_LEAVE": "O",
 		"LATE_PENALTY": "N",
 		"FULL_AND_FINAL_EARNING": "F",
-		"FULL_AND_FINAL_DEDUCTION": "D"
+		"FULL_AND_FINAL_DEDUCTION": "D",
+		"EARNED_LEAVE": "E",
+		"CASUAL_LEAVE": "L",
+		"COMPENSATORY_OFF": "C",
+		"SICK_LEAVE" : "S",
+		"ESIC_LEAVE" : "I",
+		"OPTIONAL_LEAVE" : "X"
 	}
-
+	frappe.log_error("temp_result", temp_result)
 	for rec in temp_result:
 		leave_type = rec.replace("_", " ").title() #Replace the leave name to title case
 		if frappe.db.exists("Leave Type", leave_type): #checing leave type present or not
@@ -1501,20 +1698,22 @@ def get_attendance_balance_update_query(map, table_name, docname):
 	
 	return sql_dict
 
-
 def get_bonus_transaction_insert_query(map, table_name, docname, series):
 	bonus_trans = frappe.db.sql("""
 		SELECT
 			ss.employee AS emp_code,
 			'BASIC' AS afcode_str,
-			(SELECT amount FROM `tabSalary Detail` WHERE parent = ss.salary_structure AND abbr = 'B') AS basic_amt,
+			(SELECT amount FROM `tabSalary Detail` WHERE parent = ss.name AND abbr = 'B') AS basic_amt,
 			(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
 			ss.modified AS lastupdate,
-			ss.creation AS bonus_cal_date,
+			ss.posting_date AS bonus_cal_date,
 			ss.start_date AS from_date,
 			ss.end_date AS to_date,
 			ss.custom_bonus_rate AS bonus_cal_rate,
-			ROUND(ss.custom_bonus_amount) AS bonus_amt,
+			CASE
+				WHEN ss.custom_bonus_amount - FLOOR(ss.custom_bonus_amount) < 0.5 THEN FLOOR(ss.custom_bonus_amount)
+				ELSE CEIL(ss.custom_bonus_amount)
+			END AS bonus_amt,
 			%s AS vrno,
 			ss.posting_date AS vrdate,
 			ss.payment_days AS paydays,
@@ -1581,14 +1780,17 @@ def get_bonus_transaction_update_query(map, table_name, docname, series):
 		SELECT
 			ss.employee AS emp_code,
 			'BASIC' AS afcode_str,
-			(SELECT amount FROM `tabSalary Detail` WHERE parent = ss.salary_structure AND abbr = 'B') AS basic_amt,
+			(SELECT amount FROM `tabSalary Detail` WHERE parent = ss.name AND abbr = 'B') AS basic_amt,
 			(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
 			ss.modified AS lastupdate,
-			ss.creation AS bonus_cal_date,
+			ss.posting_date AS bonus_cal_date,
 			ss.start_date AS from_date,
 			ss.end_date AS to_date,
 			ss.custom_bonus_rate AS bonus_cal_rate,
-			ROUND(ss.custom_bonus_amount) AS bonus_amt,
+			CASE
+				WHEN ss.custom_bonus_amount - FLOOR(ss.custom_bonus_amount) < 0.5 THEN FLOOR(ss.custom_bonus_amount)
+				ELSE CEIL(ss.custom_bonus_amount)
+			END AS bonus_amt,
 			%s AS vrno,
 			ss.posting_date AS vrdate,
 			ss.payment_days AS paydays,
@@ -1948,14 +2150,32 @@ from frappe.core.doctype.user.user import update_password as original_update_pas
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def update_user_password(new_password: str, logout_all_sessions: int = 0, key: str | None = None, old_password: str | None = None):
     
-	current_user = frappe.session.user
+	if key:
+		res = _get_user_for_update_password(key, old_password)
+		if res.get("message"):
+			frappe.local.response.http_status_code = 410
+			return res["message"]
+		else: 
+			current_user = res["user"]
+			
+			if frappe.db.exists('Employee',current_user):
+				company = frappe.db.get_value('Employee', current_user, 'company')
+			else:
+				frappe.throw(f"Employee not found for the user -> {current_user}")
 
-	frappe.db.set_value('Virtual Password', 'Virtual Password', 'virtual_pass', new_password )
+		user = check_update_password(current_user, new_password)
+		if user == current_user:
+			frappe.throw("The new password must be different from the old password")
 
-	if frappe.db.exists('Employee',current_user):
-		company = frappe.db.get_value('Employee', current_user, 'company')
 	else:
-		frappe.throw(f"Employee not found for the user -> {current_user}")
+		current_user = frappe.session.user
+
+		frappe.db.set_value('Virtual Password', 'Virtual Password', 'virtual_pass', new_password )
+
+		if frappe.db.exists('Employee',current_user):
+			company = frappe.db.get_value('Employee', current_user, 'company')
+		else:
+			frappe.throw(f"Employee not found for the user -> {current_user}")
 
 	con = oracle_connection(company)
 	if con == None:
@@ -2003,5 +2223,151 @@ def update_user_password(new_password: str, logout_all_sessions: int = 0, key: s
 	
 	
 	original_update_password(new_password, logout_all_sessions, key, old_password)
+	
+	redirect_url = "/hrms/home"
+	return redirect_url
+
+Auth = Table("__Auth")
+
+passlibctx = CryptContext(
+	schemes=[
+		"pbkdf2_sha256",
+		"argon2",
+	],
+)
+
+def check_update_password(user, pwd, doctype="User", fieldname="password"):
+	result = (
+		frappe.qb.from_(Auth)
+		.select(Auth.name, Auth.password)
+		.where(
+			(Auth.doctype == doctype)
+			& (Auth.name == user)
+			& (Auth.fieldname == fieldname)
+			& (Auth.encrypted == 0)
+		)
+		.limit(1)
+		.run(as_dict=True)
+	)
+	
+	user = result[0].name
+	
+	if not result or not passlibctx.verify(pwd, result[0].password):
+		return "Incorrect password"
+	else:
+		return user
+	
+
+def generate_insert_statements(salary_structure, emp_code, from_date):
+    insert_statements = []
+    from_date = frappe.utils.getdate(from_date)
+    last_update = frappe.utils.getdate().strftime("%Y-%m-%d %H:%M:%S")
+    formatted_date = frappe.utils.get_first_day(from_date).strftime("%Y-%m-%d %H:%M:%S")
+
+    for entry in salary_structure:
+        # Ensure numeric values are not passed as column names
+        afrate = entry['afrate'] if entry['afrate'] is not None else 0
+        afield = entry['afield'] if entry['afield'] is not None else 0
+
+        sql = f"""
+            INSERT INTO RIPLRR.EMP_RATE_MAST 
+            (EMP_CODE, FROM_DATE, AFNO, AFRATE, USER_CODE, LASTUPDATE, EMP_CONFIG_CATG, AFCODE, AFIELD, PAYROLL_SERIES) 
+            VALUES (
+                '{emp_code}', 
+                TO_DATE('{formatted_date}', 'YYYY-MM-DD HH24:MI:SS'), 
+                '{entry['afno']}', 
+                {float(afrate)}, 
+                '{entry['user_code']}', 
+                TO_DATE('{last_update}', 'YYYY-MM-DD HH24:MI:SS'),
+                '{entry['custom_emp_category']}',
+                '{entry['afcode']}', 
+                {float(afield)}, 
+                '{entry['payroll_series']}'
+            )
+        """
+        insert_statements.append(sql.strip())
+
+    return insert_statements
 
 
+def insert_salary_structure(doc, method):
+    con = oracle_connection(doc.company)    
+    if con is None:
+        return
+    try:
+        cur = con.cursor()
+        check_for_existing_record_sql = f"SELECT * FROM RIPLRR.EMP_RATE_MAST WHERE EMP_CODE = '{doc.employee}' AND FROM_DATE IS NOT NULL AND TO_DATE IS NULL"
+        
+        my_count_for_existing = cur.execute(check_for_existing_record_sql)
+        result_for_existing = cur.fetchall()
+        if result_for_existing:
+            update_salary_structure = f"""
+				UPDATE RIPLRR.EMP_RATE_MAST 
+				SET TO_DATE = TO_DATE('{frappe.utils.get_last_day(frappe.utils.add_to_date(doc.from_date, months=-1)).strftime("%Y-%m-%d")}', 'YYYY-MM-DD'),
+				LASTUPDATE = TO_DATE('{frappe.utils.now_datetime().strftime("%Y-%m-%d")} 00:00:00', 'YYYY-MM-DD HH24:MI:SS'),
+				USER_CODE = '{doc.owner}'
+				WHERE EMP_CODE = '{doc.employee}' 
+				AND FROM_DATE IS NOT NULL 
+				AND TO_DATE IS NULL
+			"""
+
+            cur.execute(update_salary_structure)
+
+        frappe.log_error(title="Salary Structure", message=doc.as_json())            
+        salary_structure = get_salary_structure(doc.employee, doc.from_date, doc.salary_structure)
+        frappe.log_error(title="Salary Data", message=salary_structure)
+        
+        sql_statements = generate_insert_statements(salary_structure, doc.employee, doc.from_date)
+        
+        # Execute each SQL statement separately
+        for sql in sql_statements:
+            cur.execute(sql)
+            
+        con.commit()
+
+    except Exception as e:
+        frappe.log_error(title="Oracle Query Error", message=str(e))
+        con.rollback()
+        frappe.throw(f'Oracle Query Error: {str(e)}')
+
+
+def get_salary_structure(employee, from_date, salary_structure):
+    salary_structure_sql = frappe.db.sql(f"""
+        SELECT
+            (SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1) AS afcode,
+            (SELECT erp_code FROM `tabEmployee Category` WHERE name = 'Staff' LIMIT 1) AS custom_emp_category,
+            CASE 
+                WHEN sd.parentfield = 'earnings' THEN CONCAT('E', sd.idx)
+                WHEN sd.parentfield = 'deductions' THEN CONCAT('D', sd.idx)
+                ELSE sd.idx
+            END AS afno,
+            CASE
+				WHEN sd.parentfield = 'deductions' AND sd.salary_component != 'Labour Welfare Fund' THEN sd.custom_erp_rate
+				WHEN sd.parentfield = 'deductions' AND sd.salary_component = 'Labour Welfare Fund' AND ss.total_earning > 15000 THEN 10
+				WHEN sd.parentfield = 'deductions' AND sd.salary_component = 'Labour Welfare Fund' AND ss.total_earning < 15000 THEN 5
+				WHEN sd.parentfield = 'earnings' THEN sd.amount
+            END afrate,
+            sd.amount afield,
+            (SELECT username FROM `tabUser` WHERE name = ss.owner) AS user_code,
+            ss.modified
+        FROM 
+            `tabSalary Structure` ss
+        LEFT JOIN
+            `tabSalary Detail` sd on sd.parent = ss.name
+        WHERE
+            ss.name = '{salary_structure}'
+        GROUP BY
+            sd.salary_component
+    """, (), as_dict=True)
+
+    for d in salary_structure_sql:
+        d['emp_code'] = employee
+        emp_category = frappe.db.get_value("Employee", employee, 'custom_emp_category')
+        emp_category = frappe.db.get_value("Employee Category", emp_category, 'erp_code')
+        d['emp_category'] = emp_category
+        d['custom_emp_category'] = emp_category        
+        payroll_series = frappe.db.get_value("Employee", employee, 'custom_payroll_series')
+        payroll_series = frappe.db.get_value("Payroll Series", payroll_series, 'erp_code')
+        d['payroll_series'] = payroll_series
+
+    return salary_structure_sql

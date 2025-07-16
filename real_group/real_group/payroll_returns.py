@@ -12,6 +12,14 @@ def generate_epf_txt():
     month = frappe.form_dict.get("month")
     year = frappe.form_dict.get("year")
 
+    company = company.replace("+", " ") if company else ''
+    branch = branch.replace("+", " ") if branch else ''
+    division = division.replace("+", " ") if division else ''
+    department = department.replace("+", " ") if department else ''
+    employee = employee.replace("+", " ") if employee else ''
+    month = frappe.form_dict.get("month")
+    year = frappe.form_dict.get("year")
+
     data = frappe.call(   
 		"frappe.desk.query_report.run",
 		report_name="EPF ECR",
