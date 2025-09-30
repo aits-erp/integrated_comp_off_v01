@@ -227,8 +227,7 @@ scheduler_events = {
 # ------------------------------
 #
 override_whitelisted_methods = {
-    # "frappe.desk.doctype.event.event.get_events": "real_group.event.get_events",
-    "frappe.core.doctype.user.user.update_password": "real_group.real_group.integration.update_user_password"
+    "frappe.core.doctype.user.user.update_password": "real_group.api.overrides.user.update_user_password",
 }
 #
 # each overriding function accepts a `data` argument;

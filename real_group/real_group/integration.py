@@ -3,9 +3,6 @@ from datetime import datetime
 
 import cx_Oracle
 import frappe
-from frappe.core.doctype.user.user import _get_user_for_update_password
-from frappe.query_builder import Table
-from passlib.context import CryptContext
 
 from real_group.real_group.employee_map import (
     ACCOUNT_MAP,
@@ -2230,116 +2227,6 @@ def get_next_series_no(doctype, company, date, cur):
         return next_series
     else:
         frappe.throw("ERP Series Master Not Defined")
-
-
-from frappe.core.doctype.user.user import update_password as original_update_password
-
-
-@frappe.whitelist(allow_guest=True, methods=["POST"])
-def update_user_password(
-    new_password: str, logout_all_sessions: int = 0, key: str | None = None, old_password: str | None = None
-):
-    if key:
-        res = _get_user_for_update_password(key, old_password)
-        if res.get("message"):
-            frappe.local.response.http_status_code = 410
-            return res["message"]
-        else:
-            current_user = res["user"]
-
-            if frappe.db.exists("Employee", current_user):
-                company = frappe.db.get_value("Employee", current_user, "company")
-            else:
-                frappe.throw(f"Employee not found for the user -> {current_user}")
-
-        user = check_update_password(current_user, new_password)
-        if user == current_user:
-            frappe.throw("The new password must be different from the old password")
-
-    else:
-        current_user = frappe.session.user
-
-        frappe.db.set_value("Virtual Password", "Virtual Password", "virtual_pass", new_password)
-
-        if frappe.db.exists("Employee", current_user):
-            company = frappe.db.get_value("Employee", current_user, "company")
-        else:
-            frappe.throw(f"Employee not found for the user -> {current_user}")
-
-    con = oracle_connection(company)
-    if not con:
-        frappe.log_error(title="Oracle Connection information is not set")
-    else:
-        try:
-            cur = con.cursor()
-
-            check_emp_sql = f"""SELECT USER_CODE FROM RIPLRR.USER_MAST WHERE USER_CODE = '{current_user}'"""
-            cur.execute(check_emp_sql)
-            result = cur.fetchall()
-            if result:
-                sql = f"""UPDATE RIPLRR.USER_MAST SET
-								PASSWORD = (SELECT RIPLRR.LHS_UTILITY.GET_ENCRYPT('{new_password}') FROM DUAL),
-								LASTUPDATE = TIMESTAMP '{frappe.utils.now()!s}'
-								WHERE
-									USER_CODE = '{current_user}'
-						"""
-                frappe.log_error(title="User Update Query", message=sql)
-                cur.execute(sql)
-
-            else:
-                frappe.log_error(title="User Password Update", message="User not found in ERP!! Kindly Create User")
-
-            con.commit()
-
-        except cx_Oracle.DatabaseError as er:
-            frappe.log_error(title="Oracle Query Error", message=er)
-            frappe.throw(f"Oracle Query Error: {er!s}")
-            con.rollback()
-
-        except Exception as er:
-            frappe.log_error(title="Oracle Exception", message=er)
-            frappe.throw(f"Oracle Exception: {er!s}")
-            con.rollback()
-
-        finally:
-            if cur:
-                cur.close()
-            if con:
-                con.close()
-
-    frappe.log_error("Update_user_password_triggered", f"{new_password} - {current_user}")
-
-    original_update_password(new_password, logout_all_sessions, key, old_password)
-
-    redirect_url = "/hrms/home"
-    return redirect_url
-
-
-Auth = Table("__Auth")
-
-passlibctx = CryptContext(
-    schemes=[
-        "pbkdf2_sha256",
-        "argon2",
-    ],
-)
-
-
-def check_update_password(user, pwd, doctype="User", fieldname="password"):
-    result = (
-        frappe.qb.from_(Auth)
-        .select(Auth.name, Auth.password)
-        .where((Auth.doctype == doctype) & (Auth.name == user) & (Auth.fieldname == fieldname) & (Auth.encrypted == 0))
-        .limit(1)
-        .run(as_dict=True)
-    )
-
-    user = result[0].name
-
-    if not result or not passlibctx.verify(pwd, result[0].password):
-        return "Incorrect password"
-    else:
-        return user
 
 
 def generate_insert_statements(salary_structure, emp_code, from_date):
