@@ -1,8 +1,8 @@
 app_name = "real_group"
 app_title = "Real Group"
-app_publisher = "Step Tech"
+app_publisher = "rtCamp"
 app_description = "Custom Developments for Real Group"
-app_email = "admin@step-tech.in"
+app_email = "frappe@rtcamp.com"
 app_license = "mit"
 # required_apps = []
 
@@ -59,9 +59,7 @@ app_license = "mit"
 # ----------
 
 # add methods and filters to jinja environment
-jinja = {
-	"methods": ["real_group.real_group.utils.get_qr_code", "real_group.real_group.utils.employee_advance_details"]
-}
+jinja = {"methods": ["real_group.real_group.utils.get_qr_code", "real_group.real_group.utils.employee_advance_details"]}
 
 # Installation
 # ------------
@@ -114,7 +112,7 @@ jinja = {
 # Override standard doctype classes
 
 override_doctype_class = {
-	"User": "real_group.overrides.CustomUser",
+    "User": "real_group.overrides.CustomUser",
     "Employee": "real_group.overrides.CustomEmployee",
     "Employee Checkin": "real_group.overrides.CustomEmployeeCheckin",
     "Compensatory Leave Request": "real_group.overrides.CustomCompensatoryLeaveRequest",
@@ -136,29 +134,24 @@ override_doctype_class = {
 doc_events = {
     "Employee": {
         "after_insert": ["real_group.real_group.integration.create_employee"],
-        "on_update": ["real_group.real_group.integration.update_employee"]
+        "on_update": ["real_group.real_group.integration.update_employee"],
     },
-
     "User": {
         "after_insert": ["real_group.real_group.integration.create_user"],
         "on_update": ["real_group.real_group.integration.update_user"],
-        "update_password": ["real_group.real_group.integration.update_user_password"]
+        "update_password": ["real_group.real_group.integration.update_user_password"],
     },
-
     "Salary Structure Assignment": {
         "before_save": [
             # "real_group.real_group.arrears.process_arrear",
         ],
-        "before_submit": [
-            "real_group.real_group.integration.insert_salary_structure"
-        ]
+        "before_submit": ["real_group.real_group.integration.insert_salary_structure"],
     },
-
     "Salary Slip": {
         "on_submit": ["real_group.real_group.integration.create_salary_slip"],
         "on_cancel": ["real_group.real_group.integration.cancel_salary_slip"],
-    #    "before_save": ["real_group.real_group.arrears.arrears_in_current_sal_slip"]
-    }
+        #    "before_save": ["real_group.real_group.arrears.arrears_in_current_sal_slip"]
+    },
 }
 
 # Scheduled Tasks
@@ -166,28 +159,20 @@ doc_events = {
 
 scheduler_events = {
     "cron": {
-        "*/5 * * * *": [
-            "real_group.real_group.attendance.process_attendance_log"
-        ],
+        "*/5 * * * *": ["real_group.real_group.attendance.process_attendance_log"],
         # "* * * * *": [
         #     "real_group.real_group.attendance.pull_data_from_postgre"
         # ],
-        "1 00 * * *": [
-            "real_group.real_group.attendance.process_attendance_from_attendance_summary"
-        ],
+        "1 00 * * *": ["real_group.real_group.attendance.process_attendance_from_attendance_summary"],
         "0 9 * * *": [
             "real_group.real_group.attendance.process_attendance_from_no_check_in_applicable_grade",
-            "real_group.real_group.notifications.send_birthday_wishes"
+            "real_group.real_group.notifications.send_birthday_wishes",
         ],
-        "59 23 * * *": [
-            "real_group.real_group.attendance.process_attendance_from_single_check_in_applicable_grade"
-        ],
+        "59 23 * * *": ["real_group.real_group.attendance.process_attendance_from_single_check_in_applicable_grade"],
         # "01 0 * * *": [
         #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
         # ],
-        "5 0 2 * *": [
-            "real_group.real_group.attendance.process_attendance_for_last_day_of_month"
-        ]
+        "5 0 2 * *": ["real_group.real_group.attendance.process_attendance_for_last_day_of_month"],
     }
 }
 
@@ -218,7 +203,7 @@ scheduler_events = {
 # ------------------------------
 #
 override_whitelisted_methods = {
-	# "frappe.desk.doctype.event.event.get_events": "real_group.event.get_events",
+    # "frappe.desk.doctype.event.event.get_events": "real_group.event.get_events",
     "frappe.core.doctype.user.user.update_password": "real_group.real_group.integration.update_user_password"
 }
 #
@@ -280,16 +265,17 @@ override_whitelisted_methods = {
 # ]
 
 # Automatically update python controller files with type annotations for this app.
-# export_python_type_annotations = True
+export_python_type_annotations = True
 
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
 
-
 from frappe.www import login
+
 from real_group.overrides import send_login_link as custom_send_login_link
+
 login.send_login_link = custom_send_login_link
 
 fixtures = [
@@ -309,7 +295,5 @@ fixtures = [
     {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Notification", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Page", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Web Form", "filters": [["module", "=", "Real Group"]]}
+    {"dt": "Web Form", "filters": [["module", "=", "Real Group"]]},
 ]
-
-
