@@ -1,6 +1,7 @@
 import frappe
 import psycopg
 from frappe import _SingleDocument
+from frappe.model.document import bulk_insert
 
 
 def pull_data_from_postgre():
@@ -43,28 +44,30 @@ def pull_data_from_postgre():
 
             rows = cur.fetchall()
             result = [dict((cur.description[i][0], val) for i, val in enumerate(row)) for row in rows]
+    try:
+        docs = []
+        for r in result:
+            doc = frappe.get_doc(
+                {
+                    "doctype": "Bio Attendance Log",
+                    "time_pro_reference_id": r.get("time_pro_reference_id"),
+                    "employee": r.get("employee_id"),
+                    "punch_date": r.get("punch_date"),
+                    "punch_time": str(r.get("punch_time1")),
+                    "punch_datetime": r.get("punch_datetime"),
+                    "area": r.get("area"),
+                    "punch_direction": r.get("punch_direction"),
+                    "terminal_id": r.get("terminal_id"),
+                    "is_processed": r.get("is_processed"),
+                }
+            )
+            docs.append(doc)
 
-    # Insert into frappe db
-    for r in result:
-        frappe.db.sql(
-            """
-            INSERT INTO bio_attendance_log
-                (employee_id, punch_date, punch_time, area, punch_direction, terminal_id, is_processed, time_pro_reference_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-            (
-                r.get("employee_id"),
-                r.get("punch_date"),
-                str(r.get("punch_time1")),
-                r.get("area"),
-                r.get("punch_direction"),
-                r.get("terminal_id"),
-                r.get("is_processed"),
-                r.get("time_pro_reference_id"),
-            ),
-        )
+            if docs:
+                bulk_insert("Bio Attendance Log", docs)
 
-        upload_time = r.get("upload_time").strftime("%Y-%m-%d %H:%M:%S.%f")
-        frappe.db.set_value("Real Group Settings", "Real Group Settings", "time_pro_last_sync_on", str(upload_time))
+            last_sync = result and result[-1].get("upload_time")
+            settings.db_set("last_attendance_log_sync_datetime", last_sync, commit=True)
 
-    frappe.db.commit()
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Error while pulling attendance log from timepro")
