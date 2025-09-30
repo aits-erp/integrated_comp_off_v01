@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:loan_purpose",
- "creation": "2024-08-20 18:44:39.186144",
+ "creation": "2025-09-30 17:09:45.408276",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -76,7 +76,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-27 12:35:13.571547",
+ "modified": "2025-09-30 18:40:04.371142",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Loan Purpose",
@@ -96,7 +96,9 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

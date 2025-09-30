@@ -6,4 +6,23 @@ from frappe.model.document import Document
 
 
 class IncentiveLog(Document):
-	pass
+    # begin: auto-generated types
+    # This code is auto-generated. Do not modify anything in this block.
+
+    from typing import TYPE_CHECKING
+
+    if TYPE_CHECKING:
+        from frappe.types import DF
+
+        employee: DF.Link | None
+        employee_name: DF.Data | None
+        extra_incentive: DF.Float
+        from_date: DF.Date | None
+        incentive: DF.Float
+        incentive_original_value: DF.Float
+        status: DF.Data | None
+        to_date: DF.Date | None
+        total_incentive: DF.Float
+        work_date: DF.Date | None
+    # end: auto-generated types
+    pass

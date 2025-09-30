@@ -6,4 +6,17 @@ from frappe.model.document import Document
 
 
 class RejectReason(Document):
-	pass
+    # begin: auto-generated types
+    # This code is auto-generated. Do not modify anything in this block.
+
+    from typing import TYPE_CHECKING
+
+    if TYPE_CHECKING:
+        from frappe.types import DF
+
+        from real_group.real_group.doctype.reject_reason_type.reject_reason_type import RejectReasonType
+
+        document_type: DF.TableMultiSelect[RejectReasonType]
+        reason: DF.Data | None
+    # end: auto-generated types
+    pass
