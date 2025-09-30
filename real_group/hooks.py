@@ -160,9 +160,7 @@ doc_events = {
 scheduler_events = {
     "cron": {
         "*/5 * * * *": ["real_group.real_group.attendance.process_attendance_log"],
-        # "* * * * *": [
-        #     "real_group.real_group.attendance.pull_data_from_postgre"
-        # ],
+        "* * * * *": ["real_group.real_group.tasks.pull_attendance_log.pull_data_from_postgre"],
         "1 00 * * *": ["real_group.real_group.attendance.process_attendance_from_attendance_summary"],
         "0 9 * * *": [
             "real_group.real_group.attendance.process_attendance_from_no_check_in_applicable_grade",
