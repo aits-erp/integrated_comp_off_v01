@@ -28,7 +28,30 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {"User": "public/js/form/user.js", "Leave Application": "public/js/form/leave_application.js"}
+doctype_js = {
+    "User": "public/js/form/user.js",
+    "Leave Application": "public/js/form/leave_application.js",
+    "Employee": "public/js/form/employee.js",
+    "Company": "public/js/form/company.js",
+    "Employee Performance Feedback": "public/js/form/employee_performance_feedback.js",
+    "Appraisal Template": "public/js/form/appraisal_template.js",
+    "Employee Advance": "public/js/form/employee_advance.js",
+    "Employee Grade": "public/js/form/employee_grade.js",
+    "Attendance Request": "public/js/form/attendance_request.js",
+    "Salary Structure": "public/js/form/salary_structure.js",
+    "Interview": "public/js/form/interview.js",
+    "Compensation Matrix": "public/js/form/compensation_matrix.js",
+    "Arrear Slip": "public/js/form/arrear_slip.js",
+    "Medical History": "public/js/form/medical_history.js",
+    "Employee Onboarding Form": "public/js/form/employee_onboarding_form.js",
+    "Additional Salary": "public/js/form/additional_salary.js",
+    "Expense Claim": "public/js/form/expense_claim.js",
+    "Skip Loan Installment": "public/js/form/skip_loan_installment.js",
+    "Reprocess Attendance": "public/js/form/reprocess_attendance.js",
+    "Appointment Letter": "public/js/form/appointment_letter.js",
+    "Real Group User": "public/js/form/real_group_user.js",  # TODO: Check if this is required
+    "Salary Slip": "public/js/form/salary_slip.js",
+}
 doctype_list_js = {
     "Leave Application": "public/js/list/leave_application.js",
     "Attendance": "public/js/list/attendance.js",
