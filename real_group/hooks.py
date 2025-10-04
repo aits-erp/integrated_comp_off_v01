@@ -138,10 +138,9 @@ jinja = {"methods": ["real_group.real_group.utils.get_qr_code", "real_group.real
 # Override standard doctype classes
 
 override_doctype_class = {
-    "User": "real_group.overrides.CustomUser",
-    "Employee": "real_group.overrides.CustomEmployee",
-    "Employee Checkin": "real_group.overrides.CustomEmployeeCheckin",
-    "Compensatory Leave Request": "real_group.overrides.CustomCompensatoryLeaveRequest",
+    "User": "real_group.overrides.user.UserOverride",
+    "Employee Checkin": "real_group.overrides.employee_checkin.EmployeeCheckinOverride",
+    "Compensatory Leave Request": "real_group.overrides.compensatory_leave_request.CompensatoryLeaveRequestOverride",
     # "Leave Application": "real_group.overrides.CustomLeaveApplication", # Need not do override
 }
 
@@ -159,6 +158,7 @@ override_doctype_class = {
 
 doc_events = {
     "Employee": {
+        "autoname": "real_group.doc_events.employee.autoname",
         "after_insert": ["real_group.real_group.integration.create_employee"],
         "on_update": ["real_group.real_group.integration.update_employee"],
     },
@@ -186,13 +186,13 @@ doc_events = {
 scheduler_events = {
     "cron": {
         "*/5 * * * *": ["real_group.real_group.attendance.process_attendance_log"],
-        "* * * * *": ["real_group.real_group.tasks.pull_attendance_log.pull_data_from_postgre"],
+        "* * * * *": ["real_group.tasks.pull_attendance_log.pull_data_from_postgre"],
         "1 00 * * *": ["real_group.real_group.attendance.process_attendance_from_attendance_summary"],
         "0 9 * * *": [
-            "real_group.real_group.tasks.process_attendance_for_no_checkin_applicable.process",
+            "real_group.tasks.process_attendance_for_no_checkin_applicable.process",
             "real_group.real_group.notifications.send_birthday_wishes",
         ],
-        "59 23 * * *": ["real_group.real_group.tasks.process_attendance_for_single_checkin.process"],
+        "59 23 * * *": ["real_group.tasks.process_attendance_for_single_checkin.process"],
         # "01 0 * * *": [
         #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
         # ],
@@ -294,12 +294,6 @@ export_python_type_annotations = True
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
-
-from frappe.www import login
-
-from real_group.overrides import send_login_link as custom_send_login_link
-
-login.send_login_link = custom_send_login_link
 
 fixtures = [
     {"dt": "Custom Field", "filters": [["module", "=", "Real Group"]]},
