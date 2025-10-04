@@ -189,10 +189,10 @@ scheduler_events = {
         "* * * * *": ["real_group.real_group.tasks.pull_attendance_log.pull_data_from_postgre"],
         "1 00 * * *": ["real_group.real_group.attendance.process_attendance_from_attendance_summary"],
         "0 9 * * *": [
-            "real_group.real_group.attendance.process_attendance_from_no_check_in_applicable_grade",
+            "real_group.real_group.tasks.process_attendance_for_no_checkin_applicable.process",
             "real_group.real_group.notifications.send_birthday_wishes",
         ],
-        "59 23 * * *": ["real_group.real_group.attendance.process_attendance_from_single_check_in_applicable_grade"],
+        "59 23 * * *": ["real_group.real_group.tasks.process_attendance_for_single_checkin.process"],
         # "01 0 * * *": [
         #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
         # ],
