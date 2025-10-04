@@ -22,6 +22,13 @@ def process():
 
     for emp in employees:
         try:
+            has_attendance = frappe.db.exists(
+                "Attendance",
+                filters={"employee": emp.name, "attendance_date": add_days(today(), -1), "docstatus": 1},
+            )
+            if has_attendance:
+                continue
+
             is_holiday = frappe.db.exists(
                 "Holiday",
                 filters={
@@ -32,32 +39,6 @@ def process():
                 },
             )
             if is_holiday:
-                continue
-
-            has_attendance = frappe.db.exists(
-                "Attendance",
-                filters={"employee": emp.name, "attendance_date": add_days(today(), -1), "docstatus": 1},
-            )
-            if has_attendance:
-                continue
-
-            filters = [["employee", "=", emp.name], ["time", ">=", start_time], ["time", "<", end_time]]
-            emp_checkin = frappe.db.count("Employee Checkin", filters)
-            if not emp_checkin or emp_checkin == 0:
-                attendance = frappe.get_doc(
-                    {
-                        "doctype": "Attendance",
-                        "employee": emp.name,
-                        "attendance_date": add_days(today(), -1),
-                        "status": "Absent",
-                        "company": emp.company,
-                    }
-                )
-                attendance.insert(ignore_permissions=True)
-                attendance.submit()
-                attendance.add_tag("Single Check in Required")
-            else:
-                checkins = frappe.get_all("Employee Checkin", filters=filters, pluck="name")
                 attendance = frappe.get_doc(
                     {
                         "doctype": "Attendance",
@@ -65,12 +46,43 @@ def process():
                         "attendance_date": add_days(today(), -1),
                         "status": "Present",
                         "company": emp.company,
+                        "custom_reason": "Holiday",
                     }
                 )
                 attendance.insert(ignore_permissions=True)
                 attendance.submit()
-                for checkin in checkins:
-                    frappe.db.set_value("Employee Checkin", checkin, "attendance", attendance.name)
+            else:
+                filters = [["employee", "=", emp.name], ["time", ">=", start_time], ["time", "<", end_time]]
+                emp_checkin = frappe.db.count("Employee Checkin", filters)
+                if not emp_checkin or emp_checkin == 0:
+                    attendance = frappe.get_doc(
+                        {
+                            "doctype": "Attendance",
+                            "employee": emp.name,
+                            "attendance_date": add_days(today(), -1),
+                            "status": "Absent",
+                            "company": emp.company,
+                        }
+                    )
+                    attendance.insert(ignore_permissions=True)
+                    attendance.submit()
+
+                else:
+                    checkins = frappe.get_all("Employee Checkin", filters=filters, pluck="name")
+                    attendance = frappe.get_doc(
+                        {
+                            "doctype": "Attendance",
+                            "employee": emp.name,
+                            "attendance_date": add_days(today(), -1),
+                            "status": "Present",
+                            "company": emp.company,
+                        }
+                    )
+                    attendance.insert(ignore_permissions=True)
+                    attendance.submit()
+                    for checkin in checkins:
+                        frappe.db.set_value("Employee Checkin", checkin, "attendance", attendance.name)
+            attendance.add_tag("Single Check in Required")
             frappe.db.commit()  # Commit after each successful attendance creation, so that in case of failure, previous records are saved.
         except Exception:
             frappe.log_error(frappe.get_traceback(), f"Error in processing attendance for {emp.name}")

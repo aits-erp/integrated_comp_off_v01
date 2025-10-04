@@ -19,6 +19,13 @@ def process():
 
     for emp in employees:
         try:
+            has_attendance = frappe.db.exists(
+                "Attendance",
+                filters={"employee": emp.name, "attendance_date": add_days(getdate(), -1), "docstatus": 1},
+            )
+            if has_attendance:
+                continue
+
             is_holiday = frappe.db.exists(
                 "Holiday",
                 filters={
@@ -29,23 +36,26 @@ def process():
                 },
             )
             if is_holiday:
-                continue
-
-            has_attendance = frappe.db.exists(
-                "Attendance",
-                filters={"employee": emp.name, "attendance_date": add_days(getdate(), -1), "docstatus": 1},
-            )
-            if has_attendance:
-                continue
-            attendance = frappe.get_doc(
-                {
-                    "doctype": "Attendance",
-                    "employee": emp.name,
-                    "attendance_date": add_days(getdate(), -1),
-                    "status": "Present",
-                    "company": emp.company,
-                }
-            )
+                attendance = frappe.get_doc(
+                    {
+                        "doctype": "Attendance",
+                        "employee": emp.name,
+                        "attendance_date": add_days(getdate(), -1),
+                        "status": "Present",
+                        "company": emp.company,
+                        "custom_reason": "Holiday",
+                    }
+                )
+            else:
+                attendance = frappe.get_doc(
+                    {
+                        "doctype": "Attendance",
+                        "employee": emp.name,
+                        "attendance_date": add_days(getdate(), -1),
+                        "status": "Present",
+                        "company": emp.company,
+                    }
+                )
             attendance.insert(ignore_permissions=True)
             attendance.submit()
             attendance.add_tag("No Check in Required")
