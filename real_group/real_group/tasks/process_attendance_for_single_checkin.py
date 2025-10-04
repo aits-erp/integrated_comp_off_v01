@@ -22,6 +22,25 @@ def process():
 
     for emp in employees:
         try:
+            is_holiday = frappe.db.exists(
+                "Holiday",
+                filters={
+                    "parent": emp.holiday_list,
+                    "holiday_date": add_days(today(), -1),
+                    "parenttype": "Holiday List",
+                    "parentfield": "holidays",
+                },
+            )
+            if is_holiday:
+                continue
+
+            has_attendance = frappe.db.exists(
+                "Attendance",
+                filters={"employee": emp.name, "attendance_date": add_days(today(), -1), "docstatus": 1},
+            )
+            if has_attendance:
+                continue
+
             filters = [["employee", "=", emp.name], ["time", ">=", start_time], ["time", "<", end_time]]
             emp_checkin = frappe.db.count("Employee Checkin", filters)
             if not emp_checkin or emp_checkin == 0:
