@@ -49,20 +49,6 @@ frappe.ui.form.on("Employee", {
       frm.set_df_property("custom_linked_pan", "hidden", 1); // hide if no Pan
     }
 
-    // Capitalize the first_name field
-    frm.fields_dict["custom_approvers"].grid.get_field("role").get_query = function () {
-      return {
-        filters: {
-          name: ["in", ["HOD", "HR"]],
-        },
-      };
-    };
-
-    frm.set_value("employee_number", frappe.session.user);
-
-    // Example of setting another field, just as a reference
-    // frm.set_value("attendance_device_id", frm.doc.name);
-
     frappe
       .call("get_employee_chart_data", {
         employee: frm.doc.name,
@@ -75,48 +61,6 @@ frappe.ui.form.on("Employee", {
           new frappe.Chart(`#${f}`, resp.message.charts[f]);
         });
       });
-
-    // frm.fields_dict['custom_bp_chart'].html('<div id="custom_bp_chart"></div>');
-    // let bp_chart_data = {
-    //     labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    //     datasets: [
-    //       {
-    //         name: "BP",
-    //         values: [18, 40, 30, 35, 8, 52, 17, -4],
-    //         chartType: 'line'
-    //       }
-    //     ]
-    // };
-
-    // let bp_chart_settings = {
-    //     data: bp_chart_data,
-    //     type: 'bar', // or 'line', 'pie', etc.
-    //     height: 250,
-    //     colors: ['#7cd6fd', '#743ee2']
-    // };
-
-    // new frappe.Chart("#custom_bp_chart", bp_chart_settings);
-
-    // frm.fields_dict['custom_sugar_chart'].html('<div id="custom_sugar_chart"></div>');
-    // let sugar_chart_data = {
-    //     labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    //     datasets: [
-    //       {
-    //         name: "SUGAR",
-    //         values: [18, 40, 30, 35, 8, 52, 17, -4],
-    //         chartType: 'line'
-    //       }
-    //     ]
-    // };
-
-    // let sugar_chart_settings = {
-    //     data: sugar_chart_data,
-    //     type: 'bar', // or 'line', 'pie', etc.
-    //     height: 250,
-    //     colors: ['#7cd6fd', '#743ee2']
-    // };
-
-    // new frappe.Chart("#custom_sugar_chart", sugar_chart_settings);
   },
 
   company: function (frm) {
