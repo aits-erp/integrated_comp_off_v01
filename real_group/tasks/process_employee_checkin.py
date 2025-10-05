@@ -3,6 +3,7 @@ from collections import defaultdict
 
 import frappe
 from frappe.utils import add_days, get_datetime, getdate
+from frappe.utils.caching import redis_cache
 
 
 def process():
@@ -41,6 +42,7 @@ def process_employee_checkin(logs):
         # Just use shift from last checkin
         if first_checkin_shift:
             for log in emp_logs:
+                shift_info = fetch_shift_details(first_checkin_shift, get_datetime(log.punch_datetime))
                 doc = frappe.get_doc(
                     {
                         "doctype": "Employee Checkin",
@@ -50,6 +52,10 @@ def process_employee_checkin(logs):
                         "log_type": "IN",
                         "custom_bio_log_id": log.name,
                         "device_id": log.terminal_id,
+                        "shift_start": shift_info.start_datetime,
+                        "shift_end": shift_info.end_datetime,
+                        "shift_actual_start": shift_info.actual_start,
+                        "shift_actual_end": shift_info.actual_end,
                     }
                 )
                 doc.insert()
@@ -60,6 +66,8 @@ def process_employee_checkin(logs):
             )
 
             for log in emp_logs:
+                shift_info = fetch_shift_details(first_checkin_shift, get_datetime(log.punch_datetime))
+
                 allowed_shifts = [employee.default_shift]
                 allowed_shifts.extend(shift_from_grade)
                 for_date = getdate(log.punch_date)
@@ -87,6 +95,10 @@ def process_employee_checkin(logs):
                         "log_type": "IN",
                         "custom_bio_log_id": log.name,
                         "device_id": log.terminal_id,
+                        "shift_start": shift_info.start_datetime,
+                        "shift_end": shift_info.end_datetime,
+                        "shift_actual_start": shift_info.actual_start,
+                        "shift_actual_end": shift_info.actual_end,
                     }
                 )
                 doc.insert()
@@ -121,6 +133,7 @@ def process_employee_checkout(logs):
 
         if first_checkin_shift:
             for log in emp_logs:
+                shift_info = fetch_shift_details(first_checkin_shift, get_datetime(log.punch_datetime))
                 doc = frappe.get_doc(
                     {
                         "doctype": "Employee Checkin",
@@ -130,6 +143,10 @@ def process_employee_checkout(logs):
                         "log_type": "OUT",
                         "custom_bio_log_id": log.name,
                         "device_id": log.terminal_id,
+                        "shift_start": shift_info.start_datetime,
+                        "shift_end": shift_info.end_datetime,
+                        "shift_actual_start": shift_info.actual_start,
+                        "shift_actual_end": shift_info.actual_end,
                     }
                 )
                 doc.insert()
@@ -140,6 +157,7 @@ def process_employee_checkout(logs):
             )
 
             for log in emp_logs:
+                shift_info = fetch_shift_details(first_checkin_shift, get_datetime(log.punch_datetime))
                 allowed_shifts = [employee.default_shift]
                 allowed_shifts.extend(shift_from_grade)
                 for_date = getdate(log.punch_date)
@@ -167,6 +185,10 @@ def process_employee_checkout(logs):
                         "log_type": "OUT",
                         "custom_bio_log_id": log.name,
                         "device_id": log.terminal_id,
+                        "shift_start": shift_info.start_datetime,
+                        "shift_end": shift_info.end_datetime,
+                        "shift_actual_start": shift_info.actual_start,
+                        "shift_actual_end": shift_info.actual_end,
                     }
                 )
                 doc.insert()
@@ -198,3 +220,10 @@ def get_first_checkin_for_the_day(employee: str):
     ]
     first_checkin_shift = frappe.db.get_value("Employee Checkin", filters, "shift", order_by="creation desc")
     return first_checkin_shift
+
+
+@redis_cache()
+def fetch_shift_details(shift_type: str, for_timestamp: datetime):
+    from hrms.hr.doctype.shift_assignment.shift_assignment import get_shift_details
+
+    return get_shift_details(shift_type, for_timestamp)
