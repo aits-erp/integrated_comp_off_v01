@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2024-06-12 17:03:11.328952",
+ "creation": "2025-09-30 17:09:43.752944",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -194,7 +194,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-12 23:42:18.393977",
+ "modified": "2025-09-30 18:40:07.146689",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Real Group User",
@@ -213,7 +213,9 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

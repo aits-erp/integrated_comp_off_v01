@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:reason",
- "creation": "2024-08-16 14:53:08.722151",
+ "creation": "2025-09-30 17:09:45.334846",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -25,7 +25,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-09-12 19:43:28.074567",
+ "modified": "2025-09-30 18:40:04.443155",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Reject Reason",
@@ -76,7 +76,9 @@
    "share": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

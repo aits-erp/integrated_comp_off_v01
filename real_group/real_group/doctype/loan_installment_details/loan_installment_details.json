@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2024-09-06 19:02:08.425618",
+ "creation": "2025-09-30 17:09:45.636880",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -47,13 +47,15 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-09-12 15:17:53.841408",
+ "modified": "2025-09-30 18:40:04.107702",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Loan Installment Details",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

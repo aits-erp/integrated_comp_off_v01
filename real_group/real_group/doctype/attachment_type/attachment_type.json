@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2024-08-12 23:39:58.872191",
+ "creation": "2025-09-30 17:09:44.604129",
  "default_view": "List",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -45,13 +45,15 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-08-12 23:39:58.872191",
+ "modified": "2025-09-30 18:40:05.625100",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Attachment Type",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

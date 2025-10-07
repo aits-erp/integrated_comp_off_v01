@@ -6,4 +6,17 @@ from frappe.model.document import Document
 
 
 class PayrollSeries(Document):
-	pass
+    # begin: auto-generated types
+    # This code is auto-generated. Do not modify anything in this block.
+
+    from typing import TYPE_CHECKING
+
+    if TYPE_CHECKING:
+        from frappe.types import DF
+
+        erp_acc_schedule: DF.Data
+        erp_acc_type: DF.Data
+        erp_code: DF.Data
+        payroll_series: DF.Data
+    # end: auto-generated types
+    pass

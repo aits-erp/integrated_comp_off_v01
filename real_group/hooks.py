@@ -28,8 +28,34 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+doctype_js = {
+    "User": "public/js/form/user.js",
+    "Leave Application": "public/js/form/leave_application.js",
+    "Employee": "public/js/form/employee.js",
+    "Company": "public/js/form/company.js",
+    "Employee Performance Feedback": "public/js/form/employee_performance_feedback.js",
+    "Appraisal Template": "public/js/form/appraisal_template.js",
+    "Employee Advance": "public/js/form/employee_advance.js",
+    "Employee Grade": "public/js/form/employee_grade.js",
+    "Attendance Request": "public/js/form/attendance_request.js",
+    "Salary Structure": "public/js/form/salary_structure.js",
+    "Interview": "public/js/form/interview.js",
+    "Compensation Matrix": "public/js/form/compensation_matrix.js",
+    "Arrear Slip": "public/js/form/arrear_slip.js",
+    "Medical History": "public/js/form/medical_history.js",
+    "Employee Onboarding Form": "public/js/form/employee_onboarding_form.js",
+    "Additional Salary": "public/js/form/additional_salary.js",
+    "Expense Claim": "public/js/form/expense_claim.js",
+    "Skip Loan Installment": "public/js/form/skip_loan_installment.js",
+    "Reprocess Attendance": "public/js/form/reprocess_attendance.js",
+    "Appointment Letter": "public/js/form/appointment_letter.js",
+    "Real Group User": "public/js/form/real_group_user.js",  # TODO: Check if this is required
+    "Salary Slip": "public/js/form/salary_slip.js",
+}
+doctype_list_js = {
+    "Leave Application": "public/js/list/leave_application.js",
+    "Attendance": "public/js/list/attendance.js",
+}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -112,10 +138,9 @@ jinja = {"methods": ["real_group.real_group.utils.get_qr_code", "real_group.real
 # Override standard doctype classes
 
 override_doctype_class = {
-    "User": "real_group.overrides.CustomUser",
-    "Employee": "real_group.overrides.CustomEmployee",
-    "Employee Checkin": "real_group.overrides.CustomEmployeeCheckin",
-    "Compensatory Leave Request": "real_group.overrides.CustomCompensatoryLeaveRequest",
+    "User": "real_group.overrides.user.UserOverride",
+    "Employee Checkin": "real_group.overrides.employee_checkin.EmployeeCheckinOverride",
+    "Compensatory Leave Request": "real_group.overrides.compensatory_leave_request.CompensatoryLeaveRequestOverride",
     # "Leave Application": "real_group.overrides.CustomLeaveApplication", # Need not do override
 }
 
@@ -133,6 +158,7 @@ override_doctype_class = {
 
 doc_events = {
     "Employee": {
+        "autoname": "real_group.doc_events.employee.autoname",
         "after_insert": ["real_group.real_group.integration.create_employee"],
         "on_update": ["real_group.real_group.integration.update_employee"],
     },
@@ -159,14 +185,14 @@ doc_events = {
 
 scheduler_events = {
     "cron": {
-        "*/5 * * * *": ["real_group.real_group.attendance.process_attendance_log"],
-        "* * * * *": ["real_group.real_group.tasks.pull_attendance_log.pull_data_from_postgre"],
+        "*/5 * * * *": ["real_group.tasks.process_employee_checkin.process"],
+        "* * * * *": ["real_group.tasks.pull_attendance_log.pull_data_from_postgre"],
         "1 00 * * *": ["real_group.real_group.attendance.process_attendance_from_attendance_summary"],
         "0 9 * * *": [
-            "real_group.real_group.attendance.process_attendance_from_no_check_in_applicable_grade",
+            "real_group.tasks.process_attendance_for_no_checkin_applicable.process",
             "real_group.real_group.notifications.send_birthday_wishes",
         ],
-        "59 23 * * *": ["real_group.real_group.attendance.process_attendance_from_single_check_in_applicable_grade"],
+        "59 23 * * *": ["real_group.tasks.process_attendance_for_single_checkin.process"],
         # "01 0 * * *": [
         #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
         # ],
@@ -201,8 +227,7 @@ scheduler_events = {
 # ------------------------------
 #
 override_whitelisted_methods = {
-    # "frappe.desk.doctype.event.event.get_events": "real_group.event.get_events",
-    "frappe.core.doctype.user.user.update_password": "real_group.real_group.integration.update_user_password"
+    "frappe.core.doctype.user.user.update_password": "real_group.api.overrides.user.update_user_password",
 }
 #
 # each overriding function accepts a `data` argument;
@@ -270,28 +295,19 @@ export_python_type_annotations = True
 # }
 
 
-from frappe.www import login
-
-from real_group.overrides import send_login_link as custom_send_login_link
-
-login.send_login_link = custom_send_login_link
-
 fixtures = [
     {"dt": "Custom Field", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Report", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Print Format", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Server Script", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Client Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Workflow"},
     {"dt": "Workflow State"},
     {"dt": "Workflow Action Master"},
     {"dt": "Website Theme"},
-    {"dt": "DocType", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Notification", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Dashboard Chart", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Notification", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Page", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Web Form", "filters": [["module", "=", "Real Group"]]},
 ]
