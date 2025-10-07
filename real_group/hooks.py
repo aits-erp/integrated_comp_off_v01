@@ -301,13 +301,4 @@ fixtures = [
     {"dt": "Print Format", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Server Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Workflow"},
-    {"dt": "Workflow State"},
-    {"dt": "Workflow Action Master"},
-    {"dt": "Website Theme"},
-    {"dt": "Notification", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Dashboard Chart", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Notification", "filters": [["module", "=", "Real Group"]]},
-    {"dt": "Web Form", "filters": [["module", "=", "Real Group"]]},
 ]
