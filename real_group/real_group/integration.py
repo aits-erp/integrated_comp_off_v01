@@ -14,16 +14,6 @@ from real_group.real_group.employee_map import (
     USER_MAP,
 )
 
-# from real_group.real_group.account_map import ACCOUNT_MAP
-# from real_group.real_group.user_map import USER_MAP
-
-
-# settings = frappe.get_doc("Real Group Settings")
-
-# ORACLE_USER=settings.username
-# ORACLE_PASSWORD=settings.get_password("password")
-# ORACLE_DSN=f"{settings.host}/{settings.database}"
-
 # ----------------Oracle Connection
 
 
@@ -77,7 +67,6 @@ def create_employee(doc, method):
         frappe.log_error(title="Oracle Connection information is not set")
     else:
         try:
-            frappe.log_error(title="DOc", message=doc.as_json())
             cur = con.cursor()
 
             # -------------------------------------------------------Employee Creation CRUD
@@ -85,7 +74,6 @@ def create_employee(doc, method):
             cur.execute(check_emp_sql)
             result = cur.fetchall()
             if result:
-                emp_code = result[0]
                 sql = get_update_query(EMPLOYEE_MAP, "RIPLRR.EMP_MAST", doc.name)
                 frappe.throw("Employee ID present in oracle, clean it first!!")
                 frappe.log_error(title="update query for employee", message=sql)
@@ -99,21 +87,16 @@ def create_employee(doc, method):
             # -------------------------------------------------------Account Creation CRUD
 
             check_acc_sql = f"""SELECT ACC_CODE FROM RIPLRR.ACC_MAST WHERE ACC_CODE = '{doc.name}'"""
-            frappe.log_error(title="check_acc_sql_SWL", message=check_acc_sql)
             cur.execute(check_acc_sql)
             result = cur.fetchall()
             if result:
-                emp_code = result[0]
-                frappe.log_error(title="EMP_CODE", message=str(emp_code))
                 frappe.throw("Account ID present in oracle, clean it first!!")
                 sql = get_account_update_query(ACCOUNT_MAP, "RIPLRR.ACC_MAST", doc.name)
-                frappe.log_error(title="SWL", message=sql)
                 cur.execute(sql)
 
             else:
                 frappe.log_error(title="EMP_CODE", message="No result found")
                 sql = get_account_insert_query(ACCOUNT_MAP, "RIPLRR.ACC_MAST", doc.name)
-                frappe.log_error(title="SWL", message=sql)
                 cur.execute(sql)
 
             con.commit()  # -----------------Database commit value
@@ -144,7 +127,6 @@ def update_employee(doc, method):
         frappe.log_error(title="Oracle Connection information is not set")
     else:
         try:
-            frappe.log_error(title="DOc", message=doc.as_json())
             cur = con.cursor()
 
             check_emp_sql = f"""SELECT EMP_CODE FROM RIPLRR.EMP_MAST WHERE EMP_CODE = '{doc.name}'"""
@@ -152,30 +134,21 @@ def update_employee(doc, method):
             result = cur.fetchall()
             if result:
                 sql = get_update_query(EMPLOYEE_MAP, "RIPLRR.EMP_MAST", doc.name)
-                frappe.log_error(title="update query", message=sql)
                 cur.execute(sql)
 
             else:
                 sql = get_insert_query(EMPLOYEE_MAP, "RIPLRR.EMP_MAST", doc.name)
-                frappe.log_error(title="insert query", message=sql)
                 cur.execute(sql)
-                # rows = cur.fetchall()
-                # print(rows)
-
-            # --------------------------------------Account Updataion CRUD
 
             check_acc_code_sql = f"""SELECT ACC_CODE FROM RIPLRR.ACC_MAST WHERE ACC_CODE = '{doc.name}'"""
             cur.execute(check_acc_code_sql)
             result = cur.fetchall()
             if result:
                 sql = get_account_update_query(ACCOUNT_MAP, "RIPLRR.ACC_MAST", doc.name)
-                frappe.log_error(title="account Update Query", message=sql)
                 cur.execute(sql)
 
             else:
-                frappe.log_error(title="EMP_CODE", message="No result found")
                 sql = get_account_insert_query(ACCOUNT_MAP, "RIPLRR.ACC_MAST", doc.name)
-                frappe.log_error(title="account insert Query", message=sql)
                 cur.execute(sql)
 
             con.commit()  # -----------------Database commit value
@@ -298,7 +271,6 @@ def get_insert_query(map, table_name, employee_code):
 			({",".join([str(elem) if "TO_DATE" in str(elem) else "'" + str(elem) + "'" for elem in values])})
 	"""
 
-    print(sql)
     return sql
 
 
@@ -400,7 +372,6 @@ def get_update_query(map, table_name, employee_code):
 			EMP_CODE = '{employee_code}'
 	"""
 
-    print(sql)
     return sql
 
 
@@ -454,7 +425,6 @@ def get_account_insert_query(map, table_name, employee_code):
 	"""
     # frappe.log_error(title="Query_Bulding_Syntex", message=sql)
 
-    print(sql)
     return sql
 
 
@@ -502,7 +472,6 @@ def get_account_update_query(map, table_name, employee_code):
 			ACC_CODE = '{employee_code}'
 	"""
 
-    print(sql)
     return sql
 
 
@@ -520,7 +489,6 @@ def create_user(doc, method):
         frappe.log_error(title="Oracle Connection information is not set")
     else:
         try:
-            frappe.log_error(title="User Document", message=doc.as_json())
             cur = con.cursor()
 
             if not frappe.db.exists("Employee", doc.username):
@@ -538,21 +506,15 @@ def create_user(doc, method):
             result = cur.fetchall()
             today = doc.creation.split(" ")[0]
             if result:
-                emp_code = result[0]
-                frappe.log_error(title="User_CODE", message=str(emp_code))
                 # frappe.throw(f"User ID {emp_code} present in oracle, clean it first!!")
                 sql = get_user_update_query(UPDATE_USER_MAP, "RIPLRR.USER_MAST", doc.name, today)
                 frappe.log_error(title="User Update Query", message=sql)
                 cur.execute(sql)
 
             else:
-                # today = doc.creation.split(' ')[0]
                 sql = get_user_insert_query(USER_MAP, "RIPLRR.USER_MAST", doc.name, today)
-                frappe.log_error(title="User Insert Query", message=sql)
-                cur.execute(sql)
-                # rows = cur.fetchall()
-                # print(rows)
 
+                cur.execute(sql)
             con.commit()  # -----------------Database commit value
 
         except cx_Oracle.DatabaseError as er:
@@ -583,7 +545,6 @@ def update_user(doc, method):
         frappe.log_error(title="Oracle Connection information is not set")
     else:
         try:
-            frappe.log_error(title="user new DOC", message=doc.as_json())
             cur = con.cursor()
 
             check_emp_sql = f"""SELECT USER_CODE FROM RIPLRR.USER_MAST WHERE USER_CODE = '{doc.name}'"""
@@ -592,15 +553,11 @@ def update_user(doc, method):
             today = str(doc.creation).split(" ")[0]
             if result:
                 sql = get_user_update_query(UPDATE_USER_MAP, "RIPLRR.USER_MAST", doc.name, today)
-                frappe.log_error(title="User Update Query", message=sql)
                 cur.execute(sql)
 
             else:
                 sql = get_user_insert_query(USER_MAP, "RIPLRR.USER_MAST", doc.name, today)
-                frappe.log_error(title="User Insert Query", message=sql)
                 cur.execute(sql)
-                # rows = cur.fetchall()
-                # print(rows)
 
             con.commit()  # -----------------Database commit value
 
@@ -666,9 +623,6 @@ def get_user_insert_query(map, table_name, user_code, today):
         as_dict=1,
     )
 
-    # temp Syntex for user id
-    # (SELECT name`` FROM `tabUser` WHERE name = owner) as user_id
-
     if not user_values:
         return None
 
@@ -712,9 +666,7 @@ def get_user_insert_query(map, table_name, user_code, today):
 		VALUES
 			({",".join(formatted_values)})
 	"""
-    frappe.log_error(title="Query_Bulding_Syntax", message=sql)
 
-    # print(sql)
     return sql
 
 
@@ -900,7 +852,6 @@ def create_salary_slip(doc, method):
         frappe.log_error(title="Oracle Connection information is not set")
     else:
         try:
-            frappe.log_error(title="Salary slip", message=doc.as_json())
             cur = con.cursor()
 
             # Get Salary Slip Insert SQL
@@ -920,12 +871,10 @@ def create_salary_slip(doc, method):
             result_for_existing = cur.fetchall()
             if result_for_existing:  # if salary slip exist then check is already trasaction done on erp
                 check_for_transaction_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}' AND (ACC_VRNO IS NOT NULL OR ACC_TCODE IS NOT NULL OR PAYMENT_VRNO IS NOT NULL OR PAYMENT_TCODE IS NOT NULL)"
-                frappe.log_error("check_for_transaction_sql", check_for_transaction_sql)
                 cur.execute(check_for_transaction_sql)
                 result_for_transaction = cur.fetchall()
 
                 if result_for_transaction:  # if exist then throw msg
-                    frappe.log_error("Salary Transaction Proceed Done", str(result_for_transaction))
                     frappe.throw(
                         f"Salary Transaction Already Exist For Employee - '{emp_code}' AND Month - '{month}' And Transaction Completed!!"
                     )
@@ -957,7 +906,6 @@ def create_salary_slip(doc, method):
                             BONUS_TRANSACTION, "RIPLRR.EMP_BONUS_TRAN", doc.name, series
                         )
                         bonus_tran_update_sql = bonus_tran_update_dict.get("sql_query")
-                        frappe.log_error("bonus_tran_update_sql", bonus_tran_update_sql)
 
                         # frappe.throw(str(bonus_tran_update_sql))
                         if bonus_tran_update_sql is not None:
@@ -968,7 +916,6 @@ def create_salary_slip(doc, method):
                         ATTENDANCE_BALANCE, "RIPLRR.EMP_ATTEND_BAL", doc.name
                     )
                     attend_bal_sql_update_list = attend_bal_sql_update_dict.get("sql_queries")
-                    frappe.log_error("attend bal sql update list", attend_bal_sql_update_list)
 
                     for attend_bal_sql in attend_bal_sql_update_list:
                         cur.execute(attend_bal_sql)
@@ -977,7 +924,6 @@ def create_salary_slip(doc, method):
                         SALARY_SLIP_SALARY_TRANS, "RIPLRR.EMP_SAL_TRAN", doc.name, doc.salary_structure
                     )
                     sql_update_list = sql_update_dict.get("sql_queries")
-                    frappe.log_error("salary slip update list", sql_update_list)
 
                     for sql in sql_update_list:
                         cur.execute(sql)
@@ -986,8 +932,7 @@ def create_salary_slip(doc, method):
                 bonus_tran = ""
                 if doc.custom_bonus_amount != 0:
                     series = get_next_series_no(doc.doctype, doc.company, doc.posting_date, cur)
-                    # frappe.throw(str(series))
-                    frappe.log_error("next Series", str(series))
+
                     frappe.db.set_value("Salary Slip", doc.name, "custom_erp_vrno", series)
 
                     # Get BONUS TRANSACION Insert SQL
@@ -995,15 +940,12 @@ def create_salary_slip(doc, method):
                         BONUS_TRANSACTION, "RIPLRR.EMP_BONUS_TRAN", doc.name, series
                     )
                     bonus_tran = bonus_tran_query.get("sql_query")
-                    frappe.log_error("Bonus Transaction Insert", str(bonus_tran))
-                    # frappe.throw(str(bonus_tran))
 
                 # Get Attend Bal Insert SQL
                 attend_bal_queries = get_attendance_balance_insert_query(
                     ATTENDANCE_BALANCE, "RIPLRR.EMP_ATTEND_BAL", doc.name
                 )
                 attend_sql_list = attend_bal_queries.get("sql_queries")
-                # frappe.throw(str(attend_sql_list))
 
                 if bonus_tran != "":
                     cur.execute(bonus_tran)
@@ -1040,7 +982,6 @@ def cancel_salary_slip(doc, method):
         frappe.log_error(title="Oracle Connection information is not set")
     else:
         try:
-            frappe.log_error(title="Salary slip on Cancel", message=doc.as_json())
             cur = con.cursor()
 
             # Get Salary Slip Insert 0 on Cancel
@@ -1061,8 +1002,6 @@ def cancel_salary_slip(doc, method):
                 (doc.name),
                 as_dict=1,
             )
-
-            # frappe.throw(str(salary_slip))
 
             emp_code = salary_slip[0].get("emp_code")
             cal_year = salary_slip[0].get("custom_calendar_year")
@@ -1110,7 +1049,7 @@ def cancel_salary_slip(doc, method):
 
             # Check for the same month salary slip if exist
             check_for_existing_record_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}'"
-            # frappe.log_error("Check TO update before insert zero", check_for_existing_record_sql)
+
             cur.execute(check_for_existing_record_sql)
             result_for_existing = cur.fetchall()
 
@@ -1120,16 +1059,11 @@ def cancel_salary_slip(doc, method):
                 result_for_transaction = cur.fetchall()
 
                 if result_for_transaction:  # if exist then throw msg
-                    frappe.log_error("Salary Transaction Proceed Done", str(result_for_transaction))
                     frappe.throw(
                         f"Salary Transaction Already Exist For Employee - {emp_code} AND Month - {month} And Transaction Completed!!"
                     )
 
                 else:  # else update the salary transaction
-                    frappe.log_error(
-                        "update sql for zero value in cancel error",
-                        f"{update_zero_sql_attend_bal} -- \n {update_zero_sql_salary_slip} -- \n {update_zero_sql_bonus_tran}",
-                    )
                     cur.execute(update_zero_sql_attend_bal)
                     cur.execute(update_zero_sql_salary_slip)
                     cur.execute(update_zero_sql_bonus_tran)
@@ -1206,9 +1140,6 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
         (docname),
         as_dict=1,
     )
-
-    frappe.log_error("Wait", salary_slips)
-    # frappe.throw("Wait")
 
     if not salary_slips:
         return None
@@ -1341,9 +1272,6 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
         (docname),
         as_dict=1,
     )
-
-    frappe.log_error("Wait Update", salary_slips)
-    # frappe.throw("salary_slips")
 
     if not salary_slips:
         return None
@@ -1694,7 +1622,7 @@ def get_attendance_balance_update_query(map, table_name, docname):
         "ESIC_LEAVE": "I",
         "OPTIONAL_LEAVE": "X",
     }
-    frappe.log_error("temp_result", temp_result)
+
     for rec in temp_result:
         leave_type = rec.replace("_", " ").title()  # Replace the leave name to title case
         if frappe.db.exists("Leave Type", leave_type):  # checing leave type present or not
@@ -1717,8 +1645,6 @@ def get_attendance_balance_update_query(map, table_name, docname):
             final_result.append(attend_bal_rec)
 
     attend_chars = final_result
-
-    # frappe.throw(str(final_result))
 
     if not attend_chars:
         return None
@@ -1878,7 +1804,6 @@ def get_bonus_transaction_update_query(map, table_name, docname, series):
     if not bonus_trans:
         return None
 
-    # frappe.throw(str(bonus_trans))
     bonus_tran = bonus_trans[0]
 
     sets = []
@@ -1919,39 +1844,9 @@ def get_bonus_transaction_update_query(map, table_name, docname, series):
 # Fetch ERP Config Master Details From this
 @frappe.whitelist()
 def config_master(emp_catg, company):
-    # emp_code = frappe.form_dict.emp_code
-
-    # emp_catg = frappe.form_dict.emp_catg
-    # company = frappe.form_dict.company
     company_full_name = company
     category = frappe.db.get_value("Employee Category", emp_catg, "erp_code")
     company = frappe.db.get_value("Company", company, "custom_erp_code")
-
-    # value = frappe.db.sql("""
-    # 	SELECT
-    # 		(SELECT custom_erp_code FROM `tabCompany` WHERE name = e.company  LIMIT 1) as entity_code,
-    # 		(SELECT erp_code FROM `tabEmployee Category` WHERE name = e.custom_emp_category LIMIT 1) as custom_emp_category
-    # 	FROM
-    # 		`tabEmployee` as e
-    # 	WHERE
-    # 		e.name = %s
-    # 	""", (emp_code), as_dict=1)
-
-    # msg = f'{emp_code} - {emp_catg} - {company} , {str(value[0].entity_code)} , {str(value[0].custom_emp_category)}'
-
-    # try:
-    # 	oracle_dtl = frappe.db.get_value("Oracle Credentials",{"company":company_full_name}, ['host','database','password', 'username'], as_dict = 1)
-    # 	encrypted_password = oracle_dtl['password']
-    # 	decrypted_password = get_encrypted_password(encrypted_password)
-    # 	ORACLE_USER=oracle_dtl.username
-    # 	ORACLE_PASSWORD=decrypted_password
-    # 	ORACLE_DSN=f"{oracle_dtl.host}/{oracle_dtl.database}"
-
-    # 	con = cx_Oracle.connect(user=ORACLE_USER, password=ORACLE_PASSWORD, dsn=ORACLE_DSN)
-
-    # except cx_Oracle.DatabaseError as er:
-    # 	frappe.log_error(title="Oracle Connection Error", message=er)
-    # 	frappe.throw('Oracle Connection Error:', str(er))
 
     con = oracle_connection(company_full_name)
     if not con:
@@ -2005,9 +1900,6 @@ def config_master(emp_catg, company):
                         rec["salary_component"] = salary_component
                         rec["abbr"] = salary_component_abbr
 
-                # json_result = json.dumps(result_list)
-                # frappe.log_error("MSG_result", result_list)
-
                 msg = result_list
 
             # con.commit() #-----------------Database commit value
@@ -2035,10 +1927,6 @@ def config_master(emp_catg, company):
 # Fetch ERP Config Master Details From this
 @frappe.whitelist()
 def erp_config_master(emp_catg, company):
-    # emp_code = frappe.form_dict.emp_code
-
-    # emp_catg = frappe.form_dict.emp_catg
-    # company = frappe.form_dict.company
     company_full_name = company
     category = frappe.db.get_value("Employee Category", emp_catg, "erp_code")
     company = frappe.db.get_value("Company", company, "custom_erp_code")
@@ -2095,7 +1983,6 @@ def erp_config_master(emp_catg, company):
                         rec["abbr"] = salary_component_abbr
 
                 json_result = json.dumps(result_list)
-                # frappe.log_error("MSG_result", result_list)
 
                 msg = json_result
 
@@ -2142,7 +2029,6 @@ def employee_rate_master(emp_code, company):
                         result_dict[col[0]] = row[idx]
                 result_list.append(result_dict)
 
-            frappe.log_error("Employee Rate Master", result_list)
             msg = result_list
 
         except cx_Oracle.DatabaseError as er:
@@ -2181,9 +2067,7 @@ def get_next_series_no(doctype, company, date, cur):
         if erp_series.formatter == "YYY":
             actual_base_series = f"{base_series}{fiscal_year}Y-"
             entity_code = frappe.db.get_value("Company", company, "custom_erp_code")
-            series_count = cur.execute(
-                f"SELECT LASTVRNO FROM RIPLRR.VRSEQ_MAST WHERE ENTITY_CODE='{entity_code}' AND VRPREFIX = '{erp_series.tcode}{actual_base_series}'"
-            )
+
             result_series_count = cur.fetchall()
             if len(result_series_count) > 0:
                 count = result_series_count[0][0]
@@ -2204,22 +2088,19 @@ def get_next_series_no(doctype, company, date, cur):
                 month_abbr = str(dt.month)
             actual_base_series = f"{base_series}{fiscal_year}{month_abbr}-"
             entity_code = frappe.db.get_value("Company", company, "custom_erp_code")
-            series_count = cur.execute(
-                f"SELECT LASTVRNO FROM RIPLRR.VRSEQ_MAST WHERE ENTITY_CODE='{entity_code}' AND VRPREFIX = '{erp_series.tcode}{actual_base_series}'"
-            )
-            frappe.log_error("series_count", series_count)
+
             result_series_count = cur.fetchall()
             if len(result_series_count) > 0:
                 count = result_series_count[0][0]
                 next_series = f"{actual_base_series}{int(count) + 1}"
                 update_series = f"UPDATE RIPLRR.VRSEQ_MAST SET LASTVRNO = '{int(count) + 1}' WHERE ENTITY_CODE = '{entity_code}' AND VRPREFIX = '{erp_series.tcode}{actual_base_series}'"
-                frappe.log_error("update_series", update_series)
+
                 cur.execute(update_series)
             else:
                 insert_new_series = f"INSERT INTO RIPLRR.VRSEQ_MAST (LASTVRNO, ENTITY_CODE, VRPREFIX) VALUES (1, '{entity_code}','{erp_series.tcode}{actual_base_series}')"
-                frappe.log_error("insert_new_series", insert_new_series)
+
                 cur.execute(insert_new_series)
-                # con.commit()
+
                 next_series = f"{actual_base_series}1"
         else:
             frappe.throw("Formatter Not Found for ERP Series Master")
@@ -2284,9 +2165,7 @@ def insert_salary_structure(doc, method):
 
             cur.execute(update_salary_structure)
 
-        frappe.log_error(title="Salary Structure", message=doc.as_json())
         salary_structure = get_salary_structure(doc.employee, doc.from_date, doc.salary_structure)
-        frappe.log_error(title="Salary Data", message=salary_structure)
 
         sql_statements = generate_insert_statements(salary_structure, doc.employee, doc.from_date)
 
