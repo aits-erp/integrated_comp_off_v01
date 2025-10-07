@@ -8930,7 +8930,7 @@
   "name": "Employee Grade-custom_short_leave_type",
   "no_copy": 0,
   "non_negative": 0,
-  "options": "Personal\nShort",
+  "options": "Personal",
   "permlevel": 0,
   "placeholder": null,
   "precision": "",
