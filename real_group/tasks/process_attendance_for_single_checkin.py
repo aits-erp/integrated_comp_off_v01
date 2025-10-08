@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import add_days, get_datetime, today
+from frappe.utils import add_days, get_datetime, getdate, today
 
 
 def process():
@@ -69,11 +69,12 @@ def process():
 
                 else:
                     checkins = frappe.get_all("Employee Checkin", filters=filters, pluck="name")
+                    shift_date = getdate(checkins[0].get("shift_start"))
                     attendance = frappe.get_doc(
                         {
                             "doctype": "Attendance",
                             "employee": emp.name,
-                            "attendance_date": add_days(today(), -1),
+                            "attendance_date": shift_date,
                             "status": "Present",
                             "company": emp.company,
                         }
