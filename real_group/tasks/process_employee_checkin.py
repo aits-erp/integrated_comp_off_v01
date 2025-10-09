@@ -10,7 +10,7 @@ def process():
         "Bio Attendance Log",
         filters={"is_processed": "N"},
         fields=["*"],
-        limit_page_length=5000,
+        limit_page_length=1000,
         order_by="punch_datetime asc",
     )
 
@@ -224,6 +224,15 @@ def find_closest_shift_from_punch_time(allowed_shifts: list[str], punch_time: st
 
 
 def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
+    """
+    This method will return the first checkin of the calendar day for an employee. If employee
+    has checked in then the first record will be returned else None will be returned. This will help
+    us to determine which shift to assign to the employee checkin/checkout record.
+
+    Based on the parameter `for_checkout` the time range will be adjusted. If it's checkout then the
+    time range will be from previous day 00:00:00 to next day 23:59:59 else it will be from current day
+    00:00:00 to next day 23:59:59.
+    """
     for_date = getdate(for_date)
     if for_checkout:
         start_time = get_datetime(add_days(for_date, -1))
@@ -277,6 +286,10 @@ def fetch_shift_details(shift_type: str, for_timestamp: datetime, grade: str, is
 
 
 def get_shift_timings(shift_type: dict, for_timestamp: datetime, grade, is_checkout: False) -> tuple:
+    """
+    The method is similar to hrms.hr.doctype.shift_type.shift_type.get_shift_timings but with
+    additional logic to handle grace periods defined at Employee Grade level.
+    """
     start_time = shift_type.start_time
     end_time = shift_type.end_time
 

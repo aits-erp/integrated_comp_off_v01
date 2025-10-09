@@ -162,6 +162,11 @@ doc_events = {
         "after_insert": ["real_group.real_group.integration.create_employee"],
         "on_update": ["real_group.real_group.integration.update_employee"],
     },
+    "Employee Checkin": {
+        "after_insert": [
+            "real_group.real_group.doc_events.employee_checkin.after_insert",
+        ],
+    },
     "User": {
         "after_insert": ["real_group.real_group.integration.create_user"],
         "on_update": ["real_group.real_group.integration.update_user"],
@@ -185,7 +190,7 @@ doc_events = {
 
 scheduler_events = {
     "cron": {
-        "*/5 * * * *": ["real_group.tasks.process_employee_checkin.process"],
+        "*/2 * * * *": ["real_group.tasks.process_employee_checkin.process"],
         # TODO: This will be removed, since not being used.
         # "* * * * *": ["real_group.tasks.pull_attendance_log.pull_data_from_postgre"],
         "1 00 * * *": ["real_group.real_group.attendance.process_attendance_from_attendance_summary"],

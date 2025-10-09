@@ -181,8 +181,7 @@ def existing_loan_summary(today, employee):
                     <td>{res}</td>
                     <td>{amount}</td>
                     <td>{employee_adv[res].get("total_installments")}</td>
-                    <td>{employee_adv[res].get("remaining_installments")}</td>
-                </tr>"""
+                    <td>{employee_adv[res].get("remaining_installments")}</td>"""
         )
 
     html = (
