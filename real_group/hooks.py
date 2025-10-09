@@ -163,9 +163,19 @@ doc_events = {
         "on_update": ["real_group.real_group.integration.update_employee"],
     },
     "Employee Checkin": {
+        "validate": ["real_group.doc_events.employee_checkin.validate"],
         "after_insert": [
-            "real_group.real_group.doc_events.employee_checkin.after_insert",
+            "real_group.doc_events.employee_checkin.after_insert",
         ],
+        "before_insert": [
+            "real_group.doc_events.employee_checkin.before_insert",
+        ],
+    },
+    "Attendance Request": {
+        "validate": ["real_group.doc_events.attendace_request.validate"],
+        "before_cancel": ["real_group.doc_events.attendace_request.before_cancel"],
+        "before_delete": ["real_group.doc_events.attendace_request.before_delete"],
+        "before_insert": ["real_group.doc_events.attendace_request.before_insert"],
     },
     "User": {
         "after_insert": ["real_group.real_group.integration.create_user"],
