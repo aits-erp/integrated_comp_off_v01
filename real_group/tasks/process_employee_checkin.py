@@ -254,21 +254,15 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
 def fetch_shift_details(shift_type: str, for_timestamp: datetime, grade: str, is_checkout=False) -> dict:
     from hrms.hr.doctype.shift_assignment.shift_assignment import get_shift_type
 
-    additional_grace_period = frappe.get_cached_value("Employee Grade", grade, "custom_late_entry_grace_period")
+    shift_type = get_shift_type(shift_type)
+    if isinstance(for_timestamp, str):
+        for_timestamp = get_datetime(for_timestamp)
 
-    if not additional_grace_period:
-        additional_grace_period = 0
-
-    # Since we have grace period for late entry on grade level, we need to
-    # add that to the shift start time while calculating the shift timings
-    start_grace = timedelta(minutes=shift_type.begin_check_in_before_shift_start_time) + timedelta(
-        minutes=additional_grace_period
-    )
+    start_grace = timedelta(minutes=shift_type.begin_check_in_before_shift_start_time)
 
     if not shift_type:
         return frappe._dict()
 
-    shift_type = get_shift_type(shift_type)
     start_datetime, end_datetime = get_shift_timings(shift_type, for_timestamp, grade, is_checkout)
 
     actual_start = start_datetime - start_grace
@@ -293,19 +287,11 @@ def get_shift_timings(shift_type: dict, for_timestamp: datetime, grade, is_check
     start_time = shift_type.start_time
     end_time = shift_type.end_time
 
-    additional_grace_period = frappe.get_cached_value("Employee Grade", grade, "custom_late_entry_grace_period")
-
-    if not additional_grace_period:
-        additional_grace_period = 0
-
     # Compute margins
     shift_actual_start = get_time(
         datetime.combine(for_timestamp, datetime.min.time())
         + start_time
-        - (
-            timedelta(minutes=shift_type.begin_check_in_before_shift_start_time)
-            + timedelta(minutes=additional_grace_period)
-        )
+        - (timedelta(minutes=shift_type.begin_check_in_before_shift_start_time))
     )
     shift_actual_end = get_time(
         datetime.combine(for_timestamp, datetime.min.time())
