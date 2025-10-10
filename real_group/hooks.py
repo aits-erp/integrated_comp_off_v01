@@ -212,6 +212,7 @@ scheduler_events = {
         # "01 0 * * *": [
         #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
         # ],
+        "0 13 * * *": ["real_group.tasks.c_off_allocation.process"],
         "5 0 2 * *": ["real_group.real_group.attendance.process_attendance_for_last_day_of_month"],
     }
 }
