@@ -11,3 +11,4 @@ real_group.patches.remove_stale_fields
 execute:frappe.db.set_value('DocType', 'Attendance', "in_create", 1)
 execute:frappe.db.set_value('DocType', 'Employee Checkin', "in_create", 1)
 real_group.patches.update_cross_day_shift
+real_group.patches.remove_stale_server_script
