@@ -51,6 +51,7 @@ doctype_js = {
     "Appointment Letter": "public/js/form/appointment_letter.js",
     "Real Group User": "public/js/form/real_group_user.js",  # TODO: Check if this is required
     "Salary Slip": "public/js/form/salary_slip.js",
+    "Shift Type": "public/js/form/shift_type.js",
 }
 doctype_list_js = {
     "Leave Application": "public/js/list/leave_application.js",
@@ -162,6 +163,7 @@ doc_events = {
         "after_insert": ["real_group.real_group.integration.create_employee"],
         "on_update": ["real_group.real_group.integration.update_employee"],
     },
+    "Shift Type": {"validate": ["real_group.doc_events.shift_type.validate"]},
     "Employee Checkin": {
         "validate": ["real_group.doc_events.employee_checkin.validate"],
         "after_insert": [
