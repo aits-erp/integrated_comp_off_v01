@@ -247,6 +247,7 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
         else:
             start_time = get_datetime(for_date)
         end_time = get_datetime(add_days(for_date, 1))
+
     filters = [
         ["employee", "=", employee],
         ["log_type", "=", "IN"],
@@ -262,7 +263,7 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
 
     # If shift is cross day then, in case of multiple checkins after the shift has ended
     # will be considered as next day checkin.
-    if info.custom_is_cross_day and for_time_delta > end_time:
+    if info.custom_is_cross_day and (for_time_delta > end_time) and not for_checkout:
         return None
     return first_checkin_shift
 
@@ -322,6 +323,10 @@ def get_shift_timings(shift_type: dict, for_timestamp: datetime, grade, is_check
     if start_time > end_time:
         if for_time >= shift_actual_start:
             # Timestamp is within same-day portion (e.g. 22:30)
+            start_datetime = datetime.combine(for_timestamp, datetime.min.time()) + start_time
+            end_datetime = datetime.combine(for_timestamp + timedelta(days=1), datetime.min.time()) + end_time
+        elif for_time < shift_actual_start and for_time > shift_actual_end and not is_checkout:
+            # if for_timestamp is less than start time, it's within the second day
             start_datetime = datetime.combine(for_timestamp, datetime.min.time()) + start_time
             end_datetime = datetime.combine(for_timestamp + timedelta(days=1), datetime.min.time()) + end_time
         else:

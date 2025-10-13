@@ -203,7 +203,6 @@ scheduler_events = {
         "*/2 * * * *": ["real_group.tasks.process_employee_checkin.process"],
         # TODO: This will be removed, since not being used.
         # "* * * * *": ["real_group.tasks.pull_attendance_log.pull_data_from_postgre"],
-        "0 1 * * *": ["real_group.tasks.process_attendance.process"],
         "1 00 * * *": ["real_group.real_group.attendance.process_attendance_from_attendance_summary"],
         "0 9 * * *": [
             "real_group.tasks.process_attendance_for_no_checkin_applicable.process",

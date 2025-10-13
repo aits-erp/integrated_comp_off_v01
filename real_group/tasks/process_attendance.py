@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from itertools import groupby
 
 import frappe
@@ -7,11 +7,11 @@ from frappe.utils import add_days, cint, format_time, get_datetime, get_time, ge
 from hrms.hr.doctype.employee_checkin.employee_checkin import calculate_working_hours, mark_attendance_and_link_log
 
 
-def process():
-    start_date = add_days(getdate(), -1)
-    end_date = getdate()
-    start_date_for_night_shift = add_days(getdate(), -2)
-    end_date_for_night_shift = add_days(getdate(), -1)
+def process(from_date=None):
+    start_date = add_days(getdate(from_date), -1)
+    end_date = getdate(from_date)
+    start_date_for_night_shift = add_days(getdate(from_date), -2)
+    end_date_for_night_shift = add_days(getdate(from_date), -1)
 
     grades = frappe.get_all(
         "Employee Grade", filters={"custom_single_punch_applicable": 0, "custom_no_punch_applicable": 0}, pluck="name"
@@ -79,8 +79,8 @@ def process():
         "Employee Checkin",
         filters={
             "employee": ["in", employees],
-            "shift_start": [">", start_date_for_night_shift],
-            "shift_end": ["<", end_date_for_night_shift],
+            "shift_start": [">=", get_datetime(start_date_for_night_shift)],
+            "shift_end": ["<=", datetime.combine(end_date_for_night_shift, time(23, 59, 59))],
             "attendance": ["is", "not set"],
         },
         order_by="time",
