@@ -21,14 +21,14 @@ def process():
         try:
             has_attendance = frappe.db.exists(
                 "Attendance",
-                filters={"employee": emp.name, "attendance_date": add_days(getdate(), -1), "docstatus": 1},
+                {"employee": emp.name, "attendance_date": add_days(getdate(), -1), "docstatus": 1},
             )
             if has_attendance:
                 continue
 
             is_holiday = frappe.db.exists(
                 "Holiday",
-                filters={
+                {
                     "parent": emp.holiday_list,
                     "holiday_date": add_days(getdate(), -1),
                     "parenttype": "Holiday List",
