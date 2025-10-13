@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 import frappe
-from frappe.utils import add_days, get_datetime, get_time, getdate
+from frappe.utils import add_days, format_time, get_datetime, get_time, get_timedelta, getdate
 
 
 def process():
@@ -10,7 +10,7 @@ def process():
         "Bio Attendance Log",
         filters={"is_processed": "N"},
         fields=["*"],
-        limit_page_length=5000,
+        limit_page_length=1000,
         order_by="punch_datetime asc",
     )
 
@@ -45,7 +45,7 @@ def process_employee_checkin(logs):
         shift_from_grade = frappe.db.get_values("Multiple Shifts", {"parent": employee.grade}, "shift", pluck="shift")
 
         for log in emp_logs:
-            first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_date)
+            first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime)
             # If we have a existing checkin, we don't need to calculate which shift to assign
             # Just use shift from last checkin
             if first_checkin_shift:
@@ -138,7 +138,7 @@ def process_employee_checkout(logs):
         grade = employee.grade
         shift_from_grade = frappe.db.get_values("Multiple Shifts", {"parent": employee.grade}, "shift", pluck="shift")
         for log in emp_logs:
-            first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_date, for_checkout=True)
+            first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime, for_checkout=True)
 
             if first_checkin_shift:
                 shift_info = fetch_shift_details(
@@ -224,13 +224,30 @@ def find_closest_shift_from_punch_time(allowed_shifts: list[str], punch_time: st
 
 
 def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
+    """
+    This method will return the first checkin of the calendar day for an employee. If employee
+    has checked in then the first record will be returned else None will be returned. This will help
+    us to determine which shift to assign to the employee checkin/checkout record.
+
+    Based on the parameter `for_checkout` the time range will be adjusted. If it's checkout then the
+    time range will be from previous day 00:00:00 to next day 23:59:59 else it will be from current day
+    00:00:00 to next day 23:59:59.
+    """
+    _for_time = get_time(for_date)
+    for_time_delta = get_timedelta(format_time(_for_time))
     for_date = getdate(for_date)
     if for_checkout:
         start_time = get_datetime(add_days(for_date, -1))
         end_time = get_datetime(add_days(for_date, 1))
     else:
-        start_time = get_datetime(for_date)
+        if timedelta(hours=0) <= for_time_delta < timedelta(hours=6):
+            # If checkin is during night then we need to consider previous day
+            # checkin as well to determine the first checkin of the day.
+            start_time = get_datetime(add_days(for_date, -1))
+        else:
+            start_time = get_datetime(for_date)
         end_time = get_datetime(add_days(for_date, 1))
+
     filters = [
         ["employee", "=", employee],
         ["log_type", "=", "IN"],
@@ -239,27 +256,30 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
     ]
     first_checkin_shift = frappe.db.get_value("Employee Checkin", filters, "shift", order_by="time asc")
 
+    if not first_checkin_shift:
+        return None
+    info = frappe.get_cached_doc("Shift Type", first_checkin_shift)
+    end_time = info.end_time
+
+    # If shift is cross day then, in case of multiple checkins after the shift has ended
+    # will be considered as next day checkin.
+    if info.custom_is_cross_day and (for_time_delta > end_time) and not for_checkout:
+        return None
     return first_checkin_shift
 
 
 def fetch_shift_details(shift_type: str, for_timestamp: datetime, grade: str, is_checkout=False) -> dict:
     from hrms.hr.doctype.shift_assignment.shift_assignment import get_shift_type
 
-    additional_grace_period = frappe.get_cached_value("Employee Grade", grade, "custom_late_entry_grace_period")
+    shift_type = get_shift_type(shift_type)
+    if isinstance(for_timestamp, str):
+        for_timestamp = get_datetime(for_timestamp)
 
-    if not additional_grace_period:
-        additional_grace_period = 0
-
-    # Since we have grace period for late entry on grade level, we need to
-    # add that to the shift start time while calculating the shift timings
-    start_grace = timedelta(minutes=shift_type.begin_check_in_before_shift_start_time) + timedelta(
-        minutes=additional_grace_period
-    )
+    start_grace = timedelta(minutes=shift_type.begin_check_in_before_shift_start_time)
 
     if not shift_type:
         return frappe._dict()
 
-    shift_type = get_shift_type(shift_type)
     start_datetime, end_datetime = get_shift_timings(shift_type, for_timestamp, grade, is_checkout)
 
     actual_start = start_datetime - start_grace
@@ -277,22 +297,18 @@ def fetch_shift_details(shift_type: str, for_timestamp: datetime, grade: str, is
 
 
 def get_shift_timings(shift_type: dict, for_timestamp: datetime, grade, is_checkout: False) -> tuple:
+    """
+    The method is similar to hrms.hr.doctype.shift_type.shift_type.get_shift_timings but with
+    additional logic to handle grace periods defined at Employee Grade level.
+    """
     start_time = shift_type.start_time
     end_time = shift_type.end_time
-
-    additional_grace_period = frappe.get_cached_value("Employee Grade", grade, "custom_late_entry_grace_period")
-
-    if not additional_grace_period:
-        additional_grace_period = 0
 
     # Compute margins
     shift_actual_start = get_time(
         datetime.combine(for_timestamp, datetime.min.time())
         + start_time
-        - (
-            timedelta(minutes=shift_type.begin_check_in_before_shift_start_time)
-            + timedelta(minutes=additional_grace_period)
-        )
+        - (timedelta(minutes=shift_type.begin_check_in_before_shift_start_time))
     )
     shift_actual_end = get_time(
         datetime.combine(for_timestamp, datetime.min.time())
@@ -307,6 +323,10 @@ def get_shift_timings(shift_type: dict, for_timestamp: datetime, grade, is_check
     if start_time > end_time:
         if for_time >= shift_actual_start:
             # Timestamp is within same-day portion (e.g. 22:30)
+            start_datetime = datetime.combine(for_timestamp, datetime.min.time()) + start_time
+            end_datetime = datetime.combine(for_timestamp + timedelta(days=1), datetime.min.time()) + end_time
+        elif for_time < shift_actual_start and for_time > shift_actual_end and not is_checkout:
+            # if for_timestamp is less than start time, it's within the second day
             start_datetime = datetime.combine(for_timestamp, datetime.min.time()) + start_time
             end_datetime = datetime.combine(for_timestamp + timedelta(days=1), datetime.min.time()) + end_time
         else:

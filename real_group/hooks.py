@@ -162,6 +162,21 @@ doc_events = {
         "after_insert": ["real_group.real_group.integration.create_employee"],
         "on_update": ["real_group.real_group.integration.update_employee"],
     },
+    "Employee Checkin": {
+        "validate": ["real_group.doc_events.employee_checkin.validate"],
+        "after_insert": [
+            "real_group.doc_events.employee_checkin.after_insert",
+        ],
+        "before_insert": [
+            "real_group.doc_events.employee_checkin.before_insert",
+        ],
+    },
+    "Attendance Request": {
+        "validate": ["real_group.doc_events.attendace_request.validate"],
+        "before_cancel": ["real_group.doc_events.attendace_request.before_cancel"],
+        "before_delete": ["real_group.doc_events.attendace_request.before_delete"],
+        "before_insert": ["real_group.doc_events.attendace_request.before_insert"],
+    },
     "User": {
         "after_insert": ["real_group.real_group.integration.create_user"],
         "on_update": ["real_group.real_group.integration.update_user"],
@@ -185,7 +200,7 @@ doc_events = {
 
 scheduler_events = {
     "cron": {
-        "*/5 * * * *": ["real_group.tasks.process_employee_checkin.process"],
+        "*/2 * * * *": ["real_group.tasks.process_employee_checkin.process"],
         # TODO: This will be removed, since not being used.
         # "* * * * *": ["real_group.tasks.pull_attendance_log.pull_data_from_postgre"],
         "1 00 * * *": ["real_group.real_group.attendance.process_attendance_from_attendance_summary"],
@@ -193,10 +208,12 @@ scheduler_events = {
             "real_group.tasks.process_attendance_for_no_checkin_applicable.process",
             "real_group.real_group.notifications.send_birthday_wishes",
         ],
+        "0 3 * * *": ["real_group.tasks.process_attendance.process"],
         "59 23 * * *": ["real_group.tasks.process_attendance_for_single_checkin.process"],
         # "01 0 * * *": [
         #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
         # ],
+        "0 13 * * *": ["real_group.tasks.c_off_allocation.process"],
         "5 0 2 * *": ["real_group.real_group.attendance.process_attendance_for_last_day_of_month"],
     }
 }

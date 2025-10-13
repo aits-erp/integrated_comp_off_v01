@@ -40,15 +40,15 @@ frappe.ui.form.on("Employee Grade", {
   hide_short_leave_section: function (frm) {
     if (frm.doc.custom_no_punch_applicable == 1 || frm.doc.custom_single_punch_applicable == 1) {
       frm.set_df_property("custom_short_leave_type", "hidden", 1);
-      frm.set_df_property("custom_no_of_times", "hidden", 1);
-      frm.set_df_property("custom_hours_per_time", "hidden", 1);
+      frm.set_df_property("custom_number_of_leaves", "hidden", 1);
+      frm.set_df_property("custom_hours_per_leave", "hidden", 1);
     } else {
       frm.set_value("custom_short_leave_type", "");
-      frm.set_value("custom_no_of_times", "");
-      frm.set_value("custom_hours_per_time", "");
+      frm.set_value("custom_number_of_leaves", "");
+      frm.set_value("custom_hours_per_leave", "");
       frm.set_df_property("custom_short_leave_type", "hidden", 0);
-      frm.set_df_property("custom_no_of_times", "hidden", 0);
-      frm.set_df_property("custom_hours_per_time", "hidden", 0);
+      frm.set_df_property("custom_number_of_leaves", "hidden", 0);
+      frm.set_df_property("custom_hours_per_leave", "hidden", 0);
     }
   },
 });
