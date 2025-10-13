@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 import frappe
-from frappe.utils import add_days, get_datetime, get_time, getdate
+from frappe.utils import add_days, format_time, get_datetime, get_time, get_timedelta, getdate
 
 
 def process():
@@ -45,7 +45,7 @@ def process_employee_checkin(logs):
         shift_from_grade = frappe.db.get_values("Multiple Shifts", {"parent": employee.grade}, "shift", pluck="shift")
 
         for log in emp_logs:
-            first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_date)
+            first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime)
             # If we have a existing checkin, we don't need to calculate which shift to assign
             # Just use shift from last checkin
             if first_checkin_shift:
@@ -138,7 +138,7 @@ def process_employee_checkout(logs):
         grade = employee.grade
         shift_from_grade = frappe.db.get_values("Multiple Shifts", {"parent": employee.grade}, "shift", pluck="shift")
         for log in emp_logs:
-            first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_date, for_checkout=True)
+            first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime, for_checkout=True)
 
             if first_checkin_shift:
                 shift_info = fetch_shift_details(
@@ -233,12 +233,19 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
     time range will be from previous day 00:00:00 to next day 23:59:59 else it will be from current day
     00:00:00 to next day 23:59:59.
     """
+    _for_time = get_time(for_date)
+    for_time_delta = get_timedelta(format_time(_for_time))
     for_date = getdate(for_date)
     if for_checkout:
         start_time = get_datetime(add_days(for_date, -1))
         end_time = get_datetime(add_days(for_date, 1))
     else:
-        start_time = get_datetime(for_date)
+        if timedelta(hours=0) <= for_time_delta < timedelta(hours=6):
+            # If checkin is during night then we need to consider previous day
+            # checkin as well to determine the first checkin of the day.
+            start_time = get_datetime(add_days(for_date, -1))
+        else:
+            start_time = get_datetime(for_date)
         end_time = get_datetime(add_days(for_date, 1))
     filters = [
         ["employee", "=", employee],
@@ -248,6 +255,15 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
     ]
     first_checkin_shift = frappe.db.get_value("Employee Checkin", filters, "shift", order_by="time asc")
 
+    if not first_checkin_shift:
+        return None
+    info = frappe.get_cached_doc("Shift Type", first_checkin_shift)
+    end_time = info.end_time
+
+    # If shift is cross day then, in case of multiple checkins after the shift has ended
+    # will be considered as next day checkin.
+    if info.custom_is_cross_day and for_time_delta > end_time:
+        return None
     return first_checkin_shift
 
 
