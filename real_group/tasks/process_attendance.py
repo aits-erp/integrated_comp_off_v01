@@ -8,10 +8,10 @@ from hrms.hr.doctype.employee_checkin.employee_checkin import calculate_working_
 
 
 def process():
-    start_date = add_days(getdate("2025-10-06"), -1)
-    end_date = getdate("2025-10-06")
-    start_date_for_night_shift = add_days(getdate("2025-10-06"), -2)
-    end_date_for_night_shift = add_days(getdate("2025-10-06"), -1)
+    start_date = add_days(getdate(), -1)
+    end_date = getdate()
+    start_date_for_night_shift = add_days(getdate(), -2)
+    end_date_for_night_shift = add_days(getdate(), -1)
 
     grades = frappe.get_all(
         "Employee Grade", filters={"custom_single_punch_applicable": 0, "custom_no_punch_applicable": 0}, pluck="name"

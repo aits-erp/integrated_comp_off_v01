@@ -22,7 +22,7 @@ def process():
         fields=["*"],
         filters={
             "employee": ("in", [e.name for e in employees]),
-            "creation": ["between", [start_date, end_date]],
+            "attendance_date": ["between", [start_date, end_date]],
             "status": ["not in", ["On Leave", "Absent"]],
             "docstatus": 1,
         },
@@ -63,7 +63,7 @@ def process():
                 cache=True,
             )
             if holiday:
-                holiday = frappe.get_cached_doc("Holidays", holiday, for_update=False)
+                holiday = frappe.get_cached_doc("Holiday", holiday, for_update=False)
                 if holiday.weekly_off:
                     status = "POW"
                 else:
