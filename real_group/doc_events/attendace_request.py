@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import add_days, date_diff, get_first_day, get_last_day
+from frappe.utils import add_days, date_diff, get_first_day, get_last_day, get_timedelta
 
 
 def validate(doc, method=None):
@@ -70,7 +70,7 @@ def validate_short_leave_request(doc):
     if not (grade.custom_hours_per_leave) and doc.reason == "Personal":
         frappe.throw(frappe._("Not Eligible for short leave, kindly avail Short Leave on Employee Grade"))
 
-    diff = doc.custom_to_time - doc.custom_from_time
+    diff = get_timedelta(doc.custom_to_time) - get_timedelta(doc.custom_from_time)
     if grade.custom_hours_per_leave:
         if diff > grade.custom_hours_per_leave and doc.reason == grade.custom_short_leave_type:
             frappe.throw(frappe._("Attendance Request is not allowed beyond Short Leave Time Allowed "))
