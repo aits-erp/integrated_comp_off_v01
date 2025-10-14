@@ -181,7 +181,7 @@ doc_events = {
     },
     "Attendance": {
         "validate": ["real_group.doc_events.attendance.validate"],
-        "after_submit": ["real_group.doc_events.attendance.after_submit"],
+        "on_submit": ["real_group.doc_events.attendance.on_submit"],
     },
     "User": {
         "after_insert": ["real_group.real_group.integration.create_user"],

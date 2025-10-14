@@ -8,14 +8,14 @@ def validate(doc, method=None):
     doc.custom_working_hours = timedelta(hours=doc.working_hours)
 
 
-def after_submit(doc, method=None):
-    frappe.enqueue(allocate_c_off, doc=doc, queue="long")
+def on_submit(doc, method=None):
+    frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
 
 
 def allocate_c_off(doc):
-    employee = frappe.get_cached_doc("Employee", doc.employee)
+    employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     grade = employee.grade
-    grade_doc = frappe.get_cached_doc("Employee Grade", grade)
+    grade_doc = frappe.get_cached_doc("Employee Grade", grade, for_update=False)
 
     if grade_doc.custom_present_on_holiday != "Comp Off" and grade_doc.custom_extra_work_hour != "Comp Off":
         return
@@ -65,7 +65,7 @@ def allocate_c_off(doc):
     if hours <= shift_duration:
         return
 
-    if holiday and grade.custom_present_on_holiday == "Comp Off":
+    if holiday and grade_doc.custom_present_on_holiday == "Comp Off":
         diff = hours
     else:
         diff = hours - shift_duration
@@ -83,7 +83,7 @@ def allocate_c_off(doc):
     comp_off = frappe.get_doc(
         {
             "doctype": "Compensatory Leave Request",
-            "employee": employee,
+            "employee": employee.name,
             "work_from_date": getdate(doc.attendance_date),
             "work_end_date": getdate(doc.attendance_date),
             "credit": credit,
