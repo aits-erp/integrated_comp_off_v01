@@ -33,6 +33,7 @@ def process(from_date=None):
     logs = sorted(day_shift_checkins, key=lambda x: (x["employee"], x["time"]))
     for employee, group in groupby(logs, key=lambda x: x["employee"]):
         group = list(group)
+        group = update_processed_time_in_logs(group)
         holiday_list_name_for_employee = get_holiday_list_for_employee(employee)
         is_holiday = frappe.db.exists(
             "Holiday",
@@ -62,14 +63,7 @@ def process(from_date=None):
                 out_time,
             ) = get_attendance(group, employee_doc.grade, shift)
             attendance = mark_attendance_and_link_log(
-                group,
-                attendance_status,
-                start_date,
-                working_hours,
-                late_entry,
-                early_exit,
-                in_time,
-                out_time,
+                group, attendance_status, start_date, working_hours, late_entry, early_exit, in_time, out_time, shift
             )
             update_status(attendance, attendance_status, is_holiday)
         frappe.db.commit()  # nosemgrep
@@ -89,6 +83,7 @@ def process(from_date=None):
     night_logs = sorted(night_shift_checkins, key=lambda x: (x["employee"], x["time"]))
     for employee, group in groupby(night_logs, key=lambda x: x["employee"]):
         group = list(group)
+        group = update_processed_time_in_logs(group)
         holiday_list_name_for_employee = get_holiday_list_for_employee(employee)
         is_holiday = frappe.db.exists(
             "Holiday",
@@ -126,6 +121,7 @@ def process(from_date=None):
                 early_exit,
                 in_time,
                 out_time,
+                shift,
             )
             update_status(attendance, attendance_status, is_holiday)
         frappe.db.commit()  # nosemgrep
@@ -146,6 +142,9 @@ def update_status(attendance, status, is_holiday):
 
 
 def get_attendance(logs, grade, shift_type):
+    if len(logs) < 2:
+        return "Absent", 0, False, False, None, None
+
     late_entry = early_exit = False
     total_working_hours, in_time, out_time = calculate_working_hours(
         logs, "Strictly based on Log Type in Employee Checkin", "Every Valid Check-in and Check-out"
@@ -195,3 +194,13 @@ def get_attendance_request(employee, date):
         fields=["custom_from_time", "custom_to_time"],
     )
     return data
+
+
+def update_processed_time_in_logs(logs):
+    for log in logs:
+        punch_time = log.time
+        processed_time = log.custom_processed_time or punch_time
+        log.time = processed_time
+        log._time = punch_time
+
+    return logs

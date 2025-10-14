@@ -29,9 +29,6 @@ class BioAttendanceLog(Document):
     pass
 
     def validate(self):
-        if self.punch_datetime:
-            return
-
         if self.punch_date and self.punch_time:
             punch_time = f"{get_date_str(self.punch_date)} {get_time_str(self.punch_time)}"
             self.punch_datetime = get_datetime(punch_time)
