@@ -9,7 +9,7 @@ from real_group.tasks.process_employee_checkin import fetch_shift_details
 
 
 def validate(doc, method=None):
-    doc.custom_adjusted_time = doc.time
+    doc.custom_processed_time = doc.time
     handle_late_checkin(doc)
     handle_late_checkout(doc)
 
@@ -29,7 +29,7 @@ def handle_late_checkin(doc):
     grade = frappe.get_cached_doc("Employee Grade", employee.grade, for_update=False)
     data = fetch_shift_details(doc.shift, doc.time, employee.grade)
 
-    shift_start_time = data.get("start_datetime")
+    shift_start_time = data.get("actual_start")
 
     late_entry_grace_period_from_shift = frappe.get_cached_value("Shift Type", doc.shift, "late_entry_grace_period")
     late_entry_grace_period_from_grade = grade.custom_late_entry_grace_period or 0
@@ -41,7 +41,7 @@ def handle_late_checkin(doc):
     diff = checkin_time - start_time
 
     if diff <= actual_grace_period:
-        doc.custom_adjusted_time = start_time
+        doc.custom_processed_time = start_time
 
 
 def handle_late_checkout(doc):
@@ -50,7 +50,7 @@ def handle_late_checkout(doc):
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     data = fetch_shift_details(doc.shift, doc.time, employee.grade)
 
-    end_time = get_datetime(data.get("end_datetime"))
+    end_time = get_datetime(data.get("actual_end"))
     checkout_time = get_datetime(doc.time)
 
     late_exit_grace_period_from_shift = frappe.get_cached_value(
@@ -63,7 +63,7 @@ def handle_late_checkout(doc):
     if diff < get_timedelta():
         diff = -diff
     if diff <= actual_grace_period:
-        doc.custom_adjusted_time = end_time
+        doc.custom_processed_time = end_time
 
 
 def apply_short_leave_attendance_on_late_checkin(doc):
@@ -80,7 +80,7 @@ def apply_short_leave_attendance_on_late_checkin(doc):
         return
 
     data = fetch_shift_details(doc.shift, doc.time, employee.grade)
-    shift_start_time = data.get("start_datetime")
+    shift_start_time = data.get("actual_start")
 
     start_time = get_datetime(shift_start_time)
     checkin_time = get_datetime(doc.time)
