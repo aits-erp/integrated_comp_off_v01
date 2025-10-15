@@ -179,6 +179,10 @@ doc_events = {
         "before_delete": ["real_group.doc_events.attendace_request.before_delete"],
         "before_insert": ["real_group.doc_events.attendace_request.before_insert"],
     },
+    "Attendance": {
+        "validate": ["real_group.doc_events.attendance.validate"],
+        "on_submit": ["real_group.doc_events.attendance.on_submit"],
+    },
     "User": {
         "after_insert": ["real_group.real_group.integration.create_user"],
         "on_update": ["real_group.real_group.integration.update_user"],
@@ -205,7 +209,6 @@ scheduler_events = {
         "*/2 * * * *": ["real_group.tasks.process_employee_checkin.process"],
         # TODO: This will be removed, since not being used.
         # "* * * * *": ["real_group.tasks.pull_attendance_log.pull_data_from_postgre"],
-        "1 00 * * *": ["real_group.real_group.attendance.process_attendance_from_attendance_summary"],
         "0 9 * * *": [
             "real_group.tasks.process_attendance_for_no_checkin_applicable.process",
             "real_group.real_group.notifications.send_birthday_wishes",
@@ -215,7 +218,6 @@ scheduler_events = {
         # "01 0 * * *": [
         #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
         # ],
-        "0 13 * * *": ["real_group.tasks.c_off_allocation.process"],
         "5 0 2 * *": ["real_group.real_group.attendance.process_attendance_for_last_day_of_month"],
     }
 }

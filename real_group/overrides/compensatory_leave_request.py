@@ -1,6 +1,6 @@
 import frappe
 from frappe import _
-from frappe.utils import add_days, get_url_to_list
+from frappe.utils import add_days, cint, get_url_to_list
 from hrms.hr.doctype.compensatory_leave_request.compensatory_leave_request import CompensatoryLeaveRequest
 from hrms.hr.doctype.leave_application.leave_application import get_leave_balance_on
 from hrms.hr.utils import create_additional_leave_ledger_entry, get_leave_period
@@ -79,3 +79,23 @@ class CompensatoryLeaveRequestOverride(CompensatoryLeaveRequest):
                     create_additional_leave_ledger_entry(
                         leave_allocation, date_difference * -1, add_days(self.work_end_date, 1)
                     )
+
+    def create_leave_allocation(self, leave_period, date_difference):
+        is_carry_forward = frappe.db.get_value("Leave Type", self.leave_type, "is_carry_forward")
+        allocation = frappe.get_doc(
+            dict(
+                doctype="Leave Allocation",
+                employee=self.employee,
+                employee_name=self.employee_name,
+                leave_type=self.leave_type,
+                from_date=add_days(self.work_end_date, 1),
+                to_date=self.expiry,
+                carry_forward=cint(is_carry_forward),
+                new_leaves_allocated=date_difference,
+                total_leaves_allocated=date_difference,
+                description=self.reason,
+            )
+        )
+        allocation.insert(ignore_permissions=True)
+        allocation.submit()
+        return allocation

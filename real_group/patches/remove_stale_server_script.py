@@ -20,5 +20,6 @@ def execute():
         "Attendance Request Self Approve Validation",
         "Short Leave Validation from Grade",
         "Leave Application Self Approve Validation",
+        "Setting up Identifier Shift Type",
     ]
     frappe.db.delete("Server Script", {"name": ("in", names)})
