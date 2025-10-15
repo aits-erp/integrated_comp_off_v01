@@ -67,7 +67,7 @@ def allocate_c_off(doc):
 
     if holiday and grade_doc.custom_present_on_holiday == "Comp Off":
         diff = hours
-    else:
+    if not holiday and grade_doc.custom_extra_work_hour == "Comp Off":
         diff = hours - shift_duration
         status = "EW"
     worked_hrs_in_delta = timedelta(hours=diff)
