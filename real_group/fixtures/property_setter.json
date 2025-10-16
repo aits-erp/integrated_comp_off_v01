@@ -135,7 +135,7 @@
   "doctype_or_field": "DocField",
   "field_name": "default_salary_structure",
   "is_system_generated": 0,
-  "modified": "2024-08-13 07:00:18.240601",
+  "modified": "2025-10-16 12:45:07.091642",
   "module": "Real Group",
   "name": "Employee Grade-default_salary_structure-hidden",
   "property": "hidden",
@@ -1447,7 +1447,7 @@
   "doctype_or_field": "DocType",
   "field_name": null,
   "is_system_generated": 0,
-  "modified": "2024-08-13 07:00:18.210974",
+  "modified": "2025-10-16 12:45:07.097391",
   "module": "Real Group",
   "name": "Employee Grade-main-title_field",
   "property": "title_field",
@@ -3111,7 +3111,7 @@
   "doctype_or_field": "DocField",
   "field_name": "currency",
   "is_system_generated": 0,
-  "modified": "2025-10-04 13:29:07.793775",
+  "modified": "2025-10-16 12:45:07.084113",
   "module": "Real Group",
   "name": "Employee Grade-currency-hidden",
   "property": "hidden",
@@ -3262,22 +3262,6 @@
   "property_type": "Text",
   "row_name": null,
   "value": "Time after the end of shift during which check-out is considered for attendance (in minutes)."
- },
- {
-  "default_value": null,
-  "doc_type": "Employee Grade",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocType",
-  "field_name": null,
-  "is_system_generated": 0,
-  "modified": "2025-10-08 18:59:46.913080",
-  "module": "Real Group",
-  "name": "Employee Grade-main-field_order",
-  "property": "field_order",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "[\"custom_grade_name\", \"custom_column_break_ebvkh\", \"default_salary_structure\", \"currency\", \"default_base_pay\", \"custom_section_break_ojbku\", \"custom_column_break_p0e0h\", \"custom_allowed_late_count_days\", \"custom_column_break_p0cso\", \"custom_late_entry_grace_period\", \"custom_bonus\", \"custom_is_bonus_applicable\", \"custom_column_break_hykcu\", \"custom_bonus_percentage\", \"custom_shifts\", \"custom_single_punch_applicable\", \"custom_no_punch_applicable\", \"custom_column_break_rtgxp\", \"custom_allowed_shifts\", \"custom_section_break_foogt\", \"custom_present_on_holiday\", \"custom_extra_work_hour\", \"custom_comp_off_validity\", \"custom_column_break_4lyfm\", \"custom_sandwich_flag\", \"custom_incentive_gross_amount\", \"custom_incentive_ceiling\", \"custom_short_leave\", \"custom_column_break_fkdpv\", \"custom_short_leave_type\", \"custom_column_break_3xkie\", \"custom_number_of_leaves\", \"custom_column_break_ujjay\", \"custom_hours_per_leave\", \"custom_section_break_2ci9e\", \"custom_allowed_check_in_machines\", \"custom_column_break_agrdr\", \"custom_allowed_check_out_machines\"]"
  },
  {
   "default_value": null,
@@ -3614,5 +3598,21 @@
   "property_type": "Check",
   "row_name": null,
   "value": "1"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Employee Grade",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocType",
+  "field_name": null,
+  "is_system_generated": 0,
+  "modified": "2025-10-16 12:45:07.040816",
+  "module": "Real Group",
+  "name": "Employee Grade-main-field_order",
+  "property": "field_order",
+  "property_type": "Data",
+  "row_name": null,
+  "value": "[\"custom_grade_name\", \"custom_column_break_ebvkh\", \"default_salary_structure\", \"currency\", \"default_base_pay\", \"custom_section_break_ojbku\", \"custom_column_break_p0e0h\", \"custom_allowed_late_count_days\", \"custom_column_break_p0cso\", \"late_entry_grace_period\", \"custom_bonus\", \"custom_is_bonus_applicable\", \"custom_column_break_hykcu\", \"custom_bonus_percentage\", \"custom_shifts\", \"custom_single_punch_applicable\", \"custom_no_punch_applicable\", \"custom_column_break_rtgxp\", \"custom_allowed_shifts\", \"custom_section_break_foogt\", \"custom_present_on_holiday\", \"custom_extra_work_hour\", \"custom_comp_off_validity\", \"custom_column_break_4lyfm\", \"custom_sandwich_flag\", \"custom_incentive_gross_amount\", \"custom_incentive_ceiling\", \"custom_short_leave\", \"custom_column_break_fkdpv\", \"custom_short_leave_type\", \"custom_column_break_3xkie\", \"custom_number_of_leaves\", \"custom_column_break_ujjay\", \"custom_hours_per_leave\", \"custom_section_break_2ci9e\", \"custom_allowed_check_in_machines\", \"custom_column_break_agrdr\", \"custom_allowed_check_out_machines\"]"
  }
 ]
