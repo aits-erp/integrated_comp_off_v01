@@ -19,6 +19,7 @@ def allocate_incentive(doc):
 def allocate_c_off(doc):
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     grade = employee.grade
+    branch = employee.branch
     grade_doc = frappe.get_cached_doc("Employee Grade", grade, for_update=False)
 
     if grade_doc.custom_present_on_holiday != "Comp Off" and grade_doc.custom_extra_work_hour != "Comp Off":
@@ -61,7 +62,9 @@ def allocate_c_off(doc):
             timedelta(seconds=(end_delta + timedelta(days=1) - start_delta).total_seconds()).total_seconds() / 3600
         )
 
-    c_matrix = frappe.db.exists("Compensation Matrix", {"shift_duration": timedelta(hours=shift_duration)}, cache=True)
+    c_matrix = frappe.db.exists(
+        "Compensation Matrix", {"shift_duration": timedelta(hours=shift_duration), "branch": branch}, cache=True
+    )
     if not c_matrix:
         return
     c_matrix = frappe.get_cached_doc("Compensation Matrix", c_matrix)
