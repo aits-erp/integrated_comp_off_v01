@@ -9,6 +9,7 @@
   "punch_date",
   "punch_time",
   "punch_datetime",
+  "punch_datetime_backup",
   "column_break_ivwh",
   "area",
   "terminal_id",
@@ -88,11 +89,17 @@
    "fieldname": "time_pro_reference_id",
    "fieldtype": "Data",
    "label": "Time Pro Reference ID"
+  },
+  {
+   "fieldname": "punch_datetime_backup",
+   "fieldtype": "Datetime",
+   "label": "Punch Datetime Backup",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2025-10-15 13:43:04.819493",
+ "modified": "2025-10-16 12:55:54.008988",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Bio Attendance Log",

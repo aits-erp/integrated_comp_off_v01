@@ -23,6 +23,7 @@ class BioAttendanceLog(Document):
         name: DF.Int | None
         punch_date: DF.Date | None
         punch_datetime: DF.Datetime | None
+        punch_datetime_backup: DF.Datetime | None
         punch_direction: DF.Literal["", "I", "O"]
         punch_time: DF.Time | None
         terminal_id: DF.Data | None
