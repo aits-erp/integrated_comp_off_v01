@@ -1,8 +1,10 @@
 # Copyright (c) 2025, rtCamp and contributors
 # For license information, please see license.txt
 
+from datetime import datetime, time
+
 from frappe.model.document import Document
-from frappe.utils import get_date_str, get_datetime, get_time_str
+from frappe.utils import get_timedelta, getdate
 
 
 class BioAttendanceLog(Document):
@@ -30,5 +32,6 @@ class BioAttendanceLog(Document):
 
     def validate(self):
         if self.punch_date and self.punch_time:
-            punch_time = f"{get_date_str(self.punch_date)} {get_time_str(self.punch_time)}"
-            self.punch_datetime = get_datetime(punch_time)
+            punch_time = get_timedelta(self.punch_time)
+            punch_date = getdate(self.punch_date)
+            self.punch_datetime = datetime.combine(punch_date, time.min) + punch_time

@@ -41,7 +41,9 @@
    "fieldname": "punch_datetime",
    "fieldtype": "Datetime",
    "in_list_view": 1,
-   "label": "Punch Datetime"
+   "label": "Punch Datetime",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "column_break_ivwh",
@@ -90,7 +92,7 @@
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2025-10-05 18:17:56.829562",
+ "modified": "2025-10-15 13:43:04.819493",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Bio Attendance Log",
