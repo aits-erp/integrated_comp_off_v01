@@ -6,6 +6,8 @@ from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employe
 from frappe.utils import add_days, cint, format_time, get_datetime, get_time, get_timedelta, getdate
 from hrms.hr.doctype.employee_checkin.employee_checkin import calculate_working_hours, mark_attendance_and_link_log
 
+from real_group.utils import convert_time_to_hours, convert_time_to_minutes
+
 
 def process(from_date=None):
     start_date = add_days(getdate(from_date), -1)
@@ -156,8 +158,8 @@ def get_attendance(logs, grade, shift_type):
         and in_time
         > logs[0].shift_start
         + (
-            timedelta(minutes=cint(shift.late_entry_grace_period))
-            + (timedelta(minutes=cint(grade.custom_late_entry_grace_period)))
+            timedelta(minutes=cint(convert_time_to_minutes(shift.custom_late_entry_grace_period)))
+            + (timedelta(minutes=cint(convert_time_to_minutes(grade.custom_late_entry_grace_period))))
         )
     ):
         late_entry = True
@@ -165,7 +167,8 @@ def get_attendance(logs, grade, shift_type):
     if (
         cint(shift.enable_early_exit_marking)
         and out_time
-        and out_time < logs[0].shift_end - timedelta(minutes=cint(shift.early_exit_grace_period))
+        and out_time
+        < logs[0].shift_end - timedelta(minutes=cint(convert_time_to_minutes(shift.custom_early_exit_grace_period)))
     ):
         early_exit = True
 
@@ -177,13 +180,19 @@ def get_attendance(logs, grade, shift_type):
             hours = abs(end - start)
             total_working_hours += hours
 
-    if shift.working_hours_threshold_for_absent and total_working_hours < shift.working_hours_threshold_for_absent:
+    working_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_present)
+    half_day_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_half_day)
+    absent_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_absent)
+
+    if absent_threshold and total_working_hours < absent_threshold:
         return "Absent", total_working_hours, late_entry, early_exit, in_time, out_time
 
-    if shift.working_hours_threshold_for_half_day and total_working_hours < shift.working_hours_threshold_for_half_day:
+    if half_day_threshold and total_working_hours < half_day_threshold:
         return "Half Day", total_working_hours, late_entry, early_exit, in_time, out_time
+    if working_threshold and total_working_hours >= working_threshold:
+        return "Present", total_working_hours, late_entry, early_exit, in_time, out_time
 
-    return "Present", total_working_hours, late_entry, early_exit, in_time, out_time
+    return "Absent", total_working_hours, late_entry, early_exit, in_time, out_time
 
 
 def get_attendance_request(employee, date):

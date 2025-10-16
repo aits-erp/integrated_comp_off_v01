@@ -2,7 +2,6 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, get_url_to_list
 from hrms.hr.doctype.compensatory_leave_request.compensatory_leave_request import CompensatoryLeaveRequest
-from hrms.hr.doctype.leave_application.leave_application import get_leave_balance_on
 from hrms.hr.utils import create_additional_leave_ledger_entry, get_leave_period
 
 
@@ -47,38 +46,22 @@ class CompensatoryLeaveRequestOverride(CompensatoryLeaveRequest):
             frappe.throw(msg, title=_("No Leave Period Found"))
 
     def on_cancel(self):
-        if self.custom_is_expired == 1:
-            frappe.throw("This document is expired. You cannot cancel this document")
         if self.leave_allocation:
-            # no. of leaves
             date_difference = self.credit
 
-            leave_balance = get_leave_balance_on(
-                self.employee,
-                self.leave_type,
-                self.work_from_date,
-                self.work_end_date,
-                consider_all_leaves_in_the_allocation_period=True,
-                for_consumption=True,
-            )
+            leave_allocation = frappe.get_doc("Leave Allocation", self.leave_allocation)
+            if leave_allocation:
+                leave_allocation.new_leaves_allocated -= date_difference
+                if leave_allocation.new_leaves_allocated - date_difference <= 0:
+                    leave_allocation.new_leaves_allocated = 0
+                leave_allocation.validate()
+                leave_allocation.db_set("new_leaves_allocated", leave_allocation.total_leaves_allocated)
+                leave_allocation.db_set("total_leaves_allocated", leave_allocation.total_leaves_allocated)
 
-            actual_balance = float(leave_balance.get("leave_balance")) + date_difference
-            if date_difference > actual_balance:
-                frappe.throw("The leaves are already utilized for this leave allocation. You cannot cancel this entry")
-            if date_difference <= actual_balance:
-                leave_allocation = frappe.get_doc("Leave Allocation", self.leave_allocation)
-                if leave_allocation:
-                    leave_allocation.new_leaves_allocated -= date_difference
-                    if leave_allocation.new_leaves_allocated - date_difference <= 0:
-                        leave_allocation.new_leaves_allocated = 0
-                    leave_allocation.validate()
-                    leave_allocation.db_set("new_leaves_allocated", leave_allocation.total_leaves_allocated)
-                    leave_allocation.db_set("total_leaves_allocated", leave_allocation.total_leaves_allocated)
-
-                    # create reverse entry on cancelation
-                    create_additional_leave_ledger_entry(
-                        leave_allocation, date_difference * -1, add_days(self.work_end_date, 1)
-                    )
+                # create reverse entry on cancelation
+                create_additional_leave_ledger_entry(
+                    leave_allocation, date_difference * -1, add_days(self.work_end_date, 1)
+                )
 
     def create_leave_allocation(self, leave_period, date_difference):
         is_carry_forward = frappe.db.get_value("Leave Type", self.leave_type, "is_carry_forward")

@@ -46,7 +46,7 @@ def process():
                         "attendance_date": add_days(today(), -1),
                         "status": "Present",
                         "company": emp.company,
-                        "custom_reason": "Holiday",
+                        "custom_attendance_tag": "HO",
                     }
                 )
                 attendance.insert(ignore_permissions=True)
@@ -62,6 +62,7 @@ def process():
                             "attendance_date": add_days(today(), -1),
                             "status": "Absent",
                             "company": emp.company,
+                            "custom_attendance_tag": "A",
                         }
                     )
                     attendance.insert(ignore_permissions=True)
@@ -77,6 +78,7 @@ def process():
                             "attendance_date": shift_date,
                             "status": "Present",
                             "company": emp.company,
+                            "custom_attendance_tag": "P",
                         }
                     )
                     attendance.insert(ignore_permissions=True)
