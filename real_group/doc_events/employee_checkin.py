@@ -82,7 +82,7 @@ def send_sms_on_late_checkin(doc):
     if not is_first_checkin(doc):
         return
 
-    shift_start_time = doc.shift_actual_start
+    shift_start_time = doc.shift_start
 
     if not shift_start_time:
         data = fetch_shift_details(doc.shift, doc.time, employee.grade)
