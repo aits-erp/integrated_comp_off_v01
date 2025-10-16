@@ -1,5 +1,4 @@
 import json
-from datetime import timedelta
 
 import frappe
 from frappe.integrations.utils import make_get_request
@@ -8,62 +7,12 @@ from frappe.utils import get_datetime, get_timedelta, getdate
 from real_group.tasks.process_employee_checkin import fetch_shift_details
 
 
-def validate(doc, method=None):
-    doc.custom_processed_time = doc.time
-    handle_late_checkin(doc)
-    handle_late_checkout(doc)
-
-
 def before_insert(doc, method=None):
     apply_short_leave_attendance_on_late_checkin(doc)
 
 
 def after_insert(doc, method=None):
     send_sms_on_late_checkin(doc)
-
-
-def handle_late_checkin(doc):
-    if not is_first_checkin(doc) or doc.log_type != "IN":
-        return
-    employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
-    grade = frappe.get_cached_doc("Employee Grade", employee.grade, for_update=False)
-    data = fetch_shift_details(doc.shift, doc.time, employee.grade)
-
-    shift_start_time = data.get("actual_start")
-
-    late_entry_grace_period_from_shift = frappe.get_cached_value("Shift Type", doc.shift, "late_entry_grace_period")
-    late_entry_grace_period_from_grade = grade.custom_late_entry_grace_period or 0
-
-    actual_grace_period = timedelta(minutes=late_entry_grace_period_from_shift + late_entry_grace_period_from_grade)
-
-    start_time = get_datetime(shift_start_time)
-    checkin_time = get_datetime(doc.time)
-    diff = checkin_time - start_time
-
-    if diff <= actual_grace_period:
-        doc.custom_processed_time = start_time
-
-
-def handle_late_checkout(doc):
-    if doc.log_type != "OUT":
-        return
-    employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
-    data = fetch_shift_details(doc.shift, doc.time, employee.grade)
-
-    end_time = get_datetime(data.get("actual_end"))
-    checkout_time = get_datetime(doc.time)
-
-    late_exit_grace_period_from_shift = frappe.get_cached_value(
-        "Shift Type", doc.shift, "allow_check_out_after_shift_end_time"
-    )
-    actual_grace_period = timedelta(minutes=late_exit_grace_period_from_shift)
-
-    diff = checkout_time - end_time
-
-    if diff < get_timedelta():
-        diff = -diff
-    if diff <= actual_grace_period:
-        doc.custom_processed_time = end_time
 
 
 def apply_short_leave_attendance_on_late_checkin(doc):

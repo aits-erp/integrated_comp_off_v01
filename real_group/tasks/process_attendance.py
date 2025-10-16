@@ -33,7 +33,6 @@ def process(from_date=None):
     logs = sorted(day_shift_checkins, key=lambda x: (x["employee"], x["time"]))
     for employee, group in groupby(logs, key=lambda x: x["employee"]):
         group = list(group)
-        group = update_processed_time_in_logs(group)
         holiday_list_name_for_employee = get_holiday_list_for_employee(employee)
         is_holiday = frappe.db.exists(
             "Holiday",
@@ -83,7 +82,7 @@ def process(from_date=None):
     night_logs = sorted(night_shift_checkins, key=lambda x: (x["employee"], x["time"]))
     for employee, group in groupby(night_logs, key=lambda x: x["employee"]):
         group = list(group)
-        group = update_processed_time_in_logs(group)
+
         holiday_list_name_for_employee = get_holiday_list_for_employee(employee)
         is_holiday = frappe.db.exists(
             "Holiday",
@@ -194,13 +193,3 @@ def get_attendance_request(employee, date):
         fields=["custom_from_time", "custom_to_time"],
     )
     return data
-
-
-def update_processed_time_in_logs(logs):
-    for log in logs:
-        punch_time = log.time
-        processed_time = log.custom_processed_time or punch_time
-        log.time = processed_time
-        log._time = punch_time
-
-    return logs

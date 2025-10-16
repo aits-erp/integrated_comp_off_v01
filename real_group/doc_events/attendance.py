@@ -12,6 +12,10 @@ def on_submit(doc, method=None):
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
 
 
+def allocate_incentive(doc):
+    pass
+
+
 def allocate_c_off(doc):
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     grade = employee.grade
