@@ -31,7 +31,11 @@ frappe.ui.form.on("Employee Series", {
           const name = response.message.name;
           if (!name) return;
           frappe.throw(
-            `An active Employee Series already exists for this company: ${name}. Please deactivate it before activating a new one.`
+            `An active Employee Series already exists for this company: ${frappe.utils.get_form_link(
+              "Employee Series",
+              name,
+              true
+            )}. Please deactivate it before activating a new one.`
           );
         }
       });

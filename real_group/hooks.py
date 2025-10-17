@@ -32,7 +32,6 @@ doctype_js = {
     "User": "public/js/form/user.js",
     "Leave Application": "public/js/form/leave_application.js",
     "Employee": "public/js/form/employee.js",
-    "Company": "public/js/form/company.js",
     "Employee Performance Feedback": "public/js/form/employee_performance_feedback.js",
     "Appraisal Template": "public/js/form/appraisal_template.js",
     "Employee Advance": "public/js/form/employee_advance.js",

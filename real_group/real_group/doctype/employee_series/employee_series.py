@@ -3,6 +3,7 @@
 
 import frappe
 from frappe.model.document import Document
+from frappe.utils import get_link_to_form
 
 
 class EmployeeSeries(Document):
@@ -56,5 +57,5 @@ class EmployeeSeries(Document):
             frappe.throw(
                 frappe._(
                     "An active Employee Series already exists for this company: {0}. Please deactivate it before activating a new one."
-                ).format(exists)
+                ).format(get_link_to_form("Employee Series", exists))
             )
