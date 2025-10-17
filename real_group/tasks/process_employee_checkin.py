@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import frappe
 from frappe.utils import add_days, format_time, get_datetime, get_time, get_timedelta, getdate
 
-from real_group.utils import get_early_entry, get_late_exit
+from real_group.utils import convert_time_to_minutes
 
 
 def process():
@@ -277,7 +277,7 @@ def fetch_shift_details(shift_type: str, for_timestamp: datetime, grade: str, is
     if isinstance(for_timestamp, str):
         for_timestamp = get_datetime(for_timestamp)
 
-    start_grace = timedelta(get_early_entry(minutes=shift_type.custom_early_entry_grace_period))
+    start_grace = timedelta(minutes=convert_time_to_minutes(shift_type.custom_early_entry_grace_period))
 
     if not shift_type:
         return frappe._dict()
@@ -285,7 +285,7 @@ def fetch_shift_details(shift_type: str, for_timestamp: datetime, grade: str, is
     start_datetime, end_datetime = get_shift_timings(shift_type, for_timestamp, grade, is_checkout)
 
     actual_start = start_datetime - start_grace
-    actual_end = end_datetime + timedelta(minutes=get_late_exit(shift_type.custom_late_exit_grace_period))
+    actual_end = end_datetime + timedelta(minutes=convert_time_to_minutes(shift_type.custom_late_exit_grace_period))
 
     return frappe._dict(
         {
@@ -310,12 +310,12 @@ def get_shift_timings(shift_type: dict, for_timestamp: datetime, grade, is_check
     shift_actual_start = get_time(
         datetime.combine(for_timestamp, datetime.min.time())
         + start_time
-        - (timedelta(minutes=get_early_entry(shift_type.custom_early_entry_grace_period)))
+        - (timedelta(minutes=convert_time_to_minutes(shift_type.custom_early_entry_grace_period)))
     )
     shift_actual_end = get_time(
         datetime.combine(for_timestamp, datetime.min.time())
         + end_time
-        + timedelta(minutes=get_late_exit(shift_type.custom_late_exit_grace_period))
+        + timedelta(minutes=convert_time_to_minutes(shift_type.custom_late_exit_grace_period))
     )
 
     for_time = get_time(for_timestamp.time())

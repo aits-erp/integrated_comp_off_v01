@@ -18,11 +18,3 @@ def convert_time_to_minutes(time_str: str | time) -> float:
 def convert_time_to_hours(time_str: str | time) -> float:
     seconds = convert_time_to_seconds(time_str)
     return seconds / 3600
-
-
-def get_early_entry(time_str) -> float:
-    return convert_time_to_minutes(time_str)
-
-
-def get_late_exit(time_str) -> float:
-    return convert_time_to_minutes(time_str)

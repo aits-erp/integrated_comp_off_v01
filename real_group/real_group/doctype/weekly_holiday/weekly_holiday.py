@@ -15,10 +15,12 @@ class WeeklyHoliday(Document):
         from frappe.types import DF
 
         description: DF.TextEditor
+        half_day: DF.Check
         holiday_date: DF.Date
         parent: DF.Data
         parentfield: DF.Data
         parenttype: DF.Data
-
+        unplanned: DF.Check
+        weekly_off: DF.Check
     # end: auto-generated types
     pass
