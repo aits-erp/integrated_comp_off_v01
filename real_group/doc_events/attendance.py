@@ -5,7 +5,8 @@ from frappe.utils import add_days, get_timedelta, getdate
 
 
 def validate(doc, method=None):
-    doc.custom_working_hours = timedelta(hours=doc.working_hours)
+    total_seconds = round(doc.working_hours * 3600 / 60) * 60
+    doc.custom_working_hours = timedelta(seconds=total_seconds)
 
 
 def on_submit(doc, method=None):
