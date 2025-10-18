@@ -18,9 +18,11 @@ def process():
 
     in_logs = [log for log in logs if log.punch_direction == "I"]
     out_logs = [log for log in logs if log.punch_direction == "O"]
-
-    process_employee_checkin(in_logs)
-    process_employee_checkout(out_logs)
+    try:
+        process_employee_checkin(in_logs)
+        process_employee_checkout(out_logs)
+    except Exception as e:
+        raise e
 
 
 def process_employee_checkin(logs):

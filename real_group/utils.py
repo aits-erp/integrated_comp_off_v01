@@ -3,18 +3,25 @@ from datetime import time, timedelta
 from frappe.utils import get_time
 
 
-def convert_time_to_seconds(time_str: str | time) -> float:
+def convert_time_to_seconds(time_str: str | time | timedelta) -> float:
+    if not time_str:
+        return 0.0
     if isinstance(time_str, str):
         time_str = get_time(time_str)
-
+    if isinstance(time_str, timedelta):
+        return time_str.total_seconds()
     return timedelta(hours=time_str.hour, minutes=time_str.minute, seconds=time_str.second).total_seconds()
 
 
 def convert_time_to_minutes(time_str: str | time) -> float:
+    if not time_str:
+        return 0.0
     seconds = convert_time_to_seconds(time_str)
     return seconds / 60
 
 
 def convert_time_to_hours(time_str: str | time) -> float:
+    if not time_str:
+        return 0.0
     seconds = convert_time_to_seconds(time_str)
     return seconds / 3600
