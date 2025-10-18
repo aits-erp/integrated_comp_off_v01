@@ -143,6 +143,7 @@ override_doctype_class = {
     "Employee Checkin": "real_group.overrides.employee_checkin.EmployeeCheckinOverride",
     "Compensatory Leave Request": "real_group.overrides.compensatory_leave_request.CompensatoryLeaveRequestOverride",
     # "Leave Application": "real_group.overrides.CustomLeaveApplication", # Need not do override
+    "Leave Policy Assignment": "real_group.overrides.leave_policy_assignment.LeavePolicyAssignmentOverride",
 }
 
 # Document Events
@@ -197,6 +198,9 @@ doc_events = {
         "on_submit": ["real_group.real_group.integration.create_salary_slip"],
         "on_cancel": ["real_group.real_group.integration.cancel_salary_slip"],
         #    "before_save": ["real_group.real_group.arrears.arrears_in_current_sal_slip"]
+    },
+    "Leave Type": {
+        "validate": ["real_group.doc_events.leave_type.validate"],
     },
 }
 
