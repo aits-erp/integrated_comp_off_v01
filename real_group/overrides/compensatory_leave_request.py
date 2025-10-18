@@ -1,3 +1,5 @@
+import datetime
+
 import frappe
 from frappe import _
 from frappe.utils import add_days, cint, get_url_to_list
@@ -82,3 +84,22 @@ class CompensatoryLeaveRequestOverride(CompensatoryLeaveRequest):
         allocation.insert(ignore_permissions=True)
         allocation.submit()
         return allocation
+
+    # Taken from latest frappe hrms codebase
+    def get_existing_allocation(self, comp_leave_valid_from: datetime.date) -> dict | None:
+        leave_allocation = frappe.db.get_all(
+            "Leave Allocation",
+            filters={
+                "employee": self.employee,
+                "leave_type": self.leave_type,
+                "from_date": ("<=", comp_leave_valid_from),
+                "to_date": (">=", comp_leave_valid_from),
+                "docstatus": 1,
+            },
+            limit=1,
+        )
+
+        if leave_allocation:
+            return frappe.get_doc("Leave Allocation", leave_allocation[0].name)
+        else:
+            return False
