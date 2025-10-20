@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import add_days, date_diff, get_first_day, get_last_day, get_timedelta
+from frappe.utils import add_days, date_diff, get_first_day, get_last_day, get_timedelta, getdate
 
 
 def validate(doc, method=None):
@@ -9,6 +9,7 @@ def validate(doc, method=None):
     validate_single_day_request(doc)
     validate_multi_day_request(doc)
     validate_short_leave_request(doc)
+    validate_change_request_day(doc)
 
     if doc.reason == "Mis Punch":
         if doc.from_date != doc.to_date:
@@ -34,6 +35,17 @@ def before_insert(doc, method=None):
     )
     if names:
         submit_cancel_or_update_docs("Attendance Request", names, "cancel")
+
+
+def validate_change_request_day(doc):
+    branch = frappe.get_value("Employee", doc.employee, "branch")
+    allowed_days = frappe.get_value("Branch", branch, "custom_change_request")
+    if not allowed_days:
+        return
+
+    diff = date_diff(getdate(), doc.from_date)
+    if diff > allowed_days:
+        frappe.throw(frappe._("You can only change attendance request within {0} days.").format(allowed_days))
 
 
 def before_cancel(doc, method=None):
