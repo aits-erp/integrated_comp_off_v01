@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import add_days, date_diff, get_first_day, get_last_day, get_timedelta, getdate
+from frappe.utils import add_days, date_diff, getdate
 
 
 def validate(doc, method=None):
@@ -8,7 +8,6 @@ def validate(doc, method=None):
 
     validate_single_day_request(doc)
     validate_multi_day_request(doc)
-    validate_short_leave_request(doc)
     validate_change_request_day(doc)
 
     if doc.reason == "Mis Punch":
@@ -100,38 +99,6 @@ def is_salary_processed(doc):
     ):
         return True
     return False
-
-
-def validate_short_leave_request(doc):
-    grade = frappe.get_cached_value("Employee", doc.employee, "grade")
-    grade = frappe.get_cached_doc("Employee Grade", grade)
-
-    from_date = get_first_day(doc.from_date)
-    to_date = get_last_day(doc.from_date)
-
-    if not (grade.custom_hours_per_leave) and doc.reason == "Personal":
-        frappe.throw(frappe._("Not Eligible for short leave, kindly avail Short Leave on Employee Grade"))
-
-    diff = get_timedelta(doc.custom_to_time) - get_timedelta(doc.custom_from_time)
-    if grade.custom_hours_per_leave:
-        if diff > grade.custom_hours_per_leave and doc.reason == grade.custom_short_leave_type:
-            frappe.throw(frappe._("Attendance Request is not allowed beyond Short Leave Time Allowed "))
-
-    if (
-        frappe.db.count(
-            "Attendance Request",
-            {
-                "employee": doc.employee,
-                "from_date": [">=", from_date],
-                "to_date": ["<=", to_date],
-                "docstatus": ["!=", 2],
-                "name": ["!=", doc.name],
-            },
-        )
-        >= grade.custom_number_of_leaves
-        and doc.reason == "Personal"
-    ):
-        frappe.throw(frappe._("Short Leave Limit Exceeded, Contact your HR Manager"))
 
 
 def validate_single_day_request(doc):

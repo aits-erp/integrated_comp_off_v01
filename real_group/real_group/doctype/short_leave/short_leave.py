@@ -1,8 +1,9 @@
 # Copyright (c) 2025, rtCamp and contributors
 # For license information, please see license.txt
 
-# import frappe
+import frappe
 from frappe.model.document import Document
+from frappe.utils import get_first_day, get_last_day, get_timedelta
 
 
 class ShortLeave(Document):
@@ -20,5 +21,36 @@ class ShortLeave(Document):
         from_time: DF.Datetime
         shift: DF.Link | None
         to_time: DF.Datetime
+
     # end: auto-generated types
-    pass
+    def validate(self):
+        self.validate_short_leave_request()
+
+    def validate_short_leave_request(self):
+        grade = frappe.get_cached_value("Employee", self.employee, "grade")
+        grade = frappe.get_cached_doc("Employee Grade", grade)
+
+        from_date = get_first_day(self.from_date)
+        to_date = get_last_day(self.from_date)
+
+        if not (grade.custom_hours_per_leave):
+            frappe.throw(frappe._("Not Eligible for short leave, kindly avail Short Leave on Employee Grade"))
+
+        diff = get_timedelta(self.custom_to_time) - get_timedelta(self.custom_from_time)
+        if grade.custom_hours_per_leave:
+            if diff > grade.custom_hours_per_leave and self.reason == grade.custom_short_leave_type:
+                frappe.throw(frappe._("Short Leave is not allowed beyond Short Leave Time Allowed "))
+
+        if (
+            frappe.db.count(
+                "Short Leave",
+                {
+                    "employee": self.employee,
+                    "for_date": ["between", [from_date, to_date]],
+                    "docstatus": ["!=", 2],
+                    "name": ["!=", self.name],
+                },
+            )
+            > grade.custom_number_of_leaves
+        ):
+            frappe.throw(frappe._("Short Leave Limit Exceeded, Contact your HR Manager"))
