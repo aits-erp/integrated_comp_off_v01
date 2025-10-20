@@ -14,5 +14,15 @@ def monkey_patch():
 
     ec.mark_attendance_and_link_log = mark_attendance_and_link_log
 
+    import hrms.hr.doctype.leave_policy_assignment.leave_policy_assignment as lpa
+
+    from real_group.overrides.leave_policy_assignment import get_earned_leaves, get_leave_type_details
+
+    lpa.get_leave_type_details = get_leave_type_details
+
+    import hrms.hr.utils as hr_utils
+
+    hr_utils.get_earned_leaves = get_earned_leaves
+
 
 monkey_patch()  # nosemgrep
