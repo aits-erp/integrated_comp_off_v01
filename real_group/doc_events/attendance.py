@@ -1,7 +1,9 @@
 from datetime import timedelta
 
 import frappe
-from frappe.utils import add_days, get_timedelta, getdate
+from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getdate
+
+from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 
 def validate(doc, method=None):
@@ -11,10 +13,160 @@ def validate(doc, method=None):
 
 def on_submit(doc, method=None):
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
+    frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
 
 
 def allocate_incentive(doc):
-    pass
+    def _create_additional_salary(employee: str, amount):
+        new_additional_salary = frappe.get_doc(
+            dict(
+                doctype="Additional Salary",
+                employee=employee,
+                payroll_date=get_last_day(getdate()),
+                salary_component="Incentives",
+                leave_type="Compensatory Off",
+                amount=amount,
+            )
+        )
+        new_additional_salary.insert(ignore_permissions=True)
+        new_additional_salary.submit()
+
+    def _create_incentive_log(employee: str, amount, from_date, to_date, work_date, status):
+        incentive_log = frappe.get_doc(
+            dict(
+                doctype="Incentive Log",
+                employee=employee,
+                from_date=from_date,
+                to_date=to_date,
+                leave_type="Compensatory Off",
+                incentive=amount,
+                work_date=work_date,
+                status=status,
+            )
+        )
+        incentive_log.insert(ignore_permissions=True)
+        incentive_log.submit()
+
+    def round_incentive(amount):
+        rupees = int(amount)
+        paise = (amount - rupees) * 100
+
+        if paise <= 25:
+            new_paise = 0
+        else:
+            new_paise = 50
+
+        return rupees + new_paise / 100
+
+    employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
+    date_of_joining = employee.date_of_joining
+
+    # Do we even need this check? Attendance cannot be created before date of joining
+    if date_of_joining and doc.attendance_date < date_of_joining:
+        return
+
+    grade = employee.grade
+    branch = employee.branch
+    grade_doc = frappe.get_cached_doc("Employee Grade", grade, for_update=False)
+
+    if grade_doc.custom_present_on_holiday != "Incentive" and grade_doc.custom_extra_work_hour != "Incentive":
+        return
+    incentive_gross_amount = grade_doc.custom_incentive_gross_amount
+    incentive_ceiling = grade_doc.custom_incentive_ceiling_amount
+
+    hours = doc.working_hours
+    checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
+    if not hours or hours == 0:
+        return
+    status = ""
+    holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
+    if holiday and holiday.get("is_holiday") and not checkins:
+        return  # It is holiday and employee did not worked.
+
+    if holiday and holiday.get("is_holiday") and holiday.get("is_weekly_off"):
+        status = "POW"
+    else:
+        status = "POH"
+
+    shift = doc.shift
+    shift = frappe.get_cached_doc("Shift Type", shift) if shift else None
+    if not shift:
+        return
+
+    shift_duration = convert_time_to_hours(shift.custom_shift_time)
+
+    if hours <= shift_duration:
+        return
+
+    c_matrix = frappe.db.exists(
+        "Compensation Matrix", {"shift_duration": timedelta(hours=shift_duration), "branch": branch}, cache=True
+    )
+    if not c_matrix:
+        return
+    c_matrix = frappe.get_cached_doc("Compensation Matrix", c_matrix)
+
+    if holiday and holiday.get("is_holiday") and grade_doc.custom_present_on_holiday == "Incentive":
+        diff = hours
+
+    if not holiday and grade_doc.custom_extra_work_hour == "Incentive":
+        diff = hours - shift_duration
+        status = "EW"
+    worked_hrs_in_delta = timedelta(hours=diff)
+    matched_c_matrix = next((m for m in c_matrix.items if m.from_hrs < worked_hrs_in_delta <= m.to_hrs), None)
+    if not matched_c_matrix:
+        return
+    credit = matched_c_matrix.c_off_credit
+    if not credit:
+        return
+
+    salary_structure_name = frappe.db.get_value(
+        "Salary Structure Assignment",
+        {"employee": employee},
+        fieldname="salary_structure",
+        cache=True,
+        order_by="creation desc",
+    )
+    earning = (
+        frappe.db.get_value(
+            "Salary Structure",
+            salary_structure_name,
+            fieldname="total_earning",
+            cache=True,
+        )
+        or 0
+    )
+    month_start = get_first_day(getdate())
+    month_end = get_last_day(getdate())
+    additional_incentive = (earning / (date_diff(month_end, month_start) + 1)) * credit
+
+    if not additional_incentive or incentive_gross_amount > earning:
+        return
+
+    existing_incentive = frappe.db.get_value(
+        "Additional Salary",
+        {
+            "employee": employee.name,
+            "salary_component": "Incentive",
+            "payroll_date": ("between", (month_start, month_end)),
+            "docstatus": 1,
+        },
+        fieldname="name",
+    )
+
+    if existing_incentive:
+        additional_salary = frappe.get_doc("Additional Salary", existing_incentive)
+        additional_incentive += additional_salary.amount
+        additional_salary.cancel()
+        additional_salary.delete()
+
+    additional_incentive = round_incentive(additional_incentive)
+    if additional_incentive <= incentive_ceiling:
+        _new_incentive = additional_incentive
+    else:
+        _new_incentive = incentive_ceiling
+
+    _create_additional_salary(employee.name, _new_incentive)
+    _create_incentive_log(employee.name, _new_incentive, month_start, month_end, doc.attendance_date, status)
 
 
 def allocate_c_off(doc):
@@ -27,42 +179,28 @@ def allocate_c_off(doc):
         return
 
     hours = doc.working_hours
-
+    checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
     if not hours or hours == 0:
         return
 
     status = ""
-    holiday = frappe.db.exists(
-        "Holiday",
-        {
-            "holiday_date": doc.attendance_date,
-            "parent": employee.holiday_list,
-            "parenttype": "Holiday List",
-            "parentfield": "holidays",
-        },
-        cache=True,
-    )
-    if holiday:
-        holiday = frappe.get_cached_doc("Holiday", holiday, for_update=False)
-        if holiday.weekly_off:
-            status = "POW"
-        else:
-            status = "POH"
+    holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
+    if holiday and holiday.get("is_holiday") and not checkins:
+        return  # It is holiday and employee did not worked.
+
+    if holiday and holiday.get("is_holiday") and holiday.get("is_weekly_off"):
+        status = "POW"
+    else:
+        status = "POH"
 
     shift = doc.shift
     shift = frappe.get_cached_doc("Shift Type", shift) if shift else None
     if not shift:
         return
 
-    start_delta = get_timedelta(shift.start_time)
-    end_delta = get_timedelta(shift.end_time)
-    if start_delta < end_delta:
-        shift_duration = timedelta(seconds=(end_delta - start_delta).total_seconds()).total_seconds() / 3600
-    else:
-        shift_duration = (
-            timedelta(seconds=(end_delta + timedelta(days=1) - start_delta).total_seconds()).total_seconds() / 3600
-        )
-
+    shift_duration = convert_time_to_hours(shift.custom_shift_time)
+    if hours <= shift_duration:
+        return
     c_matrix = frappe.db.exists(
         "Compensation Matrix", {"shift_duration": timedelta(hours=shift_duration), "branch": branch}, cache=True
     )
@@ -70,11 +208,9 @@ def allocate_c_off(doc):
         return
     c_matrix = frappe.get_cached_doc("Compensation Matrix", c_matrix)
 
-    if hours <= shift_duration:
-        return
-
-    if holiday and grade_doc.custom_present_on_holiday == "Comp Off":
+    if holiday and holiday.get("is_holiday") and grade_doc.custom_present_on_holiday == "Comp Off":
         diff = hours
+
     if not holiday and grade_doc.custom_extra_work_hour == "Comp Off":
         diff = hours - shift_duration
         status = "EW"
