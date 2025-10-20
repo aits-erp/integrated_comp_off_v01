@@ -37,6 +37,46 @@ def before_insert(doc, method=None):
         submit_cancel_or_update_docs("Attendance Request", names, "cancel")
 
 
+def before_cancel(doc, method=None):
+    if is_salary_processed(doc):
+        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."))
+
+
+def before_delete(doc, method=None):
+    if is_salary_processed(doc):
+        frappe.throw(frappe._("Cannot delete: Salary for this period has already been submitted."))
+
+
+def on_submit(doc, method=None):
+    cancel_short_leaves(doc)
+
+
+def cancel_short_leaves(doc):
+    attendance = frappe.db.exists(
+        "Attendance",
+        {
+            "date": ["between", [doc.from_date, doc.to_date]],
+            "employee": doc.employee,
+            "status": ["in", ["Present", "Absent", "Half Day"]],
+        },
+    )
+    if attendance:
+        frappe.throw(frappe._("Attendance is already marked for the selected dates."))
+    else:
+        short_leaves = frappe.get_all(
+            "Short Leave",
+            filters={
+                "employee": doc.employee,
+                "for_date": ["between", [doc.from_date, doc.to_date]],
+                "docstatus": 1,
+            },
+            pluck="name",
+        )
+        for sl in short_leaves:
+            sl_doc = frappe.get_doc("Short Leave", sl)
+            sl_doc.cancel()
+
+
 def validate_change_request_day(doc):
     branch = frappe.get_value("Employee", doc.employee, "branch")
     allowed_days = frappe.get_value("Branch", branch, "custom_change_request")
@@ -46,16 +86,6 @@ def validate_change_request_day(doc):
     diff = date_diff(getdate(), doc.from_date)
     if diff > allowed_days:
         frappe.throw(frappe._("You can only change attendance request within {0} days.").format(allowed_days))
-
-
-def before_cancel(doc, method=None):
-    if is_salary_processed(doc):
-        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."))
-
-
-def before_delete(doc, method=None):
-    if is_salary_processed(doc):
-        frappe.throw(frappe._("Cannot delete: Salary for this period has already been submitted."))
 
 
 def is_salary_processed(doc):

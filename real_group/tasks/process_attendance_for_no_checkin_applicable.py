@@ -1,6 +1,8 @@
 import frappe
 from frappe.utils import add_days, getdate
 
+from real_group.utils import is_holiday_for_employee
+
 
 def process():
     grade_list = frappe.get_all(
@@ -26,16 +28,9 @@ def process():
             if has_attendance:
                 continue
 
-            is_holiday = frappe.db.exists(
-                "Holiday",
-                {
-                    "parent": emp.holiday_list,
-                    "holiday_date": add_days(getdate(), -1),
-                    "parenttype": "Holiday List",
-                    "parentfield": "holidays",
-                },
-            )
-            if is_holiday:
+            holiday = is_holiday_for_employee(emp.name, add_days(getdate(), -1))
+
+            if holiday:
                 attendance = frappe.get_doc(
                     {
                         "doctype": "Attendance",
@@ -43,7 +38,7 @@ def process():
                         "attendance_date": add_days(getdate(), -1),
                         "status": "Present",
                         "company": emp.company,
-                        "custom_attendance_tag": "HO",
+                        "custom_attendance_tag": "HO" if not holiday.get("is_weekly_holiday") else "WO",
                     }
                 )
             else:

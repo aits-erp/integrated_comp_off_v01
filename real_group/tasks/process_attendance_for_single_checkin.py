@@ -1,6 +1,8 @@
 import frappe
 from frappe.utils import add_days, get_datetime, getdate, today
 
+from real_group.utils import is_holiday_for_employee
+
 
 def process():
     grade_list = frappe.get_all(
@@ -28,17 +30,10 @@ def process():
             )
             if has_attendance:
                 continue
-
-            is_holiday = frappe.db.exists(
-                "Holiday",
-                {
-                    "parent": emp.holiday_list,
-                    "holiday_date": add_days(today(), -1),
-                    "parenttype": "Holiday List",
-                    "parentfield": "holidays",
-                },
-            )
-            if is_holiday:
+            holiday = is_holiday_for_employee(emp.name, add_days(today(), -1))
+            filters = [["employee", "=", emp.name], ["time", ">=", start_time], ["time", "<", end_time]]
+            emp_checkin = frappe.db.count("Employee Checkin", filters)
+            if holiday:
                 attendance = frappe.get_doc(
                     {
                         "doctype": "Attendance",
@@ -46,14 +41,25 @@ def process():
                         "attendance_date": add_days(today(), -1),
                         "status": "Present",
                         "company": emp.company,
-                        "custom_attendance_tag": "HO",
+                        "custom_attendance_tag": "HO" if not holiday.get("is_weekly_holiday") else "WO",
+                    }
+                )
+                attendance.insert(ignore_permissions=True)
+                attendance.submit()
+            elif holiday and emp_checkin and emp_checkin > 0:
+                attendance = frappe.get_doc(
+                    {
+                        "doctype": "Attendance",
+                        "employee": emp.name,
+                        "attendance_date": add_days(today(), -1),
+                        "status": "Present",
+                        "company": emp.company,
+                        "custom_attendance_tag": "POH",
                     }
                 )
                 attendance.insert(ignore_permissions=True)
                 attendance.submit()
             else:
-                filters = [["employee", "=", emp.name], ["time", ">=", start_time], ["time", "<", end_time]]
-                emp_checkin = frappe.db.count("Employee Checkin", filters)
                 if not emp_checkin or emp_checkin == 0:
                     attendance = frappe.get_doc(
                         {

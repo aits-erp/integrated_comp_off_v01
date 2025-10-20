@@ -37,22 +37,21 @@ def apply_short_leave_attendance_on_late_checkin(doc):
 
     if get_timedelta() < diff < grade.custom_hours_per_leave:
         try:
-            attendance_request = frappe.get_doc(
+            short_leave = frappe.get_doc(
                 {
-                    "doctype": "Attendance Request",
+                    "doctype": "Short Leave",
                     "employee": doc.employee,
-                    "from_date": getdate(doc.time),
-                    "to_date": getdate(doc.time),
+                    "for_date": getdate(doc.time),
                     "shift": doc.shift,
-                    "custom_from_time": start_time,
-                    "custom_to_time": checkin_time,
-                    "reason": "Personal",
-                    "explanation": f"Auto created for late checkin {doc.name}",
-                    "status": "Approved",
+                    "from_time": start_time,
+                    "to_time": checkin_time,
                 }
             )
-            attendance_request.insert(ignore_permissions=True)
-            attendance_request.submit()
+            short_leave.insert(ignore_permissions=True)
+            short_leave.submit()
+            short_leave.add_tag("Auto Created on Late Checkin")
+            minutes = int(diff.total_seconds() / 60)
+            short_leave.add_comment(text=f"Created automatically for late check-in: {minutes} minutes late")
         except Exception:
             frappe.log_error(frappe.get_traceback(), "Auto Attendance Request Creation Failed")
 
