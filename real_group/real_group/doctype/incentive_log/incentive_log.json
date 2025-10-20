@@ -19,7 +19,8 @@
   "extra_incentive",
   "column_break_enqq",
   "total_incentive",
-  "status"
+  "status",
+  "amended_from"
  ],
  "fields": [
   {
@@ -95,11 +96,22 @@
    "fieldtype": "Float",
    "label": "Incentive Original Value",
    "precision": "2"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Incentive Log",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2025-09-30 18:40:04.738276",
+ "modified": "2025-10-20 17:33:04.824902",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Incentive Log",

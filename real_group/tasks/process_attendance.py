@@ -123,7 +123,7 @@ def update_status(attendance, status, holiday):
         else:
             tag = "A"
 
-        if holiday.get("is_holiday") and status == "Present":
+        if holiday and holiday.get("is_holiday") and status == "Present":
             tag = "POH"
         frappe.db.set_value("Attendance", attendance.name, "custom_attendance_tag", tag)
 

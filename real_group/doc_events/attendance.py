@@ -72,7 +72,7 @@ def allocate_incentive(doc):
     if grade_doc.custom_present_on_holiday != "Incentive" and grade_doc.custom_extra_work_hour != "Incentive":
         return
     incentive_gross_amount = grade_doc.custom_incentive_gross_amount
-    incentive_ceiling = grade_doc.custom_incentive_ceiling_amount
+    incentive_ceiling = grade_doc.custom_incentive_ceiling
 
     hours = doc.working_hours
     checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
@@ -121,7 +121,7 @@ def allocate_incentive(doc):
 
     salary_structure_name = frappe.db.get_value(
         "Salary Structure Assignment",
-        {"employee": employee},
+        {"employee": employee.name},
         fieldname="salary_structure",
         cache=True,
         order_by="creation desc",
@@ -139,7 +139,7 @@ def allocate_incentive(doc):
     month_end = get_last_day(getdate())
     additional_incentive = (earning / (date_diff(month_end, month_start) + 1)) * credit
 
-    if not additional_incentive or incentive_gross_amount > earning:
+    if not additional_incentive or incentive_gross_amount < earning:
         return
 
     existing_incentive = frappe.db.get_value(

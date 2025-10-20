@@ -2004,7 +2004,7 @@ def erp_config_master(emp_catg, company):
             if con:
                 con.close()
 
-    return msg
+        return msg if msg else "[]"
 
 
 # Fetch ERP Config Master Details From this

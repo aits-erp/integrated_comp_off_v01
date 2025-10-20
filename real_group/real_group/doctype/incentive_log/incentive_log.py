@@ -14,6 +14,7 @@ class IncentiveLog(Document):
     if TYPE_CHECKING:
         from frappe.types import DF
 
+        amended_from: DF.Link | None
         employee: DF.Link | None
         employee_name: DF.Data | None
         extra_incentive: DF.Float
