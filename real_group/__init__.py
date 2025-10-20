@@ -24,5 +24,12 @@ def monkey_patch():
 
     hr_utils.get_earned_leaves = get_earned_leaves
 
+    import hrms.hr.doctype.leave_application.leave_application as la
+
+    from real_group.api.overrides.leave_application import get_holidays, get_number_of_leave_days
+
+    la.get_holidays = get_holidays
+    la.get_number_of_leave_days = get_number_of_leave_days
+
 
 monkey_patch()  # nosemgrep

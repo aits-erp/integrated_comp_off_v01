@@ -57,7 +57,7 @@ def is_holiday_for_employee(employee: str, date):
         return data
     else:
         is_holiday = frappe.db.get_value(
-            "Holiday",
+            "Weekly Holiday",
             {
                 "parent": weekly_holiday_list,
                 "holiday_date": getdate(date),

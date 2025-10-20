@@ -253,6 +253,8 @@ scheduler_events = {
 #
 override_whitelisted_methods = {
     "frappe.core.doctype.user.user.update_password": "real_group.api.overrides.user.update_user_password",
+    "hrms.hr.doctype.leave_application.leave_application.get_holidays": "real_group.api.overrides.leave_application.get_holidays",
+    "hrms.hr.doctype.leave_application.leave_application.get_number_of_leave_days": "real_group.api.overrides.leave_application.get_number_of_leave_days",
 }
 #
 # each overriding function accepts a `data` argument;
