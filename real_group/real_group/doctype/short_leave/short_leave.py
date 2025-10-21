@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import get_first_day, get_last_day, get_timedelta
+from frappe.utils import get_first_day, get_last_day
 
 
 class ShortLeave(Document):
@@ -30,13 +30,13 @@ class ShortLeave(Document):
         grade = frappe.get_cached_value("Employee", self.employee, "grade")
         grade = frappe.get_cached_doc("Employee Grade", grade)
 
-        from_date = get_first_day(self.from_date)
-        to_date = get_last_day(self.from_date)
+        from_date = get_first_day(self.for_date)
+        to_date = get_last_day(self.for_date)
 
         if not (grade.custom_hours_per_leave):
             frappe.throw(frappe._("Not Eligible for short leave, kindly avail Short Leave on Employee Grade"))
 
-        diff = get_timedelta(self.custom_to_time) - get_timedelta(self.custom_from_time)
+        diff = self.to_time - self.from_time
         if grade.custom_hours_per_leave:
             if diff > grade.custom_hours_per_leave and self.reason == grade.custom_short_leave_type:
                 frappe.throw(frappe._("Short Leave is not allowed beyond Short Leave Time Allowed "))

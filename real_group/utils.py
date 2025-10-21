@@ -64,7 +64,7 @@ def is_holiday_for_employee(employee: str, date):
                 "parenttype": "Annual Holiday List",
                 "parentfield": "holidays",
             },
-            ["name", "weekly_off", "custom_unplanned", "custom_half_day"],
+            ["name", "weekly_off", "unplanned", "half_day"],
         )
         if is_holiday:
             data = {

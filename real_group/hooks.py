@@ -166,6 +166,7 @@ doc_events = {
     },
     "Shift Type": {"validate": ["real_group.doc_events.shift_type.validate"]},
     "Employee Checkin": {
+        "validate": "real_group.doc_events.employee_checkin.validate",
         "after_insert": [
             "real_group.doc_events.employee_checkin.after_insert",
         ],

@@ -34,7 +34,7 @@ def process(from_date=None):
     logs = sorted(day_shift_checkins, key=lambda x: (x["employee"], x["time"]))
     for employee, group in groupby(logs, key=lambda x: x["employee"]):
         group = list(group)
-
+        group = update_time(group)
         holiday = is_holiday_for_employee(employee, start_date)
         if holiday and not group:
             frappe.get_doc(
@@ -77,7 +77,7 @@ def process(from_date=None):
     night_logs = sorted(night_shift_checkins, key=lambda x: (x["employee"], x["time"]))
     for employee, group in groupby(night_logs, key=lambda x: x["employee"]):
         group = list(group)
-
+        group = update_time(group)
         holiday = is_holiday_for_employee(employee, start_date)
         if holiday and not group:
             frappe.get_doc(
@@ -163,7 +163,7 @@ def get_attendance(logs, grade, shift_type):
         for req in short_leaves:
             start = get_timedelta(format_time(get_time(req.from_time)))
             end = get_timedelta(format_time(get_time(req.to_time)))
-            hours = abs(end - start)
+            hours = convert_time_to_hours(abs(end - start))
             total_working_hours += hours
 
     working_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_present)
@@ -188,3 +188,11 @@ def get_short_leaves(employee, date):
         fields=["from_time", "to_time"],
     )
     return data
+
+
+def update_time(checkins: list):
+    for checkin in checkins:
+        checkin._backup_time = checkin.time
+        checkin.time = checkin.custom_processed_time
+
+    return checkins

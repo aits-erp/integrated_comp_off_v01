@@ -7,12 +7,32 @@ from frappe.utils import get_datetime, get_timedelta, getdate
 from real_group.tasks.process_employee_checkin import fetch_shift_details
 
 
+def validate(doc, method=None):
+    doc.custom_processed_time = doc.time
+    update_processed_time(doc)
+
+
 def before_insert(doc, method=None):
     apply_short_leave_attendance_on_late_checkin(doc)
 
 
 def after_insert(doc, method=None):
     send_sms_on_late_checkin(doc)
+
+
+def update_processed_time(doc):
+    if not is_first_checkin(doc) or doc.log_type != "IN":
+        return
+
+    employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
+    data = fetch_shift_details(doc.shift, doc.time, employee.grade)
+    shift_start_time = data.get("actual_start")
+
+    start_time = get_datetime(shift_start_time)
+    checkin_time = get_datetime(doc.time)
+
+    if checkin_time < start_time:
+        doc.custom_processed_time = start_time
 
 
 def apply_short_leave_attendance_on_late_checkin(doc):
@@ -29,7 +49,7 @@ def apply_short_leave_attendance_on_late_checkin(doc):
         return
 
     data = fetch_shift_details(doc.shift, doc.time, employee.grade)
-    shift_start_time = data.get("actual_start")
+    shift_start_time = data.get("start_datetime")
 
     start_time = get_datetime(shift_start_time)
     checkin_time = get_datetime(doc.time)
@@ -74,7 +94,7 @@ def send_sms_on_late_checkin(doc):
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     employee_grade = frappe.get_cached_doc("Employee Grade", employee.grade, for_update=False)
     if not employee.cell_number or (
-        employee_grade.custom_single_punch_applicable or employee_grade.custom_double_punch_applicable
+        employee_grade.custom_single_punch_applicable or employee_grade.custom_no_punch_applicable
     ):
         return
 
@@ -85,7 +105,7 @@ def send_sms_on_late_checkin(doc):
 
     if not shift_start_time:
         data = fetch_shift_details(doc.shift, doc.time, employee.grade)
-        shift_start_time = data.get("actual_start")
+        shift_start_time = data.get("start_datetime")
 
     if not shift_start_time:
         return
