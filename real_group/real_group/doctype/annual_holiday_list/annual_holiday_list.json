@@ -55,7 +55,7 @@
    "collapsible": 1,
    "fieldname": "add_weekly_holidays_section",
    "fieldtype": "Section Break",
-   "label": "Add Weekly Holidays"
+   "label": "Add Annual Holidays"
   },
   {
    "fieldname": "weekly_off",
@@ -82,7 +82,7 @@
    "fieldname": "holidays",
    "fieldtype": "Table",
    "label": "Holidays",
-   "options": "Weekly Holiday"
+   "options": "Annual Holiday"
   },
   {
    "fieldname": "clear_table",
@@ -94,10 +94,10 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-16 14:07:49.936216",
+ "modified": "2025-10-21 14:12:11.471616",
  "modified_by": "Administrator",
  "module": "Real Group",
- "name": "Weekly Holiday List",
+ "name": "Annual Holiday List",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [

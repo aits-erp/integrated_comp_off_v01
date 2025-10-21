@@ -9,7 +9,7 @@ from frappe.model.document import Document
 from frappe.utils import formatdate, getdate
 
 
-class WeeklyHolidayList(Document):
+class AnnualHolidayList(Document):
     # begin: auto-generated types
     # This code is auto-generated. Do not modify anything in this block.
 
@@ -26,7 +26,7 @@ class WeeklyHolidayList(Document):
         to_date: DF.Date
         total_holidays: DF.Int
         weekly_off: DF.Literal["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-        # end: auto-generated types
+    # end: auto-generated types
 
     def validate(self):
         self.validate_days()

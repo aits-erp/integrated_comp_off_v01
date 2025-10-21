@@ -1,7 +1,7 @@
 // Copyright (c) 2025, rtCamp and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Weekly Holiday List", {
+frappe.ui.form.on("Annual Holiday List", {
   refresh: function (frm) {
     if (frm.doc.holidays) {
       frm.set_value("total_holidays", frm.doc.holidays.length);
@@ -15,7 +15,7 @@ frappe.ui.form.on("Weekly Holiday List", {
   },
 });
 
-frappe.tour["Weekly Holiday List"] = [
+frappe.tour["Annual Holiday List"] = [
   {
     fieldname: "holiday_list_name",
     title: "Holiday List Name",
@@ -40,7 +40,7 @@ frappe.tour["Weekly Holiday List"] = [
     fieldname: "get_weekly_off_dates",
     title: "Add Holidays",
     description: __(
-      "Click on Add to Holidays. This will populate the holidays table with all the dates that fall on the selected weekly off. Repeat the process for populating the dates for all your weekly holidays"
+      "Click on Add to Holidays. This will populate the holidays table with all the dates that fall on the selected weekly off. Repeat the process for populating the dates for all your annual holidays"
     ),
   },
   {
