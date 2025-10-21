@@ -18,6 +18,7 @@ class IncentiveLog(Document):
         employee: DF.Link | None
         employee_name: DF.Data | None
         extra_incentive: DF.Float
+        extra_worked_hours: DF.Time | None
         from_date: DF.Date | None
         incentive: DF.Float
         incentive_original_value: DF.Float

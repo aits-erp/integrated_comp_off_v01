@@ -15,6 +15,7 @@
   "to_date",
   "section_break_7bte",
   "incentive",
+  "extra_worked_hours",
   "incentive_original_value",
   "extra_incentive",
   "column_break_enqq",
@@ -106,12 +107,17 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "extra_worked_hours",
+   "fieldtype": "Time",
+   "label": "Extra Worked Hours"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-20 17:33:04.824902",
+ "modified": "2025-10-21 14:21:20.185792",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Incentive Log",
