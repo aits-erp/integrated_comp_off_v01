@@ -2,7 +2,17 @@ from datetime import datetime, time, timedelta
 from itertools import groupby
 
 import frappe
-from frappe.utils import add_days, cint, format_time, get_datetime, get_time, get_timedelta, getdate
+from frappe.utils import (
+    add_days,
+    cint,
+    format_time,
+    get_datetime,
+    get_first_day,
+    get_last_day,
+    get_time,
+    get_timedelta,
+    getdate,
+)
 from hrms.hr.doctype.employee_checkin.employee_checkin import calculate_working_hours, mark_attendance_and_link_log
 
 from real_group.utils import convert_time_to_hours, convert_time_to_minutes, is_holiday_for_employee
@@ -36,6 +46,12 @@ def process(from_date=None):
         group = list(group)
         group = update_time(group)
         holiday = is_holiday_for_employee(employee, start_date)
+        emp_grade = frappe.get_value("Employee", employee, "grade")
+        allowed_late_day, deduction_cycle = frappe.db.get_value(
+            "Employee Grade",
+            emp_grade,
+            ["custom_allowed_late_count_days", "custom_late_entry_deduction_cycle"],
+        )
         if holiday and not group:
             frappe.get_doc(
                 {
@@ -60,6 +76,7 @@ def process(from_date=None):
                 group, attendance_status, start_date, working_hours, late_entry, early_exit, in_time, out_time, shift
             )
             update_status(attendance, attendance_status, holiday)
+            mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance, late_entry)
         frappe.db.commit()  # nosemgrep
 
     # Processing Night Shift Employees
@@ -79,6 +96,12 @@ def process(from_date=None):
         group = list(group)
         group = update_time(group)
         holiday = is_holiday_for_employee(employee, start_date)
+        emp_grade = frappe.get_value("Employee", employee, "grade")
+        allowed_late_day, deduction_cycle = frappe.db.get_value(
+            "Employee Grade",
+            emp_grade,
+            ["custom_allowed_late_count_days", "custom_late_entry_deduction_cycle"],
+        )
         if holiday and not group:
             frappe.get_doc(
                 {
@@ -111,7 +134,31 @@ def process(from_date=None):
                 shift,
             )
             update_status(attendance, attendance_status, holiday)
+            mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance, late_entry)
         frappe.db.commit()  # nosemgrep
+
+
+def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance, late_entry):
+    if not allowed_late_day or not deduction_cycle:
+        return
+    month_start = get_first_day(attendance.attendance_date)
+    month_end = get_last_day(attendance.attendance_date)
+
+    monthly_late_count = frappe.db.count(
+        "Attendance",
+        {
+            "employee": employee,
+            "attendance_date": ["between", [month_start, month_end]],
+            "late_entry": 1,
+        },
+    )
+    if late_entry:
+        monthly_late_count += 1
+    if monthly_late_count > allowed_late_day:
+        adjusted = monthly_late_count - allowed_late_day
+        if adjusted % deduction_cycle == 0 and attendance:
+            frappe.db.set_value("Attendance", attendance.name, "status", "Half Day")
+            frappe.db.set_value("Attendance", attendance.name, "custom_attendance_tag", "HD")
 
 
 def update_status(attendance, status, holiday):

@@ -7,8 +7,9 @@ from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 
 def validate(doc, method=None):
-    total_seconds = round(doc.working_hours * 3600 / 60) * 60
-    doc.custom_working_hours = timedelta(seconds=total_seconds)
+    if doc.working_hours:
+        total_seconds = round(doc.working_hours * 3600 / 60) * 60
+        doc.custom_working_hours = timedelta(seconds=total_seconds)
 
 
 def on_submit(doc, method=None):

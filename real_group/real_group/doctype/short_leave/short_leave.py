@@ -18,9 +18,9 @@ class ShortLeave(Document):
         amended_from: DF.Link | None
         employee: DF.Link
         for_date: DF.Date
-        from_time: DF.Datetime
+        punch_time: DF.Datetime
         shift: DF.Link | None
-        to_time: DF.Datetime
+        shift_start_time: DF.Datetime
 
     # end: auto-generated types
     def validate(self):
@@ -36,7 +36,7 @@ class ShortLeave(Document):
         if not (grade.custom_hours_per_leave):
             frappe.throw(frappe._("Not Eligible for short leave, kindly avail Short Leave on Employee Grade"))
 
-        diff = self.to_time - self.from_time
+        diff = self.punch_time - self.shift_start_time
         if grade.custom_hours_per_leave:
             if diff > grade.custom_hours_per_leave and self.reason == grade.custom_short_leave_type:
                 frappe.throw(frappe._("Short Leave is not allowed beyond Short Leave Time Allowed "))
