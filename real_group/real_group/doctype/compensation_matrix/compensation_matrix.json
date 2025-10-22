@@ -1,11 +1,12 @@
 {
  "actions": [],
- "autoname": "format:{shift_duration}",
+ "autoname": "format:{branch}-{shift_duration}",
  "creation": "2025-09-30 17:09:45.237916",
  "default_view": "List",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "branch",
   "shift_duration",
   "column_break_krlr",
   "description",
@@ -41,11 +42,18 @@
    "in_list_view": 1,
    "label": "Description",
    "reqd": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-30 18:40:04.606485",
+ "modified": "2025-10-16 12:47:50.321233",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Compensation Matrix",

@@ -18,6 +18,7 @@ class CompensationMatrix(Document):
             CompensationMatrixDetails,
         )
 
+        branch: DF.Link
         description: DF.Data
         items: DF.Table[CompensationMatrixDetails]
         shift_duration: DF.Time

@@ -1,5 +1,4 @@
 import json
-from datetime import timedelta
 
 import frappe
 from frappe.integrations.utils import make_get_request
@@ -10,8 +9,7 @@ from real_group.tasks.process_employee_checkin import fetch_shift_details
 
 def validate(doc, method=None):
     doc.custom_processed_time = doc.time
-    handle_late_checkin(doc)
-    handle_late_checkout(doc)
+    update_processed_time(doc)
 
 
 def before_insert(doc, method=None):
@@ -22,48 +20,19 @@ def after_insert(doc, method=None):
     send_sms_on_late_checkin(doc)
 
 
-def handle_late_checkin(doc):
+def update_processed_time(doc):
     if not is_first_checkin(doc) or doc.log_type != "IN":
         return
+
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
-    grade = frappe.get_cached_doc("Employee Grade", employee.grade, for_update=False)
     data = fetch_shift_details(doc.shift, doc.time, employee.grade)
-
     shift_start_time = data.get("actual_start")
-
-    late_entry_grace_period_from_shift = frappe.get_cached_value("Shift Type", doc.shift, "late_entry_grace_period")
-    late_entry_grace_period_from_grade = grade.custom_late_entry_grace_period or 0
-
-    actual_grace_period = timedelta(minutes=late_entry_grace_period_from_shift + late_entry_grace_period_from_grade)
 
     start_time = get_datetime(shift_start_time)
     checkin_time = get_datetime(doc.time)
-    diff = checkin_time - start_time
 
-    if diff <= actual_grace_period:
+    if checkin_time < start_time:
         doc.custom_processed_time = start_time
-
-
-def handle_late_checkout(doc):
-    if doc.log_type != "OUT":
-        return
-    employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
-    data = fetch_shift_details(doc.shift, doc.time, employee.grade)
-
-    end_time = get_datetime(data.get("actual_end"))
-    checkout_time = get_datetime(doc.time)
-
-    late_exit_grace_period_from_shift = frappe.get_cached_value(
-        "Shift Type", doc.shift, "allow_check_out_after_shift_end_time"
-    )
-    actual_grace_period = timedelta(minutes=late_exit_grace_period_from_shift)
-
-    diff = checkout_time - end_time
-
-    if diff < get_timedelta():
-        diff = -diff
-    if diff <= actual_grace_period:
-        doc.custom_processed_time = end_time
 
 
 def apply_short_leave_attendance_on_late_checkin(doc):
@@ -80,7 +49,7 @@ def apply_short_leave_attendance_on_late_checkin(doc):
         return
 
     data = fetch_shift_details(doc.shift, doc.time, employee.grade)
-    shift_start_time = data.get("actual_start")
+    shift_start_time = data.get("start_datetime")
 
     start_time = get_datetime(shift_start_time)
     checkin_time = get_datetime(doc.time)
@@ -88,22 +57,21 @@ def apply_short_leave_attendance_on_late_checkin(doc):
 
     if get_timedelta() < diff < grade.custom_hours_per_leave:
         try:
-            attendance_request = frappe.get_doc(
+            short_leave = frappe.get_doc(
                 {
-                    "doctype": "Attendance Request",
+                    "doctype": "Short Leave",
                     "employee": doc.employee,
-                    "from_date": getdate(doc.time),
-                    "to_date": getdate(doc.time),
+                    "for_date": getdate(doc.time),
                     "shift": doc.shift,
-                    "custom_from_time": start_time,
-                    "custom_to_time": checkin_time,
-                    "reason": "Personal",
-                    "explanation": f"Auto created for late checkin {doc.name}",
-                    "status": "Approved",
+                    "from_time": start_time,
+                    "to_time": checkin_time,
                 }
             )
-            attendance_request.insert(ignore_permissions=True)
-            attendance_request.submit()
+            short_leave.insert(ignore_permissions=True)
+            short_leave.submit()
+            short_leave.add_tag("Auto Created on Late Checkin")
+            minutes = int(diff.total_seconds() / 60)
+            short_leave.add_comment(text=f"Created automatically for late check-in: {minutes} minutes late")
         except Exception:
             frappe.log_error(frappe.get_traceback(), "Auto Attendance Request Creation Failed")
 
@@ -126,18 +94,18 @@ def send_sms_on_late_checkin(doc):
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     employee_grade = frappe.get_cached_doc("Employee Grade", employee.grade, for_update=False)
     if not employee.cell_number or (
-        employee_grade.custom_single_punch_applicable or employee_grade.custom_double_punch_applicable
+        employee_grade.custom_single_punch_applicable or employee_grade.custom_no_punch_applicable
     ):
         return
 
     if not is_first_checkin(doc):
         return
 
-    shift_start_time = doc.shift_actual_start
+    shift_start_time = doc.shift_start
 
     if not shift_start_time:
         data = fetch_shift_details(doc.shift, doc.time, employee.grade)
-        shift_start_time = data.get("actual_start")
+        shift_start_time = data.get("start_datetime")
 
     if not shift_start_time:
         return

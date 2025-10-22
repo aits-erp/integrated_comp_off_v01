@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import frappe
 from frappe.utils import add_days, format_time, get_datetime, get_time, get_timedelta, getdate
 
+from real_group.utils import convert_time_to_minutes
+
 
 def process():
     logs = frappe.get_all(
@@ -16,9 +18,11 @@ def process():
 
     in_logs = [log for log in logs if log.punch_direction == "I"]
     out_logs = [log for log in logs if log.punch_direction == "O"]
-
-    process_employee_checkin(in_logs)
-    process_employee_checkout(out_logs)
+    try:
+        process_employee_checkin(in_logs)
+        process_employee_checkout(out_logs)
+    except Exception as e:
+        raise e
 
 
 def process_employee_checkin(logs):
@@ -269,13 +273,11 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
 
 
 def fetch_shift_details(shift_type: str, for_timestamp: datetime, grade: str, is_checkout=False) -> dict:
-    from hrms.hr.doctype.shift_assignment.shift_assignment import get_shift_type
-
     shift_type = get_shift_type(shift_type)
     if isinstance(for_timestamp, str):
         for_timestamp = get_datetime(for_timestamp)
 
-    start_grace = timedelta(minutes=shift_type.begin_check_in_before_shift_start_time)
+    start_grace = timedelta(minutes=convert_time_to_minutes(shift_type.custom_early_entry_grace_period))
 
     if not shift_type:
         return frappe._dict()
@@ -283,7 +285,7 @@ def fetch_shift_details(shift_type: str, for_timestamp: datetime, grade: str, is
     start_datetime, end_datetime = get_shift_timings(shift_type, for_timestamp, grade, is_checkout)
 
     actual_start = start_datetime - start_grace
-    actual_end = end_datetime + timedelta(minutes=shift_type.allow_check_out_after_shift_end_time)
+    actual_end = end_datetime + timedelta(minutes=convert_time_to_minutes(shift_type.custom_late_exit_grace_period))
 
     return frappe._dict(
         {
@@ -308,12 +310,12 @@ def get_shift_timings(shift_type: dict, for_timestamp: datetime, grade, is_check
     shift_actual_start = get_time(
         datetime.combine(for_timestamp, datetime.min.time())
         + start_time
-        - (timedelta(minutes=shift_type.begin_check_in_before_shift_start_time))
+        - (timedelta(minutes=convert_time_to_minutes(shift_type.custom_early_entry_grace_period)))
     )
     shift_actual_end = get_time(
         datetime.combine(for_timestamp, datetime.min.time())
         + end_time
-        + timedelta(minutes=shift_type.allow_check_out_after_shift_end_time)
+        + timedelta(minutes=convert_time_to_minutes(shift_type.custom_late_exit_grace_period))
     )
 
     for_time = get_time(for_timestamp.time())
@@ -367,3 +369,22 @@ def get_shift_timings(shift_type: dict, for_timestamp: datetime, grade, is_check
         end_datetime = datetime.combine(for_timestamp, datetime.min.time()) + end_time
 
     return start_datetime, end_datetime
+
+
+def get_shift_type(shift_type_name: str) -> dict:
+    return frappe.get_cached_value(
+        "Shift Type",
+        shift_type_name,
+        [
+            "name",
+            "start_time",
+            "end_time",
+            "custom_early_entry_grace_period",
+            "custom_late_exit_grace_period",
+            "custom_late_entry_grace_period",
+            "enable_late_entry_marking",
+            "enable_early_exit_marking",
+            "custom_early_exit_grace_period",
+        ],
+        as_dict=1,
+    )

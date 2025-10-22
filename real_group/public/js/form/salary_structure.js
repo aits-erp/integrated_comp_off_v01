@@ -41,6 +41,7 @@ frappe.ui.form.on("Salary Structure", {
             callback: function (r) {
               if (!r.exc) {
                 var jsonString = r.message;
+                jsonString = jsonString ? jsonString : "[]";
                 var resultList = JSON.parse(jsonString);
 
                 if (resultList.length == 0) {

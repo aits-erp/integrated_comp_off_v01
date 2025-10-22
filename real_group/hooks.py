@@ -32,7 +32,6 @@ doctype_js = {
     "User": "public/js/form/user.js",
     "Leave Application": "public/js/form/leave_application.js",
     "Employee": "public/js/form/employee.js",
-    "Company": "public/js/form/company.js",
     "Employee Performance Feedback": "public/js/form/employee_performance_feedback.js",
     "Appraisal Template": "public/js/form/appraisal_template.js",
     "Employee Advance": "public/js/form/employee_advance.js",
@@ -56,6 +55,7 @@ doctype_js = {
 doctype_list_js = {
     "Leave Application": "public/js/list/leave_application.js",
     "Attendance": "public/js/list/attendance.js",
+    "Employee Checkin": "public/js/list/employee_checkin.js",
 }
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -143,6 +143,7 @@ override_doctype_class = {
     "Employee Checkin": "real_group.overrides.employee_checkin.EmployeeCheckinOverride",
     "Compensatory Leave Request": "real_group.overrides.compensatory_leave_request.CompensatoryLeaveRequestOverride",
     # "Leave Application": "real_group.overrides.CustomLeaveApplication", # Need not do override
+    "Leave Policy Assignment": "real_group.overrides.leave_policy_assignment.LeavePolicyAssignmentOverride",
 }
 
 # Document Events
@@ -165,7 +166,7 @@ doc_events = {
     },
     "Shift Type": {"validate": ["real_group.doc_events.shift_type.validate"]},
     "Employee Checkin": {
-        "validate": ["real_group.doc_events.employee_checkin.validate"],
+        "validate": "real_group.doc_events.employee_checkin.validate",
         "after_insert": [
             "real_group.doc_events.employee_checkin.after_insert",
         ],
@@ -198,6 +199,9 @@ doc_events = {
         "on_submit": ["real_group.real_group.integration.create_salary_slip"],
         "on_cancel": ["real_group.real_group.integration.cancel_salary_slip"],
         #    "before_save": ["real_group.real_group.arrears.arrears_in_current_sal_slip"]
+    },
+    "Leave Type": {
+        "validate": ["real_group.doc_events.leave_type.validate"],
     },
 }
 
@@ -250,6 +254,8 @@ scheduler_events = {
 #
 override_whitelisted_methods = {
     "frappe.core.doctype.user.user.update_password": "real_group.api.overrides.user.update_user_password",
+    "hrms.hr.doctype.leave_application.leave_application.get_holidays": "real_group.api.overrides.leave_application.get_holidays",
+    "hrms.hr.doctype.leave_application.leave_application.get_number_of_leave_days": "real_group.api.overrides.leave_application.get_number_of_leave_days",
 }
 #
 # each overriding function accepts a `data` argument;
