@@ -19,6 +19,7 @@ from real_group.utils import convert_time_to_hours, convert_time_to_minutes, is_
 
 
 def process(from_date=None):
+    from_date = add_days(getdate(), 1)
     start_date = add_days(getdate(from_date), -1)
     end_date = getdate(from_date)
     start_date_for_night_shift = add_days(getdate(from_date), -2)
@@ -42,6 +43,7 @@ def process(from_date=None):
     )
 
     logs = sorted(day_shift_checkins, key=lambda x: (x["employee"], x["time"]))
+
     for employee, group in groupby(logs, key=lambda x: x["employee"]):
         group = list(group)
         group = update_time(group)
@@ -76,7 +78,7 @@ def process(from_date=None):
                 group, attendance_status, start_date, working_hours, late_entry, early_exit, in_time, out_time, shift
             )
             update_status(attendance, attendance_status, holiday)
-            mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance, late_entry)
+            mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance)
         frappe.db.commit()  # nosemgrep
 
     # Processing Night Shift Employees
@@ -134,11 +136,11 @@ def process(from_date=None):
                 shift,
             )
             update_status(attendance, attendance_status, holiday)
-            mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance, late_entry)
+            mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance)
         frappe.db.commit()  # nosemgrep
 
 
-def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance, late_entry):
+def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance):
     if not allowed_late_day or not deduction_cycle:
         return
     month_start = get_first_day(attendance.attendance_date)
@@ -152,11 +154,8 @@ def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction
             "late_entry": 1,
         },
     )
-    if late_entry:
-        monthly_late_count += 1
     if monthly_late_count > allowed_late_day:
-        adjusted = monthly_late_count - allowed_late_day
-        if adjusted % deduction_cycle == 0 and attendance:
+        if monthly_late_count % deduction_cycle == 0 and attendance:
             frappe.db.set_value("Attendance", attendance.name, "status", "Half Day")
             frappe.db.set_value("Attendance", attendance.name, "custom_attendance_tag", "HD")
 
@@ -208,8 +207,8 @@ def get_attendance(logs, grade, shift_type):
     short_leaves = get_short_leaves(logs[0].employee, getdate(logs[0].shift_start))
     if short_leaves:
         for req in short_leaves:
-            start = get_timedelta(format_time(get_time(req.from_time)))
-            end = get_timedelta(format_time(get_time(req.to_time)))
+            start = get_timedelta(format_time(get_time(req.shift_start_time)))
+            end = get_timedelta(format_time(get_time(req.punch_time)))
             hours = convert_time_to_hours(abs(end - start))
             total_working_hours += hours
 
@@ -217,22 +216,21 @@ def get_attendance(logs, grade, shift_type):
     half_day_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_half_day)
     absent_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_absent)
 
-    if absent_threshold and total_working_hours < absent_threshold:
-        return "Absent", total_working_hours, late_entry, early_exit, in_time, out_time
-
-    if half_day_threshold and total_working_hours < half_day_threshold:
-        return "Half Day", total_working_hours, late_entry, early_exit, in_time, out_time
     if working_threshold and total_working_hours >= working_threshold:
         return "Present", total_working_hours, late_entry, early_exit, in_time, out_time
-
-    return "Absent", total_working_hours, late_entry, early_exit, in_time, out_time
+    elif half_day_threshold and total_working_hours < half_day_threshold:
+        return "Half Day", total_working_hours, late_entry, early_exit, in_time, out_time
+    elif absent_threshold and total_working_hours < absent_threshold:
+        return "Absent", total_working_hours, late_entry, early_exit, in_time, out_time
+    else:
+        return "Absent", total_working_hours, late_entry, early_exit, in_time, out_time
 
 
 def get_short_leaves(employee, date):
     data = frappe.get_all(
         "Short Leave",
         filters={"employee": employee, "for_date": date, "docstatus": 1},
-        fields=["from_time", "to_time"],
+        fields=["shift_start_time", "punch_time"],
     )
     return data
 
