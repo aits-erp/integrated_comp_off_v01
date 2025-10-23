@@ -49,15 +49,7 @@ def allocate_incentive(doc):
         incentive_log.submit()
 
     def round_incentive(amount):
-        rupees = int(amount)
-        paise = (amount - rupees) * 100
-
-        if paise <= 25:
-            new_paise = 0
-        else:
-            new_paise = 50
-
-        return rupees + new_paise / 100
+        return (amount // 25) * 25
 
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     date_of_joining = employee.date_of_joining
@@ -72,8 +64,6 @@ def allocate_incentive(doc):
 
     if grade_doc.custom_present_on_holiday != "Incentive" and grade_doc.custom_extra_work_hour != "Incentive":
         return
-    incentive_gross_amount = grade_doc.custom_incentive_gross_amount
-    incentive_ceiling = grade_doc.custom_incentive_ceiling
 
     hours = doc.working_hours
     checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
@@ -140,9 +130,6 @@ def allocate_incentive(doc):
     month_end = get_last_day(getdate())
     additional_incentive = (earning / (date_diff(month_end, month_start) + 1)) * credit
 
-    if not additional_incentive or incentive_gross_amount < earning:
-        return
-
     existing_incentive = frappe.db.get_value(
         "Additional Salary",
         {
@@ -161,13 +148,9 @@ def allocate_incentive(doc):
         additional_salary.delete()
 
     additional_incentive = round_incentive(additional_incentive)
-    if additional_incentive <= incentive_ceiling:
-        _new_incentive = additional_incentive
-    else:
-        _new_incentive = incentive_ceiling
 
-    _create_additional_salary(employee.name, _new_incentive)
-    _create_incentive_log(employee.name, _new_incentive, month_start, month_end, doc.attendance_date, status)
+    _create_additional_salary(employee.name, additional_incentive)
+    _create_incentive_log(employee.name, additional_incentive, month_start, month_end, doc.attendance_date, status)
 
 
 def allocate_c_off(doc):
