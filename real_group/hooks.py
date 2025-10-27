@@ -51,6 +51,7 @@ doctype_js = {
     "Real Group User": "public/js/form/real_group_user.js",  # TODO: Check if this is required
     "Salary Slip": "public/js/form/salary_slip.js",
     "Shift Type": "public/js/form/shift_type.js",
+    "Leave Type": "public/js/form/leave_type.js",
 }
 doctype_list_js = {
     "Leave Application": "public/js/list/leave_application.js",

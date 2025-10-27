@@ -32,6 +32,10 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
         # if earned leave is being allcated after the effective period, then let them be calculated pro-rata
         elif leave_details.is_earned_leave and current_date < getdate(self.effective_to):
             new_leaves_allocated = self.get_leaves_for_passed_period(annual_allocation, leave_details, date_of_joining)
+        elif leave_details.custom_calculate_based_on_working_days and leave_details.custom_number_of_working_days > 0:
+            # calculate leaves based on working days
+            new_leaves_allocated = self.get_leaves_for_working_days(leave_details.custom_number_of_working_days)
+            new_leaves_allocated = max(annual_allocation, new_leaves_allocated)
         else:
             # calculate pro-rated leaves for other leave types
             new_leaves_allocated = calculate_pro_rated_leaves(
@@ -49,6 +53,16 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
             new_leaves_allocated = annual_allocation
 
         return flt(new_leaves_allocated, precision)
+
+    def get_leaves_for_working_days(self, on_working_days: int):
+        from real_group.utils import fetch_leaves_for_working_days
+
+        return fetch_leaves_for_working_days(
+            self.employee,
+            self.effective_from,
+            self.effective_to,
+            on_working_days,
+        )
 
     def get_leaves_for_passed_period(self, annual_allocation, leave_details, date_of_joining):
         consider_current_period = is_earned_leave_applicable_for_current_period(

@@ -2,6 +2,8 @@ from datetime import time, timedelta
 
 import frappe
 from frappe.utils import get_time, getdate
+from hrms.hr.utils import get_leave_allocations
+from pypika.functions import Count
 
 
 def convert_time_to_seconds(time_str: str | time | timedelta) -> float:
@@ -76,3 +78,67 @@ def is_holiday_for_employee(employee: str, date):
             return data
 
     return False
+
+
+def fetch_leaves_for_working_days(employee: str, from_date, to_date, on_working_days: int):
+    Leave_Type = frappe.qb.DocType("Leave Type")
+    Attendance = frappe.qb.DocType("Attendance")
+    query = (
+        frappe.qb.from_(Attendance)
+        .left_join(Leave_Type)
+        .on(Attendance.leave_type == Leave_Type.name)
+        .select(Count(Attendance.name))
+        .where(
+            (Attendance.employee == employee)
+            & (Attendance.attendance_date.between(from_date, to_date))
+            & (Attendance.status.notin(["Absent"]))
+            & (Leave_Type.is_lwp == 0)
+        )
+    )
+    working_days = query.run()[0][0] or 0
+    new_leaves = working_days // on_working_days
+
+    return new_leaves
+
+
+def allocate_leaves_for_worked_days():
+    leave_types = get_wo_leaves()
+    today = frappe.flags.current_date or getdate()
+
+    for leave_type in leave_types:
+        leave_allocations = get_leave_allocations(today, leave_type.name)
+        for allocation in leave_allocations:
+            if not allocation.leave_policy_assignment and not allocation.leave_policy:
+                continue
+
+            leave_policy = (
+                allocation.leave_policy
+                if allocation.leave_policy
+                else frappe.db.get_value(
+                    "Leave Policy Assignment", allocation.leave_policy_assignment, ["leave_policy"]
+                )
+            )
+
+            annual_allocation = frappe.db.get_value(
+                "Leave Policy Detail",
+                filters={"parent": leave_policy, "leave_type": leave_type.name},
+                fieldname=["annual_allocation"],
+            )
+            new_leaves = fetch_leaves_for_working_days(
+                allocation.employee,
+                allocation.from_date,
+                allocation.to_date,
+                leave_type.custom_number_of_working_days,
+            )
+            new_leaves_allocated = max(annual_allocation, new_leaves)
+            allocation_doc = frappe.get_doc("Leave Allocation", allocation.name)
+            allocation_doc.new_leaves_allocated = new_leaves_allocated
+            allocation_doc.save()
+
+
+def get_wo_leaves():
+    return frappe.get_all(
+        "Leave Type",
+        fields=["*"],
+        filters={"custom_calculate_based_on_working_days": 1},
+    )
