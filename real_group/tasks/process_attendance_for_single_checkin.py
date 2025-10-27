@@ -41,7 +41,7 @@ def process():
                         "attendance_date": add_days(today(), -1),
                         "status": "Present",
                         "company": emp.company,
-                        "custom_attendance_tag": "HO" if not holiday.get("is_weekly_holiday") else "WO",
+                        "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
                     }
                 )
                 attendance.insert(ignore_permissions=True)

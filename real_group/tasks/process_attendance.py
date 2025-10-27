@@ -60,7 +60,7 @@ def process(from_date=None):
                     "doctype": "Attendance",
                     "attendance_date": start_date,
                     "status": "Present",
-                    "custom_attendance_tag": "HO" if not holiday.get("is_weekly_holiday") else "WO",
+                    "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
                 },
             ).insert(ignore_permissions=True)
         else:
@@ -110,7 +110,7 @@ def process(from_date=None):
                     "doctype": "Attendance",
                     "attendance_date": start_date_for_night_shift,
                     "status": "Present",
-                    "custom_attendance_tag": "HO" if not holiday.get("is_weekly_holiday") else "WO",
+                    "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
                 },
             ).insert(ignore_permissions=True)
         else:

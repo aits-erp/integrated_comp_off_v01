@@ -105,7 +105,7 @@ class ShortLeave(Document):
                     "doctype": "Attendance",
                     "attendance_date": self.for_date,
                     "status": "Present",
-                    "custom_attendance_tag": "HO" if not holiday.get("is_weekly_holiday") else "WO",
+                    "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
                 },
             ).insert(ignore_permissions=True)
         else:
