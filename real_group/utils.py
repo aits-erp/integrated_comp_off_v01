@@ -92,7 +92,8 @@ def fetch_leaves_for_working_days(employee: str, from_date, to_date, on_working_
             (Attendance.employee == employee)
             & (Attendance.attendance_date.between(from_date, to_date))
             & (Attendance.status.notin(["Absent"]))
-            & (Leave_Type.is_lwp == 0)
+            & (Attendance.docstatus.notin([2]))
+            & ((Leave_Type.is_lwp == 0) | (Leave_Type.is_lwp.isnull()))
         )
     )
     working_days = query.run()[0][0] or 0
