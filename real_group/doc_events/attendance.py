@@ -6,15 +6,27 @@ from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getda
 from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 
-def validate(doc, method=None):
-    if doc.working_hours:
+def before_save(doc, method=None):
+    if doc.working_hours and doc.working_hours > 0:
         total_seconds = round(doc.working_hours * 3600 / 60) * 60
         doc.custom_working_hours = timedelta(seconds=total_seconds)
 
 
 def on_submit(doc, method=None):
+    update_attendance_tag(doc)
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
     frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
+
+
+def update_attendance_tag(doc):
+    if doc.status == "On Leave":
+        leave_type = frappe.get_doc("Leave Type", doc.leave_type)
+        if leave_type.is_lwp:
+            doc.custom_attendance_tag = "LWP"
+        elif leave_type.is_earned_leave:
+            doc.custom_attendance_tag = "EL"
+        elif "Casual Leave" in leave_type.name:
+            doc.custom_attendance_tag = "CL"
 
 
 def allocate_incentive(doc):
