@@ -19,7 +19,7 @@ from real_group.utils import convert_time_to_hours, convert_time_to_minutes, is_
 
 
 def process(from_date=None):
-    from_date = add_days(getdate(), 1)
+    # from_date = add_days(getdate(), 1)
     start_date = add_days(getdate(from_date), -1)
     end_date = getdate(from_date)
     start_date_for_night_shift = add_days(getdate(from_date), -2)

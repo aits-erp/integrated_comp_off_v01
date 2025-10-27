@@ -7,6 +7,124 @@
   "docstatus": 0,
   "doctype": "Report",
   "filters": [],
+  "is_standard": "Yes",
+  "javascript": "",
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-10-22 11:49:52.878020",
+  "module": "Real Group",
+  "name": "[New] Day Wise Attendance",
+  "prepared_report": 1,
+  "query": null,
+  "ref_doctype": "Attendance",
+  "reference_report": null,
+  "report_name": "[New] Day Wise Attendance",
+  "report_script": "",
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Payroll-CREASX"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "EmployeeMaster-CRES"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "CoreMaster-R"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "ITAdmin-CREX"
+   }
+  ],
+  "timeout": 3000
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-10-22 16:02:37.724691",
+  "module": "Real Group",
+  "name": "Leave Ledger",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Leave Ledger Entry",
+  "reference_report": null,
+  "report_name": "Leave Ledger",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Leave Ledger",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "Leave Ledger",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "Leave Ledger",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
+   },
+   {
+    "parent": "Leave Ledger",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "All"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
   "is_standard": "No",
   "javascript": "frappe.query_reports[\"Biometric Attendance Log\"] = {\n    \n    get_datatable_options(options) {\n\t\treturn Object.assign(options, {\n\t\t\tcheckboxColumn: true,\n\t\t});\n\t},\n\t\n\tonload: function(report) {\n\t    report.page.add_action_item(\"Reset Log\", function() {\n\t\t\tlet checked_rows_indexes = report.datatable.rowmanager.getCheckedRows();\n\t\t\tlet checked_rows = checked_rows_indexes.map(i => {\n\t\t\t    frappe.call(\"real_group.real_group.attendance.reset_attendance_log\", {\n\t\t\t        \"bio_id\": report.data[i].name\n\t\t\t    })\n\t\t\t});\n\t\t});\n    },\n\t\n    \"filters\": [\n        {\n            \"fieldname\": \"from_date\",\n            \"fieldtype\": \"Date\",\n            \"default\": frappe.datetime.month_start(),\n            \"reqd\": 1,\n            \"label\": \"From Date\"\n        },\n        {\n            \"fieldname\": \"to_date\",\n            \"fieldtype\": \"Date\",\n            \"default\": frappe.datetime.get_today(),\n            \"reqd\": 1,\n            \"label\": \"To Date\"\n        },\n        {\n            \"fieldname\": \"employee\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Employee\",\n            \"label\": \"Employee\"\n        },\n        {\n            \"fieldname\": \"is_processed\",\n            \"fieldtype\": \"Select\",\n            \"options\": \"\\nYes\\n\\No\\nError\",\n            \"label\": \"Is Processed\"\n        }\n    ]\n}",
   "json": null,
@@ -108,7 +226,7 @@
   "modified": "2025-07-03 18:50:59.350067",
   "module": "Real Group",
   "name": "Day Wise Attendance",
-  "prepared_report": 1,
+  "prepared_report": 0,
   "query": null,
   "ref_doctype": "Attendance",
   "reference_report": null,
@@ -350,7 +468,7 @@
   "modified": "2025-06-14 15:16:54.543818",
   "module": "Real Group",
   "name": "Biometric Attendance Summary",
-  "prepared_report": 1,
+  "prepared_report": 0,
   "query": null,
   "ref_doctype": "Employee Checkin",
   "reference_report": null,
