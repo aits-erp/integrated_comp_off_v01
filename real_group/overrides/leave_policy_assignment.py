@@ -35,7 +35,7 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
         elif leave_details.custom_calculate_based_on_working_days and leave_details.custom_number_of_working_days > 0:
             # calculate leaves based on working days
             new_leaves_allocated = self.get_leaves_for_working_days(leave_details.custom_number_of_working_days)
-            new_leaves_allocated = max(annual_allocation, new_leaves_allocated)
+            new_leaves_allocated = min(annual_allocation, new_leaves_allocated)
         else:
             # calculate pro-rated leaves for other leave types
             new_leaves_allocated = calculate_pro_rated_leaves(

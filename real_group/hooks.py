@@ -145,6 +145,7 @@ override_doctype_class = {
     "Compensatory Leave Request": "real_group.overrides.compensatory_leave_request.CompensatoryLeaveRequestOverride",
     # "Leave Application": "real_group.overrides.CustomLeaveApplication", # Need not do override
     "Leave Policy Assignment": "real_group.overrides.leave_policy_assignment.LeavePolicyAssignmentOverride",
+    "Leave Allocation": "real_group.overrides.leave_allocation.LeaveAllocationOverride",
 }
 
 # Document Events

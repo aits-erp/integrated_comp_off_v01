@@ -130,7 +130,7 @@ def allocate_leaves_for_worked_days():
                 allocation.to_date,
                 leave_type.custom_number_of_working_days,
             )
-            new_leaves_allocated = max(annual_allocation, new_leaves)
+            new_leaves_allocated = min(annual_allocation, new_leaves)
             allocation_doc = frappe.get_doc("Leave Allocation", allocation.name)
             allocation_doc.new_leaves_allocated = new_leaves_allocated
             allocation_doc.save()
