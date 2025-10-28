@@ -80,6 +80,27 @@ def is_holiday_for_employee(employee: str, date):
     return False
 
 
+def get_holiday_dates_for_employee(employee: str, from_date, to_date):
+    from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
+
+    holiday_list = get_holiday_list_for_employee(employee)
+    weekly_holiday_list = frappe.get_value("Employee", employee, "custom_weekly_holiday_list")
+
+    holidays = frappe.get_all(
+        "Holiday",
+        filters={"parent": holiday_list, "holiday_date": ("between", [from_date, to_date])},
+        pluck="holiday_date",
+        order_by="holiday_date",
+    )
+    weekly_holidays = frappe.get_all(
+        "Weekly Off Holiday",
+        filters={"parent": weekly_holiday_list, "holiday_date": ("between", [from_date, to_date])},
+        pluck="holiday_date",
+        order_by="holiday_date",
+    )
+    return list(set(holidays + weekly_holidays))
+
+
 def fetch_leaves_for_working_days(employee: str, from_date, to_date, on_working_days: int):
     Leave_Type = frappe.qb.DocType("Leave Type")
     Attendance = frappe.qb.DocType("Attendance")
