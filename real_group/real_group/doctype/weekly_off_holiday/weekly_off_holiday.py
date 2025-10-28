@@ -5,7 +5,7 @@
 from frappe.model.document import Document
 
 
-class AnnualHoliday(Document):
+class WeeklyOffHoliday(Document):
     # begin: auto-generated types
     # This code is auto-generated. Do not modify anything in this block.
 
@@ -15,12 +15,9 @@ class AnnualHoliday(Document):
         from frappe.types import DF
 
         description: DF.TextEditor
-        half_day: DF.Check
         holiday_date: DF.Date
         parent: DF.Data
         parentfield: DF.Data
         parenttype: DF.Data
-        unplanned: DF.Check
-        weekly_off: DF.Check
     # end: auto-generated types
     pass

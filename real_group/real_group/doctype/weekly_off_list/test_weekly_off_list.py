@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestAnnualHolidayList(FrappeTestCase):
+class TestWeeklyOffList(FrappeTestCase):
     pass

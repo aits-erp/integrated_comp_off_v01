@@ -63,8 +63,8 @@ def apply_short_leave_attendance_on_late_checkin(doc):
                     "employee": doc.employee,
                     "for_date": getdate(doc.time),
                     "shift": doc.shift,
-                    "from_time": start_time,
-                    "to_time": checkin_time,
+                    "shift_start_time": start_time,
+                    "punch_time": checkin_time,
                 }
             )
             short_leave.insert(ignore_permissions=True)

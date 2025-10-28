@@ -14,3 +14,4 @@ real_group.patches.update_cross_day_shift
 real_group.patches.remove_stale_server_script
 real_group.patches.remove_scripts
 real_group.patches.remove_incentive_scripts
+real_group.patches.create_employee_naming_series

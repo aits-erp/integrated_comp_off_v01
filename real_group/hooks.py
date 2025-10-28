@@ -51,6 +51,7 @@ doctype_js = {
     "Real Group User": "public/js/form/real_group_user.js",  # TODO: Check if this is required
     "Salary Slip": "public/js/form/salary_slip.js",
     "Shift Type": "public/js/form/shift_type.js",
+    "Leave Type": "public/js/form/leave_type.js",
 }
 doctype_list_js = {
     "Leave Application": "public/js/list/leave_application.js",
@@ -142,8 +143,9 @@ override_doctype_class = {
     "User": "real_group.overrides.user.UserOverride",
     "Employee Checkin": "real_group.overrides.employee_checkin.EmployeeCheckinOverride",
     "Compensatory Leave Request": "real_group.overrides.compensatory_leave_request.CompensatoryLeaveRequestOverride",
-    # "Leave Application": "real_group.overrides.CustomLeaveApplication", # Need not do override
+    "Leave Application": "real_group.overrides.leave_application.LeaveApplicationOverride",
     "Leave Policy Assignment": "real_group.overrides.leave_policy_assignment.LeavePolicyAssignmentOverride",
+    "Leave Allocation": "real_group.overrides.leave_allocation.LeaveAllocationOverride",
 }
 
 # Document Events
@@ -182,6 +184,7 @@ doc_events = {
     },
     "Attendance": {
         "validate": ["real_group.doc_events.attendance.validate"],
+        "before_save": ["real_group.doc_events.attendance.before_save"],
         "on_submit": ["real_group.doc_events.attendance.on_submit"],
     },
     "User": {
@@ -223,7 +226,8 @@ scheduler_events = {
         #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
         # ],
         "5 0 2 * *": ["real_group.real_group.attendance.process_attendance_for_last_day_of_month"],
-    }
+    },
+    "daily_long": ["real_group.utils.allocate_leaves_for_worked_days"],
 }
 
 # scheduler_events = {

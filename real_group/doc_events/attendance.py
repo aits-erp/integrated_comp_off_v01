@@ -7,13 +7,62 @@ from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 
 def validate(doc, method=None):
-    total_seconds = round(doc.working_hours * 3600 / 60) * 60
-    doc.custom_working_hours = timedelta(seconds=total_seconds)
+    doc.custom_working_hours = None
+
+
+def before_save(doc, method=None):
+    if doc.working_hours and doc.working_hours > 0:
+        total_seconds = round(doc.working_hours * 3600 / 60) * 60
+        doc.custom_working_hours = timedelta(seconds=total_seconds)
 
 
 def on_submit(doc, method=None):
+    update_attendance_tag(doc)
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
     frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
+
+
+def update_attendance_tag(doc):
+    status = ""
+
+    is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
+    grade = frappe.get_value("Employee", doc.employee, "grade")
+    is_sandwich = frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag")
+    if doc.status == "On Leave":
+        leave_type = frappe.get_doc("Leave Type", doc.leave_type)
+        if is_sandwich and is_holiday and is_holiday.get("is_holiday"):
+            status = "A"
+        elif leave_type.is_lwp:
+            status = "LWP"
+        elif leave_type.is_earned_leave:
+            status = "EL"
+        elif "Casual Leave" in leave_type.name:
+            status = "CL"
+        elif leave_type.is_compensatory:
+            status = "CO"
+
+    elif doc.status == "Present":
+        if is_holiday and is_holiday.get("is_holiday"):
+            status = "POH"
+        else:
+            status = "P"
+    elif doc.status == "Half Day":
+        status = "HD"
+    elif doc.status == "Absent":
+        status = "A"
+    elif is_holiday and is_holiday.get("is_holiday"):
+        if is_holiday.get("is_weekly_off"):
+            status = "POW"
+        else:
+            status = "POH"
+
+    frappe.db.set_value("Attendance", doc.name, "custom_attendance_tag", status)
+
+    if status == "Half Day" and doc.leave_application:
+        half_day_date = frappe.db.get_value("Leave Application", doc.leave_application, "half_day_date")
+        if half_day_date and getdate(half_day_date) == getdate(doc.attendance_date):
+            half_type = frappe.db.get_value("Leave Application", doc.leave_application, "custom_half_type")
+            frappe.db.set_value("Attendance", doc.name, "custom_half_type", half_type)
 
 
 def allocate_incentive(doc):
@@ -48,15 +97,7 @@ def allocate_incentive(doc):
         incentive_log.submit()
 
     def round_incentive(amount):
-        rupees = int(amount)
-        paise = (amount - rupees) * 100
-
-        if paise <= 25:
-            new_paise = 0
-        else:
-            new_paise = 50
-
-        return rupees + new_paise / 100
+        return (amount // 25) * 25
 
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     date_of_joining = employee.date_of_joining
@@ -71,8 +112,6 @@ def allocate_incentive(doc):
 
     if grade_doc.custom_present_on_holiday != "Incentive" and grade_doc.custom_extra_work_hour != "Incentive":
         return
-    incentive_gross_amount = grade_doc.custom_incentive_gross_amount
-    incentive_ceiling = grade_doc.custom_incentive_ceiling
 
     hours = doc.working_hours
     checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
@@ -139,9 +178,6 @@ def allocate_incentive(doc):
     month_end = get_last_day(getdate())
     additional_incentive = (earning / (date_diff(month_end, month_start) + 1)) * credit
 
-    if not additional_incentive or incentive_gross_amount < earning:
-        return
-
     existing_incentive = frappe.db.get_value(
         "Additional Salary",
         {
@@ -160,13 +196,9 @@ def allocate_incentive(doc):
         additional_salary.delete()
 
     additional_incentive = round_incentive(additional_incentive)
-    if additional_incentive <= incentive_ceiling:
-        _new_incentive = additional_incentive
-    else:
-        _new_incentive = incentive_ceiling
 
-    _create_additional_salary(employee.name, _new_incentive)
-    _create_incentive_log(employee.name, _new_incentive, month_start, month_end, doc.attendance_date, status)
+    _create_additional_salary(employee.name, additional_incentive)
+    _create_incentive_log(employee.name, additional_incentive, month_start, month_end, doc.attendance_date, status)
 
 
 def allocate_c_off(doc):

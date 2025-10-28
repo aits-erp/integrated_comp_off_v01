@@ -9,7 +9,7 @@ from frappe.model.document import Document
 from frappe.utils import formatdate, getdate
 
 
-class AnnualHolidayList(Document):
+class WeeklyOffList(Document):
     # begin: auto-generated types
     # This code is auto-generated. Do not modify anything in this block.
 

@@ -82,7 +82,7 @@
    "fieldname": "holidays",
    "fieldtype": "Table",
    "label": "Holidays",
-   "options": "Annual Holiday"
+   "options": "Weekly Off Holiday"
   },
   {
    "fieldname": "clear_table",
@@ -94,10 +94,10 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-21 14:12:11.471616",
+ "modified": "2025-10-27 13:29:28.713422",
  "modified_by": "Administrator",
  "module": "Real Group",
- "name": "Annual Holiday List",
+ "name": "Weekly Off List",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
