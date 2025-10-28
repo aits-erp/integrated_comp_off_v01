@@ -143,7 +143,7 @@ override_doctype_class = {
     "User": "real_group.overrides.user.UserOverride",
     "Employee Checkin": "real_group.overrides.employee_checkin.EmployeeCheckinOverride",
     "Compensatory Leave Request": "real_group.overrides.compensatory_leave_request.CompensatoryLeaveRequestOverride",
-    # "Leave Application": "real_group.overrides.CustomLeaveApplication", # Need not do override
+    "Leave Application": "real_group.overrides.leave_application.LeaveApplicationOverride",
     "Leave Policy Assignment": "real_group.overrides.leave_policy_assignment.LeavePolicyAssignmentOverride",
     "Leave Allocation": "real_group.overrides.leave_allocation.LeaveAllocationOverride",
 }
@@ -183,6 +183,7 @@ doc_events = {
         "before_insert": ["real_group.doc_events.attendace_request.before_insert"],
     },
     "Attendance": {
+        "validate": ["real_group.doc_events.attendance.validate"],
         "before_save": ["real_group.doc_events.attendance.before_save"],
         "on_submit": ["real_group.doc_events.attendance.on_submit"],
     },

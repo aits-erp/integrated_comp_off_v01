@@ -19,7 +19,6 @@ from real_group.utils import convert_time_to_hours, convert_time_to_minutes, is_
 
 
 def process(from_date=None):
-    # from_date = add_days(getdate(), 1)
     start_date = add_days(getdate(from_date), -1)
     end_date = getdate(from_date)
     start_date_for_night_shift = add_days(getdate(from_date), -2)
@@ -44,9 +43,16 @@ def process(from_date=None):
 
     logs = sorted(day_shift_checkins, key=lambda x: (x["employee"], x["time"]))
 
+    # Group logs by employee
+    logs_by_employee = {}
     for employee, group in groupby(logs, key=lambda x: x["employee"]):
-        group = list(group)
-        group = update_time(group)
+        logs_by_employee[employee] = list(group)
+
+    # Process all employees, including those without logs
+    for employee in employees:
+        group = logs_by_employee.get(employee, [])
+        if group:
+            group = update_time(group)
         holiday = is_holiday_for_employee(employee, start_date)
         emp_grade = frappe.get_value("Employee", employee, "grade")
         allowed_late_day, deduction_cycle = frappe.db.get_value(
@@ -62,8 +68,8 @@ def process(from_date=None):
                     "status": "Present",
                     "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
                 },
-            ).insert(ignore_permissions=True)
-        else:
+            ).insert(ignore_permissions=True).submit()
+        elif group:
             employee_doc = frappe.get_cached_doc("Employee", employee)
             shift = group[0].shift
             (
@@ -77,8 +83,24 @@ def process(from_date=None):
             attendance = mark_attendance_and_link_log(
                 group, attendance_status, start_date, working_hours, late_entry, early_exit, in_time, out_time, shift
             )
-            update_status(attendance, attendance_status, holiday)
+            # update_status(attendance, attendance_status, holiday)
             mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance)
+        else:
+            # Employee has no logs and it's not a holiday - mark as absent
+            employee_doc = frappe.get_cached_doc("Employee", employee)
+            attendance = (
+                frappe.get_doc(
+                    {
+                        "doctype": "Attendance",
+                        "employee": employee,
+                        "attendance_date": start_date,
+                        "status": "Absent",
+                        "custom_attendance_tag": "A",
+                    }
+                )
+                .insert(ignore_permissions=True)
+                .submit()
+            )
         frappe.db.commit()  # nosemgrep
 
     # Processing Night Shift Employees
@@ -94,9 +116,17 @@ def process(from_date=None):
         fields=["*"],
     )
     night_logs = sorted(night_shift_checkins, key=lambda x: (x["employee"], x["time"]))
+
+    # Group night logs by employee
+    night_logs_by_employee = {}
     for employee, group in groupby(night_logs, key=lambda x: x["employee"]):
-        group = list(group)
-        group = update_time(group)
+        night_logs_by_employee[employee] = list(group)
+
+    # Process all employees for night shift, including those without logs
+    for employee in employees:
+        group = night_logs_by_employee.get(employee, [])
+        if group:
+            group = update_time(group)
         holiday = is_holiday_for_employee(employee, start_date)
         emp_grade = frappe.get_value("Employee", employee, "grade")
         allowed_late_day, deduction_cycle = frappe.db.get_value(
@@ -112,8 +142,9 @@ def process(from_date=None):
                     "status": "Present",
                     "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
                 },
-            ).insert(ignore_permissions=True)
-        else:
+            ).insert(ignore_permissions=True).submit()
+
+        elif group:
             shift = group[0].shift
             employee_doc = frappe.get_cached_doc("Employee", employee)
             (
@@ -135,8 +166,21 @@ def process(from_date=None):
                 out_time,
                 shift,
             )
-            update_status(attendance, attendance_status, holiday)
+            # update_status(attendance, attendance_status, holiday)
             mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance)
+        else:
+            # Employee has no night shift logs and it's not a holiday - mark as absent
+            employee_doc = frappe.get_cached_doc("Employee", employee)
+            attendance = frappe.get_doc(
+                {
+                    "doctype": "Attendance",
+                    "employee": employee,
+                    "attendance_date": start_date_for_night_shift,
+                    "status": "Absent",
+                    "custom_attendance_tag": "A",
+                }
+            ).insert(ignore_permissions=True)
+            attendance.submit()
         frappe.db.commit()  # nosemgrep
 
 

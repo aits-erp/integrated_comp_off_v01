@@ -6,6 +6,10 @@ from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getda
 from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 
+def validate(doc, method=None):
+    doc.custom_working_hours = None
+
+
 def before_save(doc, method=None):
     if doc.working_hours and doc.working_hours > 0:
         total_seconds = round(doc.working_hours * 3600 / 60) * 60
@@ -19,14 +23,46 @@ def on_submit(doc, method=None):
 
 
 def update_attendance_tag(doc):
+    status = ""
+
+    is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
+    grade = frappe.get_value("Employee", doc.employee, "grade")
+    is_sandwich = frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag")
     if doc.status == "On Leave":
         leave_type = frappe.get_doc("Leave Type", doc.leave_type)
-        if leave_type.is_lwp:
-            doc.custom_attendance_tag = "LWP"
+        if is_sandwich and is_holiday and is_holiday.get("is_holiday"):
+            status = "A"
+        elif leave_type.is_lwp:
+            status = "LWP"
         elif leave_type.is_earned_leave:
-            doc.custom_attendance_tag = "EL"
+            status = "EL"
         elif "Casual Leave" in leave_type.name:
-            doc.custom_attendance_tag = "CL"
+            status = "CL"
+        elif leave_type.is_compensatory:
+            status = "CO"
+
+    elif doc.status == "Present":
+        if is_holiday and is_holiday.get("is_holiday"):
+            status = "POH"
+        else:
+            status = "P"
+    elif doc.status == "Half Day":
+        status = "HD"
+    elif doc.status == "Absent":
+        status = "A"
+    elif is_holiday and is_holiday.get("is_holiday"):
+        if is_holiday.get("is_weekly_off"):
+            status = "POW"
+        else:
+            status = "POH"
+
+    frappe.db.set_value("Attendance", doc.name, "custom_attendance_tag", status)
+
+    if status == "Half Day" and doc.leave_application:
+        half_day_date = frappe.db.get_value("Leave Application", doc.leave_application, "half_day_date")
+        if half_day_date and getdate(half_day_date) == getdate(doc.attendance_date):
+            half_type = frappe.db.get_value("Leave Application", doc.leave_application, "custom_half_type")
+            frappe.db.set_value("Attendance", doc.name, "custom_half_type", half_type)
 
 
 def allocate_incentive(doc):
