@@ -14,7 +14,7 @@ def get_holidays(employee, from_date, to_date, holiday_list=None):
     weekly_holiday_list = frappe.db.get_value("Employee", employee, "custom_weekly_holiday_list")
 
     weekly_holidays = frappe.db.count(
-        "Annual Holiday",
+        "Weekly Off List",
         {
             "parent": weekly_holiday_list,
             "holiday_date": ["between", [from_date, to_date]],
