@@ -1,5 +1,12 @@
 frappe.ui.form.on("Employee", {
   refresh(frm) {
+    frm.set_query("holiday_list", () => {
+      return {
+        filters: {
+          custom_branch: frm.doc.branch,
+        },
+      };
+    });
     // Add a custom button if aadhaar number is use in multiple employees
     if (frm.doc.custom_aadhar_number) {
       frappe.db
