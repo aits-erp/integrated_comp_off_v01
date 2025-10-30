@@ -153,8 +153,8 @@ def allocate_leaves_for_worked_days():
                 leave_type.custom_number_of_working_days,
             )
             allocation_doc = frappe.get_doc("Leave Allocation", allocation.name)
-            new_leaves = allocation_doc.total_leaves_allocated - new_leaves
-            new_leaves = max(new_leaves, 0)
+            if new_leaves > 0:
+                new_leaves_allocated = 1
             new_leaves_allocated = min(annual_allocation, new_leaves)
             allocation_doc.new_leaves_allocated = new_leaves_allocated
             allocation_doc.save()
@@ -166,3 +166,20 @@ def get_wo_leaves():
         fields=["*"],
         filters={"custom_calculate_based_on_working_days": 1},
     )
+
+
+def get_actual_leave_balance_cf(employee: str, leave_type: str) -> float:
+    leaves = frappe.get_all(
+        "Leave Ledger Entry",
+        filters={
+            "is_lwp": False,
+            "docstatus": ["!=", 2],
+            "is_carry_forward": False,
+            "is_expired": False,
+            "leave_type": leave_type,
+            "employee": employee,
+        },
+        pluck="leaves",
+    )
+
+    return sum(leaves)

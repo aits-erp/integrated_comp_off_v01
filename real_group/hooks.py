@@ -222,12 +222,9 @@ scheduler_events = {
         ],
         "0 3 * * *": ["real_group.tasks.process_attendance.process"],
         "59 23 * * *": ["real_group.tasks.process_attendance_for_single_checkin.process"],
-        # "01 0 * * *": [
-        #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
-        # ],
+        "0 14 * * *": ["real_group.utils.allocate_leaves_for_worked_days"],
         "5 0 2 * *": ["real_group.real_group.attendance.process_attendance_for_last_day_of_month"],
     },
-    "daily_long": ["real_group.utils.allocate_leaves_for_worked_days"],
 }
 
 # scheduler_events = {

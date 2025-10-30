@@ -30,7 +30,11 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
         if leave_details.is_compensatory:
             new_leaves_allocated = 0
         # if earned leave is being allcated after the effective period, then let them be calculated pro-rata
-        elif leave_details.is_earned_leave and current_date < getdate(self.effective_to):
+        elif (
+            leave_details.is_earned_leave
+            and not leave_details.custom_calculate_based_on_working_days
+            and current_date < getdate(self.effective_to)
+        ):
             new_leaves_allocated = self.get_leaves_for_passed_period(annual_allocation, leave_details, date_of_joining)
         elif leave_details.custom_calculate_based_on_working_days and leave_details.custom_number_of_working_days > 0:
             # calculate leaves based on working days
@@ -51,7 +55,6 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
             leave_details.is_earned_leave and leave_details.earned_leave_frequency == "Yearly"
         ):
             new_leaves_allocated = annual_allocation
-
         return flt(new_leaves_allocated, precision)
 
     def get_leaves_for_working_days(self, on_working_days: int):
@@ -135,6 +138,15 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
             )
 
             leaves += periodically_earned_leave * (periods_passed - 1)
+            # if joined after 11th of the month, deduct that month's earned leave
+            today = getdate()
+            month_start = get_first_day(today)
+            month_end = get_last_day(today)
+            if month_start <= getdate(date_of_joining) <= month_end:
+                day = getdate(date_of_joining).day
+                if day > 11 and leaves:
+                    leaves -= periodically_earned_leave
+
         else:
             leaves = periodically_earned_leave * periods_passed
 

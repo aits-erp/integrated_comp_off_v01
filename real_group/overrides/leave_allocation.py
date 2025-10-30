@@ -1,7 +1,11 @@
 import frappe
 from frappe import _
-from frappe.utils import flt
-from hrms.hr.doctype.leave_allocation.leave_allocation import LeaveAllocation, get_carry_forwarded_leaves
+from frappe.utils import flt, get_link_to_form
+from hrms.hr.doctype.leave_allocation.leave_allocation import (
+    LeaveAllocation,
+    get_approved_leaves_for_period,
+    get_carry_forwarded_leaves,
+)
 
 
 class LeaveAllocationOverride(LeaveAllocation):
@@ -30,3 +34,27 @@ class LeaveAllocationOverride(LeaveAllocation):
             and not leave_type.custom_calculate_based_on_working_days
         ):
             frappe.throw(_("Total leaves allocated is mandatory for Leave Type {0}").format(self.leave_type))
+
+    def validate_earned_leave_update(self):
+        leave_type = frappe.db.get_value(
+            "Leave Type", self.leave_type, ["is_earned_leave", "custom_calculate_based_on_working_days"]
+        )
+        is_earned_leave = leave_type[0]
+        based_on_working_days = leave_type[1]
+        if self.leave_policy_assignment and is_earned_leave and not based_on_working_days:
+            msg = _("Cannot update allocation for {0} after submission").format(frappe.bold(_("Earned Leaves")))
+            msg += "<br><br>"
+            msg += _(
+                "Earned Leaves are auto-allocated via scheduler based on the annual allocation set in the Leave Policy: {0}"
+            ).format(get_link_to_form("Leave Policy", self.leave_policy))
+            frappe.throw(msg, title=_("Not Allowed"))
+
+    def validate_against_leave_applications(self):
+        leaves_taken = get_approved_leaves_for_period(self.employee, self.leave_type, self.from_date, self.to_date)
+        if flt(leaves_taken) > flt(self.total_leaves_allocated):
+            if frappe.db.get_value("Leave Type", self.leave_type, "allow_negative"):
+                frappe.msgprint(
+                    _(
+                        "Note: Total allocated leaves {0} shouldn't be less than already approved leaves {1} for the period"
+                    ).format(self.total_leaves_allocated, leaves_taken)
+                )
