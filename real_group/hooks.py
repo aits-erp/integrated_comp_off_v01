@@ -146,6 +146,7 @@ override_doctype_class = {
     "Leave Application": "real_group.overrides.leave_application.LeaveApplicationOverride",
     "Leave Policy Assignment": "real_group.overrides.leave_policy_assignment.LeavePolicyAssignmentOverride",
     "Leave Allocation": "real_group.overrides.leave_allocation.LeaveAllocationOverride",
+    "Attendance Request": "real_group.overrides.attendance_request.AttendanceRequestOverride",
 }
 
 # Document Events
