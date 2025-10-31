@@ -20,8 +20,10 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Company",
+   "no_copy": 1,
    "options": "Company",
-   "reqd": 1
+   "reqd": 1,
+   "set_only_once": 1
   },
   {
    "fieldname": "column_break_xuyw",
@@ -42,9 +44,12 @@
   {
    "fieldname": "start",
    "fieldtype": "Int",
+   "in_list_view": 1,
    "label": "Start",
+   "no_copy": 1,
    "non_negative": 1,
-   "reqd": 1
+   "reqd": 1,
+   "set_only_once": 1
   },
   {
    "fieldname": "column_break_zozn",
@@ -53,15 +58,18 @@
   {
    "fieldname": "end",
    "fieldtype": "Int",
+   "in_list_view": 1,
    "label": "End",
+   "no_copy": 1,
    "non_negative": 1,
-   "reqd": 1
+   "reqd": 1,
+   "set_only_once": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-17 10:44:49.995749",
+ "modified": "2025-10-30 18:56:49.051407",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Employee Series",

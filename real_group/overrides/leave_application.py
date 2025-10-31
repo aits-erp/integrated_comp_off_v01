@@ -1,8 +1,9 @@
 import frappe
 from erpnext.buying.doctype.supplier_scorecard.supplier_scorecard import daterange
 from frappe import _
-from frappe.utils import getdate
+from frappe.utils import format_date, getdate
 from hrms.hr.doctype.leave_application.leave_application import (
+    AttendanceAlreadyMarkedError,
     InsufficientLeaveBalanceError,
     LeaveApplication,
     get_leave_balance_on,
@@ -110,4 +111,18 @@ class LeaveApplicationOverride(LeaveApplication):
                 _("Insufficient leave balance for Leave Type {0}").format(frappe.bold(self.leave_type)),
                 exc=InsufficientLeaveBalanceError,
                 title=_("Insufficient Balance"),
+            )
+
+    def validate_attendance(self):
+        attendance = frappe.db.sql(
+            """select name,attendance_date from `tabAttendance` where employee = %s and (attendance_date between %s and %s)
+                    and status = 'Present' and docstatus = 1""",
+            (self.employee, self.from_date, self.to_date),
+        )
+        if attendance:
+            frappe.throw(
+                _("Attendance for employee {0} is already marked for day: <br> <ul>{1}</ul>").format(
+                    self.employee, "".join(["<li>{0}</li>".format(format_date(d[1])) for d in attendance])
+                ),
+                AttendanceAlreadyMarkedError,
             )
