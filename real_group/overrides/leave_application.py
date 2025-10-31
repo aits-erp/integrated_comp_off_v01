@@ -2,6 +2,7 @@ import frappe
 from erpnext.buying.doctype.supplier_scorecard.supplier_scorecard import daterange
 from frappe import _
 from frappe.utils import format_date, getdate
+from hrms.hr.doctype.employee_checkin.employee_checkin import update_attendance_in_checkins
 from hrms.hr.doctype.leave_application.leave_application import (
     AttendanceAlreadyMarkedError,
     InsufficientLeaveBalanceError,
@@ -11,7 +12,17 @@ from hrms.hr.doctype.leave_application.leave_application import (
     is_lwp,
 )
 
-from real_group.utils import get_actual_leave_balance_cf, get_holiday_dates_for_employee
+from real_group.doc_events.attendance import update_attendance_tag
+from real_group.tasks.process_attendance import (
+    get_attendance,
+    mark_attendance_and_link_log,
+    mark_half_day_based_on_deduction_cycle,
+    update_time,
+)
+from real_group.utils import (
+    get_actual_leave_balance_cf,
+    get_holiday_dates_for_employee,
+)
 
 
 class LeaveApplicationOverride(LeaveApplication):
@@ -30,11 +41,6 @@ class LeaveApplicationOverride(LeaveApplication):
             attendance_name = frappe.db.exists(
                 "Attendance", dict(employee=self.employee, attendance_date=date, docstatus=("!=", 2))
             )
-            if attendance_name:
-                attendance = frappe.get_doc("Attendance", attendance_name)
-                if attendance.docstatus == 1:
-                    attendance.cancel()
-                    attendance_name = None
 
             if date in holiday_dates:
                 if attendance_name:
@@ -46,6 +52,103 @@ class LeaveApplicationOverride(LeaveApplication):
                 continue
 
             self.create_or_update_attendance(attendance_name, date)
+
+    def create_or_update_attendance(self, attendance_name, date):
+        status = "Half Day" if self.half_day_date and getdate(date) == getdate(self.half_day_date) else "On Leave"
+
+        if attendance_name:
+            # update existing attendance, change absent to on leave
+            doc = frappe.get_doc("Attendance", attendance_name)
+            if doc.status == "Half Day":
+                status = "Present"
+            doc.db_set({"status": status, "leave_type": self.leave_type, "leave_application": self.name})
+            update_attendance_tag(doc)
+        else:
+            # make new attendance and submit it
+            doc = frappe.new_doc("Attendance")
+            doc.employee = self.employee
+            doc.employee_name = self.employee_name
+            doc.attendance_date = date
+            doc.company = self.company
+            doc.leave_type = self.leave_type
+            doc.leave_application = self.name
+            doc.status = status
+            doc.flags.ignore_validate = True
+            doc.insert(ignore_permissions=True)
+            doc.submit()
+
+    def cancel_attendance(self):
+        if self.docstatus == 2:
+            Attendance = frappe.qb.DocType("Attendance")
+            query = (
+                frappe.qb.from_(Attendance)
+                .select(Attendance.name)
+                .where(
+                    (Attendance.employee == self.employee)
+                    & (Attendance.attendance_date.between(self.from_date, self.to_date))
+                    & (Attendance.docstatus < 2)
+                    & (Attendance.status.isin(["On Leave", "Half Day"]) | (Attendance.leave_application == self.name))
+                )
+            )
+            grade = frappe.get_value("Employee", self.employee, "grade")
+            allowed_late_day, deduction_cycle = frappe.db.get_value(
+                "Employee Grade",
+                grade,
+                ["custom_allowed_late_count_days", "custom_late_entry_deduction_cycle"],
+            )
+            result = query.run(as_dict=True)
+            attendance_names = [row.name for row in result]
+            for name in attendance_names:
+                attendance_doc = frappe.get_doc("Attendance", name)
+                if attendance_doc.attendance_date == self.half_day_date and self.half_day:
+                    checkins = frappe.get_all(
+                        "Employee Checkin",
+                        filters={"employee": self.employee, "attendance": attendance_doc.name},
+                        fields=["*"],
+                        order_by="time",
+                    )
+                    checkins = update_time(checkins)
+                    shift = checkins[0].shift if checkins else None
+                    frappe.db.set_value("Attendance", name, "docstatus", 2)
+                    if checkins:
+                        update_attendance_in_checkins([checkin.name for checkin in checkins], "")
+
+                        (
+                            attendance_status,
+                            working_hours,
+                            late_entry,
+                            early_exit,
+                            in_time,
+                            out_time,
+                        ) = get_attendance(checkins, grade, shift)
+                        attendance = mark_attendance_and_link_log(
+                            checkins,
+                            attendance_status,
+                            attendance_doc.attendance_date,
+                            working_hours,
+                            late_entry,
+                            early_exit,
+                            in_time,
+                            out_time,
+                            shift,
+                        )
+                        mark_half_day_based_on_deduction_cycle(
+                            self.employee, allowed_late_day, deduction_cycle, attendance
+                        )
+                    else:
+                        attendance = (
+                            frappe.get_doc(
+                                {
+                                    "doctype": "Attendance",
+                                    "employee": self.employee,
+                                    "attendance_date": attendance_doc.attendance_date,
+                                    "status": "Absent",
+                                    "custom_attendance_tag": "A",
+                                }
+                            )
+                            .insert(ignore_permissions=True)
+                            .submit()
+                        )
 
     def validate_balance_leaves(self):
         if self.from_date and self.to_date:
@@ -114,15 +217,33 @@ class LeaveApplicationOverride(LeaveApplication):
             )
 
     def validate_attendance(self):
-        attendance = frappe.db.sql(
-            """select name,attendance_date from `tabAttendance` where employee = %s and (attendance_date between %s and %s)
-                    and status = 'Present' and docstatus = 1""",
+        # Logic is updated based on the half day checking and attendance status
+
+        attendances = frappe.db.sql(
+            """select name,attendance_date,status from `tabAttendance` where employee = %s and (attendance_date between %s and %s) and docstatus = 1""",
             (self.employee, self.from_date, self.to_date),
         )
-        if attendance:
-            frappe.throw(
-                _("Attendance for employee {0} is already marked for day: <br> <ul>{1}</ul>").format(
-                    self.employee, "".join(["<li>{0}</li>".format(format_date(d[1])) for d in attendance])
-                ),
-                AttendanceAlreadyMarkedError,
-            )
+        for att in attendances:
+            if getdate(self.from_date) <= att[1] <= getdate(self.to_date):
+                if self.half_day_date and getdate(att[1]) == getdate(self.half_day_date) and att[2] == "Present":
+                    frappe.throw(
+                        _("Attendance for employee {0} is already marked for day: {1}").format(
+                            self.employee, format_date(att[1])
+                        ),
+                        AttendanceAlreadyMarkedError,
+                    )
+                elif att[2] == "Present":
+                    frappe.throw(
+                        _(
+                            "Attendance for employee {0} is already marked as Present for day: <br> <ul><li>{1}</li></ul>"
+                        ).format(self.employee, format_date(att[1])),
+                        AttendanceAlreadyMarkedError,
+                    )
+                elif att[2] == "Half Day":
+                    if not self.half_day_date or getdate(att[1]) != getdate(self.half_day_date):
+                        frappe.throw(
+                            _(
+                                "Attendance for employee {0} is already marked as Half Day for day: <br> <ul><li>{1}</li></ul>"
+                            ).format(self.employee, format_date(att[1])),
+                            AttendanceAlreadyMarkedError,
+                        )
