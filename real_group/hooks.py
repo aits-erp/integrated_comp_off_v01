@@ -163,7 +163,10 @@ override_doctype_class = {
 doc_events = {
     "Employee": {
         "autoname": "real_group.doc_events.employee.autoname",
-        "after_insert": ["real_group.real_group.integration.create_employee"],
+        "after_insert": [
+            "real_group.real_group.integration.create_employee",
+            "real_group.doc_events.employee.after_insert",
+        ],
         "on_update": ["real_group.real_group.integration.update_employee"],
     },
     "Shift Type": {"validate": ["real_group.doc_events.shift_type.validate"]},

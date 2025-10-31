@@ -50,6 +50,8 @@ def process(from_date=None):
 
     # Process all employees, including those without logs
     for employee in employees:
+        if has_attendance(employee, start_date):
+            continue
         group = logs_by_employee.get(employee, [])
         if group:
             group = update_time(group)
@@ -83,7 +85,7 @@ def process(from_date=None):
             attendance = mark_attendance_and_link_log(
                 group, attendance_status, start_date, working_hours, late_entry, early_exit, in_time, out_time, shift
             )
-            # update_status(attendance, attendance_status, holiday)
+
             mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance)
         else:
             # Employee has no logs and it's not a holiday - mark as absent
@@ -124,6 +126,8 @@ def process(from_date=None):
 
     # Process all employees for night shift, including those without logs
     for employee in employees:
+        if has_attendance(employee, start_date_for_night_shift):
+            continue
         group = night_logs_by_employee.get(employee, [])
         if group:
             group = update_time(group)
@@ -285,3 +289,10 @@ def update_time(checkins: list):
         checkin.time = checkin.custom_processed_time
 
     return checkins
+
+
+def has_attendance(employee, attendance_date):
+    return frappe.db.exists(
+        "Attendance",
+        {"employee": employee, "attendance_date": attendance_date},
+    )

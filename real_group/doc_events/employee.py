@@ -32,3 +32,17 @@ def autoname(doc, method):
         )
 
     doc.name = str(next_number)
+
+
+def after_insert(doc, method=None):
+    weekly_off_update_doc = frappe.get_doc(
+        {
+            "doctype": "Weekly Holiday Update Request",
+            "employee": doc.name,
+            "valid_from": doc.date_of_joining,
+            "weekly_off": doc.custom_weekly_holiday_list,
+        }
+    )
+    weekly_off_update_doc.flags.ignore_update_employee = True
+    weekly_off_update_doc.insert(ignore_permissions=True)
+    weekly_off_update_doc.submit()

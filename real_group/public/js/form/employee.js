@@ -68,6 +68,10 @@ frappe.ui.form.on("Employee", {
           new frappe.Chart(`#${f}`, resp.message.charts[f]);
         });
       });
+
+    if (!frm.doc.__islocal && frm.doc.custom_weekly_holiday_list) {
+      frm.set_df_property("custom_weekly_holiday_list", "read_only", 1);
+    }
   },
 
   company: function (frm) {

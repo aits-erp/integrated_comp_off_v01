@@ -22,6 +22,8 @@ class WeeklyHolidayUpdateRequest(Document):
 
     # end: auto-generated types
     def on_submit(self):
+        if hasattr(self, "flags") and self.flags.ignore_update_employee:
+            return
         self.update_weekly_off_in_employee()
 
     def update_weekly_off_in_employee(self):
