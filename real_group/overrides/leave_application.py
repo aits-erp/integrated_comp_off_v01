@@ -48,7 +48,7 @@ class LeaveApplicationOverride(LeaveApplication):
                     attendance.flags.ignore_permissions = True
                     if attendance.docstatus == 1:
                         attendance.cancel()
-                    frappe.delete_doc("Attendance", attendance_name, force=1)
+                    # frappe.delete_doc("Attendance", attendance_name, force=1)
                 continue
 
             self.create_or_update_attendance(attendance_name, date)
@@ -59,9 +59,14 @@ class LeaveApplicationOverride(LeaveApplication):
         if attendance_name:
             # update existing attendance, change absent to on leave
             doc = frappe.get_doc("Attendance", attendance_name)
-            if doc.status == "Half Day":
-                status = "Present"
-            doc.db_set({"status": status, "leave_type": self.leave_type, "leave_application": self.name})
+            doc.db_set(
+                {
+                    "status": status,
+                    "leave_type": self.leave_type,
+                    "leave_application": self.name,
+                    "custom_half_type": self.custom_half_type,
+                }
+            )
             update_attendance_tag(doc)
         else:
             # make new attendance and submit it
@@ -73,6 +78,7 @@ class LeaveApplicationOverride(LeaveApplication):
             doc.leave_type = self.leave_type
             doc.leave_application = self.name
             doc.status = status
+            doc.custom_half_type = self.custom_half_type
             doc.flags.ignore_validate = True
             doc.insert(ignore_permissions=True)
             doc.submit()

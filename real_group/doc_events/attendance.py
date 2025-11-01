@@ -40,6 +40,9 @@ def update_attendance_tag(doc):
         elif leave_type.is_compensatory:
             status = "CO"
 
+    # elif doc.leave_application:
+    #     if frappe.db.get_value("Leave Type", doc.leave_type, "is_lwp") and doc.status == "Present":
+    #         status = "HD"
     elif doc.status == "Present":
         if is_holiday and is_holiday.get("is_holiday"):
             status = "POH"

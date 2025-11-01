@@ -83,11 +83,6 @@ frappe.query_reports["[New] Day Wise Attendance"] = {
       options: years,
       reqd: 1,
     },
-    {
-      fieldname: "processed_attendance",
-      fieldtype: "Check",
-      label: "Processed Attendance",
-    },
   ],
   formatter: function (value, row, column, data, default_formatter) {
     value = default_formatter(value, row, column, data);
@@ -95,6 +90,16 @@ frappe.query_reports["[New] Day Wise Attendance"] = {
       value = `<b>${value}</b>`;
     } else if (data.italic) {
       value = `<i>${value}</i>`;
+    }
+
+    if (data.sr == "E Work") {
+      if (value && value != "E Work") {
+        if (value.includes("-")) {
+          value = `<span style="color: red;">${value.replace("-", "")} (less)</span>`;
+        } else {
+          value = `<span style="color: orange;">${value} (extra)</span>`;
+        }
+      }
     }
     return value;
   },

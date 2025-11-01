@@ -2,11 +2,13 @@
 # For license information, please see license.txt
 
 import calendar
-from datetime import date
+from datetime import date, datetime, timedelta
 
 import frappe
 from frappe.utils import add_days, format_date, get_time, getdate
 from frappe.utils.caching import redis_cache
+
+from real_group.utils import is_holiday_for_employee
 
 month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -24,7 +26,7 @@ def execute(filters=None):
     dates = get_dates(month, year)
     employee_names = [emp.name for emp in employees]
     attendance_map = get_attendance(employee_names, dates[0], dates[-1], month, year)
-
+    shifts = get_shifts()
     for employee in employees:
         info = {"sr": "PAYCODE, CARD NO. & NAME"}
 
@@ -35,7 +37,7 @@ def execute(filters=None):
         pairs = ((max_checkins) + 1) // 2
         max_pairs = max(max_pairs, pairs)
 
-        (row_keys, hours_worked, extra_worked, status, shift) = get_rows(max_pairs, dates)
+        (row_keys, hours_worked, extra_worked, processed_status, status, shift) = get_rows(max_pairs, dates)
         total_present = 0
         total_absent = 0
         total_hours = 0.0
@@ -76,11 +78,23 @@ def execute(filters=None):
             else:
                 total_absent += 1
             total_hours += worked_hours
-            hours_worked[date_str] = worked_hours if worked_hours else ""
+            hours_worked[date_str] = timedelta(seconds=round(worked_hours * 3600 / 60) * 60) if worked_hours else ""
             status[date_str] = day_status
 
             shift[date_str] = attendance_on_date[0].get("shift", "") if attendance_on_date else ""
+            if attendance_on_date and attendance_on_date[0].get("shift", None):
+                shift_type = next((s for s in shifts if s.name == attendance_on_date[0].get("shift")), None)
+                if shift_type and shift_type.custom_shift_time and worked_hours:
+                    shift_time = get_time(shift_type.custom_shift_time)
+                    worked_time = get_time(timedelta(hours=worked_hours))
+                    if is_holiday_for_employee(employee.name, _date):
+                        extra_worked[date_str] = get_time(worked_time)
+                    else:
+                        dt1 = datetime.combine(date.today(), shift_time)
+                        dt2 = datetime.combine(date.today(), worked_time)
+                        extra_worked[date_str] = get_time(dt2 - dt1)
 
+            processed_status[date_str] = get_processed_status(_date, emp_date_data, day_status)
         summary_dates = []
         temp_date = dates[0]
         for _ in range(8):
@@ -88,18 +102,20 @@ def execute(filters=None):
             temp_date = add_days(temp_date, days=1)
 
         if len(summary_dates) >= 8:
+            total_time = timedelta(seconds=round(total_hours * 3600 / 60) * 60)
             info[summary_dates[0]] = employee["name"]
             info[summary_dates[1]] = employee["employee_name"]
             info[summary_dates[2]] = employee.get("designation", "")
             info[summary_dates[3]] = employee.get("department", "")
             info[summary_dates[4]] = f"Present: {total_present}"
             info[summary_dates[5]] = f"Absent: {total_absent}"
-            info[summary_dates[6]] = f"Hours: {round(total_hours / 3600, 2)}"
+            info[summary_dates[6]] = f"Hours: {total_time}"
 
         data.append(info)
         data.extend(row_keys)
         data.append(hours_worked)
         data.append(extra_worked)
+        data.append(processed_status)
         data.append(status)
         data.append(shift)
 
@@ -198,9 +214,10 @@ def get_rows(pairs, dates):
 
     hours_worked_row = {"sr": "H Work"}
     extra_hours_worked_row = {"sr": "E Work"}
+    processed_status_row = {"sr": "P Status"}
     status_row = {"sr": "Status"}
     shift_row = {"sr": "Shift"}
-    return paired_rows, hours_worked_row, extra_hours_worked_row, status_row, shift_row
+    return paired_rows, hours_worked_row, extra_hours_worked_row, processed_status_row, status_row, shift_row
 
 
 def get_logs(employee_checkins):
@@ -208,3 +225,61 @@ def get_logs(employee_checkins):
     for checkin in employee_checkins:
         data[checkin.log_type].append(checkin)
     return data
+
+
+@redis_cache
+def get_shifts():
+    return frappe.get_all("Shift Type", fields=["*"])
+
+
+def get_processed_status(date, data_on_date, day_status):
+    status = day_status
+    date = getdate(date)
+    attendance = data_on_date.get("attendance", [])
+    if attendance:
+        attendance = attendance[0]
+    checkins = data_on_date.get("checkins", [])
+
+    if attendance:
+        if attendance.leave_application and attendance.leave_type:
+            leave_type = frappe.get_cached_doc("Leave Type", attendance.leave_type)
+            leave_application = frappe.get_cached_doc("Leave Application", attendance.leave_application)
+
+            leave_from_date = getdate(leave_application.from_date)
+            leave_to_date = getdate(leave_application.to_date)
+
+            is_lwp = leave_type.is_lwp
+            is_earned = leave_type.is_earned_leave
+            is_compensatory = leave_type.is_compensatory
+
+            if leave_from_date <= date <= leave_to_date:
+                if is_lwp:
+                    status = "LW"
+                    if leave_application.half_day_date == date and len(checkins) > 0:
+                        status = "HLW"
+
+                if is_compensatory:
+                    status = "CO"
+                    if leave_application.half_day_date == date:
+                        status = "HCO"
+
+                if is_earned:
+                    status = "EL"
+                    if leave_application.half_day_date == date:
+                        status = "HEL"
+
+                if "casual leave" in leave_type.name.lower():
+                    status = "CL"
+                    if leave_application.half_day_date == date:
+                        status = "HCL"
+
+        if attendance.attendance_request:
+            status = "OD"
+            attendance_request = frappe.get_cached_doc("Attendance Request", attendance.attendance_request)
+            if attendance_request.half_day_date == date:
+                status = "HOD"
+
+            if attendance_request.reason == "Mis Punch":
+                status = "MIS"
+
+    return status
