@@ -105,6 +105,7 @@ class LeaveApplicationOverride(LeaveApplication):
             result = query.run(as_dict=True)
             attendance_names = [row.name for row in result]
             for name in attendance_names:
+                frappe.db.set_value("Attendance", name, "docstatus", 2)
                 attendance_doc = frappe.get_doc("Attendance", name)
                 if attendance_doc.attendance_date == self.half_day_date and self.half_day:
                     checkins = frappe.get_all(
@@ -115,7 +116,6 @@ class LeaveApplicationOverride(LeaveApplication):
                     )
                     checkins = update_time(checkins)
                     shift = checkins[0].shift if checkins else None
-                    frappe.db.set_value("Attendance", name, "docstatus", 2)
                     if checkins:
                         update_attendance_in_checkins([checkin.name for checkin in checkins], "")
 

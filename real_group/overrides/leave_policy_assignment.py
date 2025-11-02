@@ -112,6 +112,7 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
     def calculate_leaves_for_passed_period(
         self, annual_allocation, leave_details, date_of_joining, periods_passed, consider_current_period
     ):
+        from frappe.utils import get_first_day, get_last_day, getdate
         from hrms.hr.utils import get_monthly_earned_leave as get_periodically_earned_leave
 
         periodically_earned_leave = get_periodically_earned_leave(
@@ -123,11 +124,11 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
         )
 
         period_end_date = get_pro_rata_period_end_date(consider_current_period)
+        join_date = getdate(date_of_joining)
+        freq = (leave_details.earned_leave_frequency or "").lower()
 
-        if getdate(self.effective_from) <= date_of_joining <= period_end_date:
-            # if the employee joined within the allocation period in some previous month,
-            # calculate pro-rated leave for that month
-            # and normal monthly earned leave for remaining passed months
+        # --- keep your existing logic as base ---
+        if getdate(self.effective_from) <= join_date <= period_end_date:
             leaves = get_periodically_earned_leave(
                 date_of_joining,
                 annual_allocation,
@@ -136,19 +137,36 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
                 get_first_day(date_of_joining),
                 get_last_day(date_of_joining),
             )
-
             leaves += periodically_earned_leave * (periods_passed - 1)
-            # if joined after 11th of the month, deduct that month's earned leave
-            today = getdate()
-            month_start = get_first_day(today)
-            month_end = get_last_day(today)
-            if month_start <= getdate(date_of_joining) <= month_end:
-                day = getdate(date_of_joining).day
-                if day > 11 and leaves:
-                    leaves -= periodically_earned_leave
-
         else:
             leaves = periodically_earned_leave * periods_passed
+
+        # ─────────────────────────────
+        # 🔹 Additional Rule — for Quarterly frequency only
+        # ─────────────────────────────
+        if freq == "quarterly":
+            month = join_date.month
+            quarter_start_month = ((month - 1) // 3) * 3 + 1
+            quarter_months = [quarter_start_month, quarter_start_month + 1, quarter_start_month + 2]
+
+            join_month_index = quarter_months.index(month)  # 0, 1, or 2
+            join_day = join_date.day
+
+            # If joined after 11th → deduct months up to and including that month
+            if join_day > 11:
+                months_to_deduct = join_month_index + 1
+            else:
+                months_to_deduct = join_month_index
+
+            if months_to_deduct > 0:
+                deduction_fraction = months_to_deduct / 3
+                adjusted_leaves_for_quarter = periodically_earned_leave * (1 - deduction_fraction)
+
+                # Adjust only the first quarter's allocation; keep others intact
+                if periods_passed > 1:
+                    leaves = adjusted_leaves_for_quarter + periodically_earned_leave * (periods_passed - 1)
+                else:
+                    leaves = adjusted_leaves_for_quarter
 
         return leaves
 
