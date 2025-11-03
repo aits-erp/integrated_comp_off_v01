@@ -16,6 +16,7 @@
   "year",
   "employee",
   "reprocess_attendance_bulk",
+  "status",
   "section_break_msfd",
   "amended_from"
  ],
@@ -99,9 +100,16 @@
   {
    "fieldname": "reprocess_attendance_bulk",
    "fieldtype": "Link",
-   "hidden": 1,
    "label": "Reprocess Attendance Bulk",
    "options": "Reprocess Attendance Bulk",
+   "read_only": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nIn Progress\nCompleted\nError",
    "read_only": 1
   }
  ],
@@ -121,7 +129,7 @@
    "link_fieldname": "custom_reprocess_reference"
   }
  ],
- "modified": "2024-10-17 13:52:51.848006",
+ "modified": "2025-11-03 14:48:31.564377",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Reprocess Attendance",
@@ -156,6 +164,7 @@
   }
  ],
  "queue_in_background": 1,
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

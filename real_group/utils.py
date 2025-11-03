@@ -30,7 +30,7 @@ def convert_time_to_hours(time_str: str | time) -> float:
     return seconds / 3600
 
 
-def is_holiday_for_employee(employee: str, date):
+def is_holiday_for_employee(employee: str, date, weekly_holiday_name=None):
     from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
     data = {}
@@ -60,7 +60,7 @@ def is_holiday_for_employee(employee: str, date):
         is_holiday = frappe.db.get_value(
             "Weekly Off Holiday",
             {
-                "parent": weekly_holiday_list,
+                "parent": weekly_holiday_list if not weekly_holiday_name else weekly_holiday_name,
                 "holiday_date": getdate(date),
                 "parenttype": "Weekly Off List",
                 "parentfield": "holidays",
