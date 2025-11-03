@@ -5,7 +5,7 @@ from frappe import _
 from frappe.utils import add_days, date_diff, format_date, get_datetime, get_link_to_form
 from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequest
 
-from real_group.doc_events.attendance import update_attendance_tag
+from real_group.doc_events.attendance import allocate_c_off, allocate_incentive, update_attendance_tag
 from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 
@@ -36,6 +36,8 @@ class AttendanceRequestOverride(AttendanceRequest):
                 )
                 doc.add_comment(comment_type="Info", text=text)
                 update_attendance_tag(doc)
+                allocate_c_off(doc)
+                allocate_incentive(doc)
                 frappe.msgprint(
                     _("Updated status from {0} to {1} for date {2} in the attendance record {3}").format(
                         frappe.bold(old_status),

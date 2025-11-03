@@ -3,6 +3,7 @@ from frappe import _
 from frappe.utils import flt, get_link_to_form
 from hrms.hr.doctype.leave_allocation.leave_allocation import (
     LeaveAllocation,
+    create_leave_ledger_entry,
     get_approved_leaves_for_period,
     get_carry_forwarded_leaves,
 )
@@ -58,3 +59,33 @@ class LeaveAllocationOverride(LeaveAllocation):
                         "Note: Total allocated leaves {0} shouldn't be less than already approved leaves {1} for the period"
                     ).format(self.total_leaves_allocated, leaves_taken)
                 )
+
+    # nosemgrep: frappe-semgrep-rules.rules.frappe-modifying-but-not-comitting
+    def on_update_after_submit(self):
+        is_based_on_working_days = frappe.db.get_value(
+            "Leave Type", self.leave_type, "custom_calculate_based_on_working_days"
+        )
+        if self.has_value_changed("new_leaves_allocated") or is_based_on_working_days:
+            self.validate_earned_leave_update()
+            self.validate_against_leave_applications()
+
+            # recalculate total leaves allocated
+            self.total_leaves_allocated = flt(self.unused_leaves) + flt(self.new_leaves_allocated)
+
+            if is_based_on_working_days:
+                self.total_leaves_allocated += flt(self.new_leaves_allocated)
+            self.validate_leave_days_and_dates()
+
+            leaves_to_be_added = flt(
+                (self.new_leaves_allocated - self.get_existing_leave_count()),
+                self.precision("new_leaves_allocated"),
+            )
+
+            args = {
+                "leaves": leaves_to_be_added if not is_based_on_working_days else flt(self.new_leaves_allocated),
+                "from_date": self.from_date,
+                "to_date": self.to_date,
+                "is_carry_forward": 0,
+            }
+            create_leave_ledger_entry(self, args, True)
+            self.db_update()

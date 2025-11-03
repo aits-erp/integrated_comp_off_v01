@@ -40,23 +40,24 @@ def update_attendance_tag(doc):
         elif leave_type.is_compensatory:
             status = "CO"
 
-    # elif doc.leave_application:
-    #     if frappe.db.get_value("Leave Type", doc.leave_type, "is_lwp") and doc.status == "Present":
-    #         status = "HD"
-    elif doc.status == "Present":
-        if is_holiday and is_holiday.get("is_holiday"):
-            status = "POH"
-        else:
-            status = "P"
+    elif doc.status == "Present" and not is_holiday:
+        status = "P"
     elif doc.status == "Half Day":
         status = "HD"
     elif doc.status == "Absent":
         status = "A"
     elif is_holiday and is_holiday.get("is_holiday"):
-        if is_holiday.get("is_weekly_off"):
-            status = "POW"
+        checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
+        if checkins and checkins > 0:
+            if is_holiday.get("is_weekly_off"):
+                status = "POW"
+            else:
+                status = "POH"
         else:
-            status = "POH"
+            if is_holiday.get("is_weekly_off"):
+                status = "WO"
+            else:
+                status = "HO"
 
     frappe.db.set_value("Attendance", doc.name, "custom_attendance_tag", status)
 
@@ -105,7 +106,7 @@ def allocate_incentive(doc):
     date_of_joining = employee.date_of_joining
 
     # Do we even need this check? Attendance cannot be created before date of joining
-    if date_of_joining and doc.attendance_date < date_of_joining:
+    if date_of_joining and getdate(doc.attendance_date) < date_of_joining:
         return
 
     grade = employee.grade

@@ -18,16 +18,21 @@ from hrms.hr.doctype.employee_checkin.employee_checkin import calculate_working_
 from real_group.utils import convert_time_to_hours, convert_time_to_minutes, is_holiday_for_employee
 
 
-def process(from_date=None):
+def process(from_date=None, employee_names: list | None = None, weekly_holiday_name: str | None = None):
     start_date = add_days(getdate(from_date), -1)
     end_date = getdate(from_date)
     start_date_for_night_shift = add_days(getdate(from_date), -2)
     end_date_for_night_shift = add_days(getdate(from_date), -1)
 
-    grades = frappe.get_all(
-        "Employee Grade", filters={"custom_single_punch_applicable": 0, "custom_no_punch_applicable": 0}, pluck="name"
-    )
-    employees = frappe.get_all("Employee", filters={"grade": ["in", grades], "status": "Active"}, pluck="name")
+    if not employee_names:
+        grades = frappe.get_all(
+            "Employee Grade",
+            filters={"custom_single_punch_applicable": 0, "custom_no_punch_applicable": 0},
+            pluck="name",
+        )
+        employees = frappe.get_all("Employee", filters={"grade": ["in", grades], "status": "Active"}, pluck="name")
+    else:
+        employees = employee_names
 
     day_shift_checkins = frappe.get_all(
         "Employee Checkin",
@@ -98,6 +103,7 @@ def process(from_date=None):
                     "doctype": "Attendance",
                     "attendance_date": start_date,
                     "status": "Present",
+                    "employee": employee,
                     "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
                 },
             ).insert(ignore_permissions=True).submit()
