@@ -1,7 +1,7 @@
 import datetime
 
 import frappe
-from frappe.utils import cint, date_diff, flt, getdate
+from frappe.utils import add_days, cint, flt, getdate
 from hrms.hr.doctype.leave_application.leave_application import get_holidays as _get_holidays
 
 from real_group.utils import is_holiday_for_employee
@@ -33,36 +33,92 @@ def get_number_of_leave_days(
     half_day_date: datetime.date | str | None = None,
     holiday_list: str | None = None,
 ) -> float:
-    """Returns number of leave days between 2 dates after considering half day and holidays
-    (Based on the include_holiday setting in Leave Type)"""
-    grade = frappe.db.get_value("Employee", employee, "grade")
-    apply_sandwitch = frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag")
+    """
+    Return number of leave days considering:
+      - half days
+      - holidays
+      - sandwich leave logic
 
-    number_of_days = 0
-    if cint(half_day) == 1:
-        if getdate(from_date) == getdate(to_date):
-            number_of_days = 0.5
-        elif half_day_date and getdate(from_date) <= getdate(half_day_date) <= getdate(to_date):
-            number_of_days = date_diff(to_date, from_date) + 0.5
+    Rules:
+    - Holiday counted as leave only if it lies between *two full* leave days.
+    - Half-day at either end breaks sandwich.
+    - Holidays on from/to dates are excluded.
+    - Consecutive holidays handled as one block.
+    """
+    from_date = getdate(from_date)
+    to_date = getdate(to_date)
+    half_day_date = getdate(half_day_date) if half_day_date else None
+    is_half_day = cint(half_day) == 1
+
+    # Build date range
+    all_dates = []
+    current = from_date
+    while current <= to_date:
+        all_dates.append(current)
+        current = add_days(current, 1)
+
+    # Preload holidays for all dates in one go
+    holiday_flags = {}
+    for d in all_dates:
+        info = is_holiday_for_employee(employee, d) or {}
+        holiday_flags[d] = bool(info.get("is_holiday"))
+
+    # Assign status per date
+    status = {}
+    for d in all_dates:
+        if is_half_day and half_day_date == d:
+            status[d] = "half"
+        elif holiday_flags.get(d):
+            status[d] = "holiday"
         else:
-            number_of_days = date_diff(to_date, from_date) + 1
-    else:
-        number_of_days = date_diff(to_date, from_date) + 1
+            status[d] = "full"
 
-    if not apply_sandwitch:
-        number_of_days = flt(number_of_days) - flt(
-            get_holidays(employee, from_date, to_date, holiday_list=holiday_list)
-        )
-    else:
-        holiday_on_from_date = is_holiday_for_employee(employee, from_date)
-        holiday_on_to_date = is_holiday_for_employee(employee, to_date)
-        if holiday_on_from_date and holiday_on_from_date.get("is_holiday"):
-            number_of_days -= 1
-        if holiday_on_to_date and holiday_on_to_date.get("is_holiday"):
-            number_of_days -= 1
-    if cint(half_day) == 1 and apply_sandwitch:
-        number_of_days = flt(number_of_days) - flt(
-            get_holidays(employee, from_date, to_date, holiday_list=holiday_list)
-        )
+    # Holidays on start or end are never counted
+    if status.get(from_date) == "holiday":
+        status[from_date] = "excluded"
+    if status.get(to_date) == "holiday":
+        status[to_date] = "excluded"
 
-    return number_of_days
+    total = 0.0
+    i = 0
+    n = len(all_dates)
+
+    while i < n:
+        current_date = all_dates[i]
+        current_status = status[current_date]
+
+        # --- FULL LEAVE ---
+        if current_status == "full":
+            total += 1
+            i += 1
+            continue
+
+        # --- HALF LEAVE ---
+        if current_status == "half":
+            total += 0.5
+            i += 1
+            continue
+
+        # --- HOLIDAY(S) BLOCK ---
+        if current_status == "holiday":
+            block_start = i
+            while i < n and status[all_dates[i]] == "holiday":
+                i += 1
+            block_end = i - 1
+
+            # Get previous and next dates
+            prev_date = add_days(all_dates[block_start], -1)
+            next_date = add_days(all_dates[block_end], 1)
+
+            prev_full = prev_date in status and status[prev_date] == "full"
+            next_full = next_date in status and status[next_date] == "full"
+
+            # Only count block if *both* sides are full leaves
+            if prev_full and next_full:
+                total += block_end - block_start + 1
+            continue
+
+        # --- EXCLUDED HOLIDAYS ---
+        i += 1
+
+    return flt(total)
