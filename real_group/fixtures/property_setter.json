@@ -1415,13 +1415,13 @@
   "doctype_or_field": "DocField",
   "field_name": "reason",
   "is_system_generated": 0,
-  "modified": "2024-09-20 13:38:46.336297",
+  "modified": "2025-11-04 20:01:18.055336",
   "module": "Real Group",
   "name": "Attendance Request-reason-options",
   "property": "options",
   "property_type": "Text",
   "row_name": null,
-  "value": "Personal\nOfficial\nTour\nMis Punch"
+  "value": "Official\nTour\nMis Punch"
  },
  {
   "default_value": null,
@@ -3617,22 +3617,6 @@
  },
  {
   "default_value": null,
-  "doc_type": "Leave Type",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocType",
-  "field_name": null,
-  "is_system_generated": 0,
-  "modified": "2025-10-27 18:37:04.815166",
-  "module": "Real Group",
-  "name": "Leave Type-main-field_order",
-  "property": "field_order",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "[\"leave_type_name\", \"custom_abbreviation\", \"max_leaves_allowed\", \"applicable_after\", \"max_continuous_days_allowed\", \"custom_erp_attend_char\", \"column_break_3\", \"is_carry_forward\", \"is_lwp\", \"is_ppl\", \"fraction_of_daily_salary_per_leave\", \"is_optional_leave\", \"allow_negative\", \"allow_over_allocation\", \"include_holiday\", \"is_compensatory\", \"carry_forward_section\", \"maximum_carry_forwarded_leaves\", \"expire_carry_forwarded_leaves_after_days\", \"encashment\", \"allow_encashment\", \"max_encashable_leaves\", \"non_encashable_leaves\", \"column_break_17\", \"earning_component\", \"earned_leave\", \"is_earned_leave\", \"earned_leave_frequency\", \"column_break_22\", \"allocate_on_day\", \"rounding\", \"custom_allocation_bases_on_working_day\", \"custom_calculate_based_on_working_days\", \"custom_column_break_e7jxz\", \"custom_number_of_working_days\"]"
- },
- {
-  "default_value": null,
   "doc_type": "Holiday",
   "docstatus": 0,
   "doctype": "Property Setter",
@@ -3774,5 +3758,37 @@
   "property_type": null,
   "row_name": null,
   "value": "\n2023\n2024\n2025\n2026\n2027\n2028\n2029\n2030\n2031\n2032\n2033\n2034\n2035\n2036\n2037\n2038\n2039\n2040\n2041\n2042\n2043\n2044\n2045\n2046\n2047\n2048\n2049\n2050\n2051\n2052\n2053\n2054\n2055\n2056\n2057\n2058\n2059\n2060\n2061\n2062\n2063\n2064\n2065\n2066\n2067\n2068\n2069\n2070\n2071\n2072\n2073\n2074"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Leave Type",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "earned_leave",
+  "is_system_generated": 0,
+  "modified": "2025-11-04 20:04:25.993948",
+  "module": "Real Group",
+  "name": "Leave Type-earned_leave-label",
+  "property": "label",
+  "property_type": "Data",
+  "row_name": null,
+  "value": "Credit Policy"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Leave Type",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocType",
+  "field_name": null,
+  "is_system_generated": 0,
+  "modified": "2025-11-04 20:04:25.958838",
+  "module": "Real Group",
+  "name": "Leave Type-main-field_order",
+  "property": "field_order",
+  "property_type": "Data",
+  "row_name": null,
+  "value": "[\"leave_type_name\", \"custom_abbreviation\", \"max_leaves_allowed\", \"applicable_after\", \"max_continuous_days_allowed\", \"custom_erp_attend_char\", \"column_break_3\", \"is_carry_forward\", \"is_lwp\", \"is_ppl\", \"fraction_of_daily_salary_per_leave\", \"is_optional_leave\", \"allow_negative\", \"allow_over_allocation\", \"include_holiday\", \"is_compensatory\", \"carry_forward_section\", \"maximum_carry_forwarded_leaves\", \"expire_carry_forwarded_leaves_after_days\", \"encashment\", \"allow_encashment\", \"max_encashable_leaves\", \"non_encashable_leaves\", \"column_break_17\", \"earning_component\", \"earned_leave\", \"is_earned_leave\", \"custom_calculate_based_on_working_days\", \"earned_leave_frequency\", \"column_break_22\", \"allocate_on_day\", \"custom_number_of_working_days\", \"rounding\"]"
  }
 ]
