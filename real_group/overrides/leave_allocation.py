@@ -70,10 +70,11 @@ class LeaveAllocationOverride(LeaveAllocation):
             self.validate_against_leave_applications()
 
             # recalculate total leaves allocated
-            self.total_leaves_allocated = flt(self.unused_leaves) + flt(self.new_leaves_allocated)
 
             if is_based_on_working_days:
                 self.total_leaves_allocated += flt(self.new_leaves_allocated)
+            else:
+                self.total_leaves_allocated = flt(self.unused_leaves) + flt(self.new_leaves_allocated)
             self.validate_leave_days_and_dates()
 
             leaves_to_be_added = flt(
