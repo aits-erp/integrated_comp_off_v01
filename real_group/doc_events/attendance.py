@@ -8,12 +8,11 @@ from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 def validate(doc, method=None):
     doc.custom_working_hours = None
-
-
-def before_save(doc, method=None):
     if doc.working_hours and doc.working_hours > 0:
         total_seconds = round(doc.working_hours * 3600 / 60) * 60
         doc.custom_working_hours = timedelta(seconds=total_seconds)
+    else:
+        doc.custom_working_hours = None
 
 
 def on_submit(doc, method=None):
@@ -41,20 +40,24 @@ def update_attendance_tag(doc):
         elif leave_type.is_compensatory:
             status = "CO"
 
-    elif doc.status == "Present":
-        if is_holiday and is_holiday.get("is_holiday"):
-            status = "POH"
-        else:
-            status = "P"
+    elif doc.status == "Present" and not is_holiday:
+        status = "P"
     elif doc.status == "Half Day":
         status = "HD"
     elif doc.status == "Absent":
         status = "A"
     elif is_holiday and is_holiday.get("is_holiday"):
-        if is_holiday.get("is_weekly_off"):
-            status = "POW"
+        checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
+        if checkins and checkins > 0:
+            if is_holiday.get("is_weekly_off"):
+                status = "POW"
+            else:
+                status = "POH"
         else:
-            status = "POH"
+            if is_holiday.get("is_weekly_off"):
+                status = "WO"
+            else:
+                status = "HO"
 
     frappe.db.set_value("Attendance", doc.name, "custom_attendance_tag", status)
 
@@ -103,7 +106,7 @@ def allocate_incentive(doc):
     date_of_joining = employee.date_of_joining
 
     # Do we even need this check? Attendance cannot be created before date of joining
-    if date_of_joining and doc.attendance_date < date_of_joining:
+    if date_of_joining and getdate(doc.attendance_date) < date_of_joining:
         return
 
     grade = employee.grade

@@ -1,5 +1,12 @@
 frappe.ui.form.on("Employee", {
   refresh(frm) {
+    frm.set_query("holiday_list", () => {
+      return {
+        filters: {
+          custom_branch: frm.doc.branch,
+        },
+      };
+    });
     // Add a custom button if aadhaar number is use in multiple employees
     if (frm.doc.custom_aadhar_number) {
       frappe.db
@@ -61,6 +68,10 @@ frappe.ui.form.on("Employee", {
           new frappe.Chart(`#${f}`, resp.message.charts[f]);
         });
       });
+
+    if (!frm.doc.__islocal && frm.doc.custom_weekly_holiday_list) {
+      frm.set_df_property("custom_weekly_holiday_list", "read_only", 1);
+    }
   },
 
   company: function (frm) {

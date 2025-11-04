@@ -491,9 +491,6 @@ def create_user(doc, method):
         try:
             cur = con.cursor()
 
-            if not frappe.db.exists("Employee", doc.username):
-                frappe.throw("Employee Not Found! Kindly create employeee first")
-
             branch = frappe.db.get_value("Employee", doc.username, "branch")
             user_perm = frappe.get_doc(
                 dict(doctype="User Permission", user=doc.username, allow="Branch", for_value=branch)

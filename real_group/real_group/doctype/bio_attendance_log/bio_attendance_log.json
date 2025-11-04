@@ -81,6 +81,8 @@
    "default": "N",
    "fieldname": "is_processed",
    "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Is Processed",
    "no_copy": 1,
    "options": "\nN\nY\nE"
@@ -99,7 +101,7 @@
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2025-10-16 12:55:54.008988",
+ "modified": "2025-10-31 13:23:41.242500",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Bio Attendance Log",

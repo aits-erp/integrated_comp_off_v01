@@ -15,3 +15,5 @@ real_group.patches.remove_stale_server_script
 real_group.patches.remove_scripts
 real_group.patches.remove_incentive_scripts
 real_group.patches.create_employee_naming_series
+real_group.patches.migrate_weekly_off
+real_group.patches.update_time_in_shift

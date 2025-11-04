@@ -30,7 +30,7 @@ def convert_time_to_hours(time_str: str | time) -> float:
     return seconds / 3600
 
 
-def is_holiday_for_employee(employee: str, date):
+def is_holiday_for_employee(employee: str, date, weekly_holiday_name=None):
     from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
     data = {}
@@ -60,7 +60,7 @@ def is_holiday_for_employee(employee: str, date):
         is_holiday = frappe.db.get_value(
             "Weekly Off Holiday",
             {
-                "parent": weekly_holiday_list,
+                "parent": weekly_holiday_list if not weekly_holiday_name else weekly_holiday_name,
                 "holiday_date": getdate(date),
                 "parenttype": "Weekly Off List",
                 "parentfield": "holidays",
@@ -124,11 +124,14 @@ def fetch_leaves_for_working_days(employee: str, from_date, to_date, on_working_
 
 
 def allocate_leaves_for_worked_days():
+    from frappe.utils import cint
+
     leave_types = get_wo_leaves()
     today = frappe.flags.current_date or getdate()
 
     for leave_type in leave_types:
         leave_allocations = get_leave_allocations(today, leave_type.name)
+
         for allocation in leave_allocations:
             if not allocation.leave_policy_assignment and not allocation.leave_policy:
                 continue
@@ -136,28 +139,44 @@ def allocate_leaves_for_worked_days():
             leave_policy = (
                 allocation.leave_policy
                 if allocation.leave_policy
-                else frappe.db.get_value(
-                    "Leave Policy Assignment", allocation.leave_policy_assignment, ["leave_policy"]
-                )
+                else frappe.db.get_value("Leave Policy Assignment", allocation.leave_policy_assignment, "leave_policy")
             )
 
-            annual_allocation = frappe.db.get_value(
-                "Leave Policy Detail",
-                filters={"parent": leave_policy, "leave_type": leave_type.name},
-                fieldname=["annual_allocation"],
+            annual_allocation = cint(
+                frappe.db.get_value(
+                    "Leave Policy Detail",
+                    filters={"parent": leave_policy, "leave_type": leave_type.name},
+                    fieldname=["annual_allocation"],
+                )
+                or 0
             )
+
+            on_working_days = cint(leave_type.custom_number_of_working_days or 20)
             new_leaves = fetch_leaves_for_working_days(
                 allocation.employee,
                 allocation.from_date,
                 allocation.to_date,
-                leave_type.custom_number_of_working_days,
+                on_working_days,
             )
+
             allocation_doc = frappe.get_doc("Leave Allocation", allocation.name)
-            new_leaves = allocation_doc.total_leaves_allocated - new_leaves
-            new_leaves = max(new_leaves, 0)
-            new_leaves_allocated = min(annual_allocation, new_leaves)
-            allocation_doc.new_leaves_allocated = new_leaves_allocated
-            allocation_doc.save()
+
+            already_allocated = cint(allocation_doc.total_leaves_allocated or 0)
+
+            incremental_leaves = new_leaves - already_allocated
+
+            if incremental_leaves > 0:
+                new_total = min(new_leaves, annual_allocation)
+                added_leaves = new_total - already_allocated
+
+                if added_leaves > 0:
+                    allocation_doc.total_leaves_allocated = new_total
+                    allocation_doc.new_leaves_allocated = added_leaves
+                    allocation_doc.save(ignore_permissions=True)
+                    frappe.logger().info(
+                        f"[Earned Leave] {allocation.employee} got +{added_leaves} "
+                        f"leaves (Total: {new_total}) for {leave_type.name}"
+                    )
 
 
 def get_wo_leaves():
@@ -166,3 +185,20 @@ def get_wo_leaves():
         fields=["*"],
         filters={"custom_calculate_based_on_working_days": 1},
     )
+
+
+def get_actual_leave_balance_cf(employee: str, leave_type: str) -> float:
+    leaves = frappe.get_all(
+        "Leave Ledger Entry",
+        filters={
+            "is_lwp": False,
+            "docstatus": ["!=", 2],
+            "is_carry_forward": False,
+            "is_expired": False,
+            "leave_type": leave_type,
+            "employee": employee,
+        },
+        pluck="leaves",
+    )
+
+    return sum(leaves)

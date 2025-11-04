@@ -30,7 +30,11 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
         if leave_details.is_compensatory:
             new_leaves_allocated = 0
         # if earned leave is being allcated after the effective period, then let them be calculated pro-rata
-        elif leave_details.is_earned_leave and current_date < getdate(self.effective_to):
+        elif (
+            leave_details.is_earned_leave
+            and not leave_details.custom_calculate_based_on_working_days
+            and current_date < getdate(self.effective_to)
+        ):
             new_leaves_allocated = self.get_leaves_for_passed_period(annual_allocation, leave_details, date_of_joining)
         elif leave_details.custom_calculate_based_on_working_days and leave_details.custom_number_of_working_days > 0:
             # calculate leaves based on working days
@@ -51,7 +55,6 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
             leave_details.is_earned_leave and leave_details.earned_leave_frequency == "Yearly"
         ):
             new_leaves_allocated = annual_allocation
-
         return flt(new_leaves_allocated, precision)
 
     def get_leaves_for_working_days(self, on_working_days: int):
@@ -109,6 +112,7 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
     def calculate_leaves_for_passed_period(
         self, annual_allocation, leave_details, date_of_joining, periods_passed, consider_current_period
     ):
+        from frappe.utils import get_first_day, get_last_day, getdate
         from hrms.hr.utils import get_monthly_earned_leave as get_periodically_earned_leave
 
         periodically_earned_leave = get_periodically_earned_leave(
@@ -120,11 +124,11 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
         )
 
         period_end_date = get_pro_rata_period_end_date(consider_current_period)
+        join_date = getdate(date_of_joining)
+        freq = (leave_details.earned_leave_frequency or "").lower()
 
-        if getdate(self.effective_from) <= date_of_joining <= period_end_date:
-            # if the employee joined within the allocation period in some previous month,
-            # calculate pro-rated leave for that month
-            # and normal monthly earned leave for remaining passed months
+        # --- keep your existing logic as base ---
+        if getdate(self.effective_from) <= join_date <= period_end_date:
             leaves = get_periodically_earned_leave(
                 date_of_joining,
                 annual_allocation,
@@ -133,10 +137,36 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
                 get_first_day(date_of_joining),
                 get_last_day(date_of_joining),
             )
-
             leaves += periodically_earned_leave * (periods_passed - 1)
         else:
             leaves = periodically_earned_leave * periods_passed
+
+        # ─────────────────────────────
+        # 🔹 Additional Rule — for Quarterly frequency only
+        # ─────────────────────────────
+        if freq == "quarterly":
+            month = join_date.month
+            quarter_start_month = ((month - 1) // 3) * 3 + 1
+            quarter_months = [quarter_start_month, quarter_start_month + 1, quarter_start_month + 2]
+
+            join_month_index = quarter_months.index(month)  # 0, 1, or 2
+            join_day = join_date.day
+
+            # If joined after 11th → deduct months up to and including that month
+            if join_day > 11:
+                months_to_deduct = join_month_index + 1
+            else:
+                months_to_deduct = join_month_index
+
+            if months_to_deduct > 0:
+                deduction_fraction = months_to_deduct / 3
+                adjusted_leaves_for_quarter = periodically_earned_leave * (1 - deduction_fraction)
+
+                # Adjust only the first quarter's allocation; keep others intact
+                if periods_passed > 1:
+                    leaves = adjusted_leaves_for_quarter + periodically_earned_leave * (periods_passed - 1)
+                else:
+                    leaves = adjusted_leaves_for_quarter
 
         return leaves
 

@@ -32,19 +32,24 @@ class EmployeeSeries(Document):
             frappe.throw(frappe._("Start value must be less than End value"))
 
     def validate_overlap(self):
-        overlapping_series = frappe.get_all(
+        overlapping_series = frappe.db.get_value(
             "Employee Series",
-            filters={
+            {
                 "is_active": 1,
                 "name": ["!=", self.name],
                 "start": ["<=", self.end],
                 "end": [">=", self.start],
             },
+            fieldname=["name", "company"],
         )
         if overlapping_series:
             frappe.throw(
                 frappe._("Overlapping Employee Series found: {0}").format(
-                    ", ".join([d.name for d in overlapping_series])
+                    get_link_to_form(
+                        "Employee Series",
+                        overlapping_series[0],
+                        overlapping_series[1],
+                    )
                 )
             )
 
@@ -57,5 +62,5 @@ class EmployeeSeries(Document):
             frappe.throw(
                 frappe._(
                     "An active Employee Series already exists for this company: {0}. Please deactivate it before activating a new one."
-                ).format(get_link_to_form("Employee Series", exists))
+                ).format(get_link_to_form("Employee Series", exists, self.company))
             )

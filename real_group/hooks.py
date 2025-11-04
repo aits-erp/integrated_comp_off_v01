@@ -146,6 +146,7 @@ override_doctype_class = {
     "Leave Application": "real_group.overrides.leave_application.LeaveApplicationOverride",
     "Leave Policy Assignment": "real_group.overrides.leave_policy_assignment.LeavePolicyAssignmentOverride",
     "Leave Allocation": "real_group.overrides.leave_allocation.LeaveAllocationOverride",
+    "Attendance Request": "real_group.overrides.attendance_request.AttendanceRequestOverride",
 }
 
 # Document Events
@@ -163,7 +164,10 @@ override_doctype_class = {
 doc_events = {
     "Employee": {
         "autoname": "real_group.doc_events.employee.autoname",
-        "after_insert": ["real_group.real_group.integration.create_employee"],
+        "after_insert": [
+            "real_group.real_group.integration.create_employee",
+            "real_group.doc_events.employee.after_insert",
+        ],
         "on_update": ["real_group.real_group.integration.update_employee"],
     },
     "Shift Type": {"validate": ["real_group.doc_events.shift_type.validate"]},
@@ -184,7 +188,6 @@ doc_events = {
     },
     "Attendance": {
         "validate": ["real_group.doc_events.attendance.validate"],
-        "before_save": ["real_group.doc_events.attendance.before_save"],
         "on_submit": ["real_group.doc_events.attendance.on_submit"],
     },
     "User": {
@@ -222,12 +225,9 @@ scheduler_events = {
         ],
         "0 3 * * *": ["real_group.tasks.process_attendance.process"],
         "59 23 * * *": ["real_group.tasks.process_attendance_for_single_checkin.process"],
-        # "01 0 * * *": [
-        #     "real_group.real_group.attendance.terminate_leave_allocation_on_expiry"
-        # ],
+        "0 14 * * *": ["real_group.utils.allocate_leaves_for_worked_days"],
         "5 0 2 * *": ["real_group.real_group.attendance.process_attendance_for_last_day_of_month"],
     },
-    "daily_long": ["real_group.utils.allocate_leaves_for_worked_days"],
 }
 
 # scheduler_events = {
