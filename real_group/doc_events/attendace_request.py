@@ -3,12 +3,8 @@ from frappe.utils import add_days, date_diff, getdate
 
 
 def validate(doc, method=None):
-    if doc.reason == "Personal" and doc.custom_to_time is None and doc.custom_from_time is None:
-        frappe.throw(frappe._("kindly Set the from time and to time"))
-
-    validate_single_day_request(doc)
-    validate_multi_day_request(doc)
     validate_change_request_day(doc)
+    validate_attendance(doc)
 
     if doc.reason == "Mis Punch":
         if doc.from_date != doc.to_date:
@@ -47,7 +43,11 @@ def before_delete(doc, method=None):
 
 
 def on_submit(doc, method=None):
-    cancel_short_leaves(doc)
+    doc.status = "Approved"
+
+
+def on_cancel(doc, method=None):
+    doc.status = "Cancelled"
 
 
 def cancel_short_leaves(doc):
@@ -76,6 +76,27 @@ def cancel_short_leaves(doc):
             sl_doc.cancel()
 
 
+def validate_attendance(doc):
+    from_date = getdate(doc.from_date)
+    to_date = getdate(doc.to_date)
+
+    range = []
+    while from_date <= to_date:
+        range.append(from_date)
+        from_date = add_days(from_date, 1)
+
+    if frappe.db.exists(
+        "Attendance",
+        {
+            "employee": doc.employee,
+            "attendance_date": ["in", range],
+            "status": "Present",
+            "docstatus": ["!=", 2],
+        },
+    ):
+        frappe.throw(frappe._("Attendance is already marked for the Employee {0}").format(doc.employee))
+
+
 def validate_change_request_day(doc):
     branch = frappe.get_value("Employee", doc.employee, "branch")
     allowed_days = frappe.get_value("Branch", branch, "custom_change_request")
@@ -99,42 +120,3 @@ def is_salary_processed(doc):
     ):
         return True
     return False
-
-
-def validate_single_day_request(doc):
-    if date_diff(doc.to_date, doc.from_date) > 0:
-        return
-
-    if frappe.db.exists(
-        "Attendance",
-        {
-            "employee": doc.employee,
-            "attendance_date": doc.from_date,
-            "status": "Present",
-            "docstatus": ["!=", 2],
-        },
-    ):
-        frappe.throw(frappe._("Attendance is already marked for the Employee {0}").format(doc.employee))
-
-
-def validate_multi_day_request(doc):
-    if date_diff(doc.to_date, doc.from_date) < 1:
-        return
-
-    start_date = doc.from_date
-    end_date = doc.to_date
-    range = []
-    while start_date <= end_date:
-        range.append(start_date)
-        start_date = add_days(start_date, 1)
-
-    if frappe.db.exists(
-        "Attendance",
-        {
-            "employee": doc.employee,
-            "attendance_date": ["in", range],
-            "status": "Present",
-            "docstatus": ["!=", 2],
-        },
-    ):
-        frappe.throw(frappe._("Attendance is already marked for the Employee {0}").format(doc.employee))
