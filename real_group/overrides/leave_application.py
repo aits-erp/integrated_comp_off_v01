@@ -256,10 +256,13 @@ class LeaveApplicationOverride(LeaveApplication):
     def show_insufficient_balance_message(self, leave_balance_for_consumption: float) -> None:
         emp_grade = frappe.get_value("Employee", self.employee, "grade")
         advance_leave = frappe.db.get_value(
-            "Employee Grade", emp_grade, ["custom_allow_advance_leave", "custom_max_no_of_advance_debit"]
+            "Employee Grade",
+            emp_grade,
+            ["custom_allow_advance_leave", "custom_max_no_of_advance_debit", "custom_leave_type"],
         )
         is_advance_allowed = advance_leave[0]
         allowed_advance_debit = -abs(advance_leave[1]) or 0
+        leave_type = advance_leave[2]
         if frappe.db.get_value("Leave Type", self.leave_type, "allow_negative"):
             if leave_balance_for_consumption != self.leave_balance:
                 msg = _("Warning: Insufficient leave balance for Leave Type {0} in this allocation.").format(
@@ -273,7 +276,7 @@ class LeaveApplicationOverride(LeaveApplication):
                 msg = _("Warning: Insufficient leave balance for Leave Type {0}.").format(frappe.bold(self.leave_type))
 
             frappe.msgprint(msg, title=_("Warning"), indicator="orange")
-        elif is_advance_allowed:
+        elif is_advance_allowed and allowed_advance_debit and leave_type == self.leave_type:
             actual_balance = get_actual_leave_balance_cf(self.employee, self.leave_type)
             if allowed_advance_debit > (actual_balance - self.total_leave_days):
                 frappe.throw(
