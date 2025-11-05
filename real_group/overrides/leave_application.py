@@ -23,6 +23,17 @@ from real_group.utils import get_actual_leave_balance_cf, get_holiday_dates_for_
 
 
 class LeaveApplicationOverride(LeaveApplication):
+    def validate(self):
+        super().validate()
+        self.validate_joining_date()
+
+    def validate_joining_date(self):
+        joining_date = frappe.db.get_value("Employee", self.employee, "date_of_joining")
+        if joining_date and getdate(self.from_date) < joining_date:
+            frappe.throw(
+                _("Leave cannot be applied before employee's joining date: {0}").format(format_date(joining_date))
+            )
+
     def update_attendance(self):
         if self.status != "Approved":
             return
