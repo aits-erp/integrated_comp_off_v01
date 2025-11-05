@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, format_date, get_datetime, get_link_to_form
+from frappe.utils import add_days, date_diff, format_date, get_datetime, get_link_to_form, getdate
 from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequest
 
 from real_group.doc_events.attendance import allocate_c_off, allocate_incentive, update_attendance_tag
@@ -21,32 +21,12 @@ class AttendanceRequestOverride(AttendanceRequest):
 
             if old_status != status:
                 # Update working hours by adding existing working hours with new working hours
-                working_hours = self.get_working_hours() + (doc.working_hours or 0)
-                working_hours_time = self.get_working_hours_time(working_hours)
-                doc.db_set(
-                    {
-                        "status": status,
-                        "attendance_request": self.name,
-                        "working_hours": working_hours_time,
-                        "custom_working_hours": working_hours_time,
-                    }
-                )
-                text = _("changed the status from {0} to {1} via Attendance Request").format(
-                    frappe.bold(old_status), frappe.bold(status)
-                )
-                doc.add_comment(comment_type="Info", text=text)
-                update_attendance_tag(doc)
-                allocate_c_off(doc)
-                allocate_incentive(doc)
-                frappe.msgprint(
-                    _("Updated status from {0} to {1} for date {2} in the attendance record {3}").format(
-                        frappe.bold(old_status),
-                        frappe.bold(status),
-                        frappe.bold(format_date(date)),
-                        get_link_to_form("Attendance", doc.name),
-                    ),
-                    title=_("Attendance Updated"),
-                )
+                self.update_existing_attendance(doc, old_status, status, date)
+            else:
+                if old_status == "Half Day" and status == "Half Day":
+                    status = "Present"
+                    self.update_existing_attendance(doc, old_status, status, date)
+
         else:
             # submit a new attendance record
             doc = frappe.new_doc("Attendance")
@@ -60,6 +40,34 @@ class AttendanceRequestOverride(AttendanceRequest):
             doc.working_hours = self.get_working_hours()
             doc.insert(ignore_permissions=True)
             doc.submit()
+
+    def update_existing_attendance(self, doc, old_status, status, date):
+        working_hours = self.get_working_hours() + (doc.working_hours or 0)
+        working_hours_time = self.get_working_hours_time(working_hours)
+        doc.db_set(
+            {
+                "status": status,
+                "attendance_request": self.name,
+                "working_hours": working_hours,
+                "custom_working_hours": working_hours_time,
+            }
+        )
+        text = _("changed the status from {0} to {1} via Attendance Request").format(
+            frappe.bold(old_status), frappe.bold(status)
+        )
+        doc.add_comment(comment_type="Info", text=text)
+        update_attendance_tag(doc)
+        allocate_c_off(doc)
+        allocate_incentive(doc)
+        frappe.msgprint(
+            _("Updated status from {0} to {1} for date {2} in the attendance record {3}").format(
+                frappe.bold(old_status),
+                frappe.bold(status),
+                frappe.bold(format_date(date)),
+                get_link_to_form("Attendance", doc.name),
+            ),
+            title=_("Attendance Updated"),
+        )
 
     def get_working_hours(self):
         from_time = get_datetime(f"{self.from_date} {self.custom_from_time}")
@@ -93,6 +101,25 @@ class AttendanceRequestOverride(AttendanceRequest):
 
         return True
 
+    def has_leave_record(self, attendance_date: str) -> str | None:
+        leave = frappe.db.exists(
+            "Leave Application",
+            {
+                "employee": self.employee,
+                "docstatus": 1,
+                "from_date": ("<=", attendance_date),
+                "to_date": (">=", attendance_date),
+            },
+        )
+        if leave:
+            leave = frappe.get_doc("Leave Application", leave, for_update=False)
+            if leave.half_day and (
+                getdate(leave.from_date) == getdate(leave.to_date)
+                or getdate(attendance_date) == getdate(leave.half_day_date)
+            ):
+                return False
+        return leave
+
     @frappe.whitelist()
     def get_attendance_warnings(self) -> list:
         attendance_warnings = []
@@ -118,3 +145,11 @@ class AttendanceRequestOverride(AttendanceRequest):
                     )
 
         return attendance_warnings
+
+    # TODO: Add override for on_cancel here
+    # 1. If there is leave application in the attendance then after cancelling attendance, it should be re-created
+    # for that leave application. (same goes for half day leave)
+    # 2. If attendance is created from the employee checkins, then after cancelling attendance, new attendance should
+    # be created from the checkins via. method from attendance_process.
+    # 3. If none of the above two conditions are met, then just cancel the attendance as usual and create attendance for
+    # Absent.

@@ -185,6 +185,8 @@ doc_events = {
         "before_cancel": ["real_group.doc_events.attendace_request.before_cancel"],
         "before_delete": ["real_group.doc_events.attendace_request.before_delete"],
         "before_insert": ["real_group.doc_events.attendace_request.before_insert"],
+        "on_cancel": ["real_group.doc_events.attendace_request.on_cancel"],
+        "on_submit": ["real_group.doc_events.attendace_request.on_submit"],
     },
     "Attendance": {
         "validate": ["real_group.doc_events.attendance.validate"],

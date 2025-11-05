@@ -170,7 +170,6 @@ def allocate_leaves_for_worked_days():
                 added_leaves = new_total - already_allocated
 
                 if added_leaves > 0:
-                    allocation_doc.total_leaves_allocated = new_total
                     allocation_doc.new_leaves_allocated = added_leaves
                     allocation_doc.save(ignore_permissions=True)
                     frappe.logger().info(
