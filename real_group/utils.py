@@ -45,15 +45,16 @@ def is_holiday_for_employee(employee: str, date, weekly_holiday_name=None):
             "parenttype": "Holiday List",
             "parentfield": "holidays",
         },
-        ["name", "weekly_off", "custom_unplanned", "custom_half_day"],
+        ["name", "custom_unplanned", "custom_half_day", "custom_half_type"],
     )
     if is_holiday:
         data = {
             "is_holiday": True,
             "holiday_name": is_holiday[0],
-            "is_weekly_off": is_holiday[1],
-            "is_unplanned_holiday": is_holiday[2],
-            "is_half_day": is_holiday[3],
+            "is_weekly_off": False,
+            "is_unplanned_holiday": is_holiday[1],
+            "is_half_day": is_holiday[2],
+            "half_type": is_holiday[3],
         }
         return data
     else:
@@ -74,6 +75,7 @@ def is_holiday_for_employee(employee: str, date, weekly_holiday_name=None):
                 "is_weekly_off": True,
                 "is_unplanned_holiday": False,
                 "is_half_day": False,
+                "half_type": None,
             }
             return data
 

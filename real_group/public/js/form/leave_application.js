@@ -3,6 +3,9 @@ frappe.ui.form.on("Leave Application", {
     if (frm.doc.half_day === 0) {
       frm.set_value("custom_half_type", "");
     }
+    if (frm.doc.half_day && frm.doc.to_date != frm.doc.from_date) {
+      frm.set_df_property("half_day_date", "reqd", 1);
+    }
   },
 
   leave_type: function (frm) {

@@ -49,4 +49,16 @@ frappe.ui.form.on("Attendance Request", {
       dialog.show();
     }
   },
+  half_day: (frm) => {
+    if (frm.doc.half_day && frm.doc.to_date == frm.doc.from_date) {
+      frm.set_value("half_day_date", frm.doc.from_date);
+    } else {
+      frm.set_value("half_day_date", null);
+    }
+  },
+  to_date: (frm) => {
+    if (frm.doc.half_day) {
+      frm.set_value("half_day_date", null);
+    }
+  },
 });
