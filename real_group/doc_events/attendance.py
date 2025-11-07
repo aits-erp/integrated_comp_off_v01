@@ -43,7 +43,13 @@ def update_attendance_tag(doc):
     elif doc.status == "Present" and not is_holiday:
         status = "P"
     elif doc.status == "Half Day":
-        status = "HD"
+        if is_holiday and is_holiday.get("is_holiday"):
+            if is_holiday.get("is_weekly_off"):
+                status = "WO"
+            else:
+                status = "HO"
+        else:
+            status = "HD"
     elif doc.status == "Absent":
         status = "A"
     elif is_holiday and is_holiday.get("is_holiday"):
@@ -137,6 +143,8 @@ def allocate_incentive(doc):
 
     shift_duration = convert_time_to_hours(shift.custom_shift_time)
 
+    if holiday and holiday.get("is_half_day") and hours <= (shift_duration / 2):
+        return
     if hours <= shift_duration:
         return
 
@@ -234,6 +242,9 @@ def allocate_c_off(doc):
         return
 
     shift_duration = convert_time_to_hours(shift.custom_shift_time)
+
+    if holiday and holiday.get("is_half_day") and hours <= (shift_duration / 2):
+        return
     if hours <= shift_duration:
         return
     c_matrix = frappe.db.exists(

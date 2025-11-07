@@ -1,7 +1,7 @@
 from datetime import time, timedelta
 
 import frappe
-from frappe.utils import get_time, getdate
+from frappe.utils import add_days, get_time, getdate
 from hrms.hr.utils import get_leave_allocations
 from pypika.functions import Count
 
@@ -30,6 +30,7 @@ def convert_time_to_hours(time_str: str | time) -> float:
     return seconds / 3600
 
 
+@frappe.whitelist()
 def is_holiday_for_employee(employee: str, date, weekly_holiday_name=None):
     from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
@@ -79,6 +80,18 @@ def is_holiday_for_employee(employee: str, date, weekly_holiday_name=None):
             }
             return data
 
+    return False
+
+
+@frappe.whitelist()
+def find_half_day(employee: str, from_date, to_date):
+    from_date = getdate(from_date)
+    to_date = getdate(to_date)
+    while from_date <= to_date:
+        half_day = is_holiday_for_employee(employee, from_date)
+        if half_day:
+            return from_date
+        from_date = add_days(from_date, 1)
     return False
 
 
