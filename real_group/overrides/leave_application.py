@@ -95,17 +95,24 @@ class LeaveApplicationOverride(LeaveApplication):
             day_status = status[d]
             if day_status == "full_holiday":
                 continue
+            elif apply_sandwich and day_status == "full_leave":
+                # If sandwich is applied and this date falls in sandwich block, mark as Absent
+                self.create_or_update_attendance(attendance_name, date_str, status="Absent")
             else:
-                self.create_or_update_attendance(attendance_name, date_str)
+                is_lwp = frappe.db.get_value("Leave Type", self.leave_type, "is_lwp")
+                status = (
+                    "Half Day"
+                    if self.half_day_date and getdate(date_str) == getdate(self.half_day_date)
+                    else "On Leave"
+                    if not is_lwp
+                    else "Absent"
+                )
+                self.create_or_update_attendance(attendance_name, date_str, status=status)
 
-    def create_or_update_attendance(self, attendance_name, date):
-        status = "Half Day" if self.half_day_date and getdate(date) == getdate(self.half_day_date) else "On Leave"
-
+    def create_or_update_attendance(self, attendance_name, date, status="On Leave"):
         if attendance_name:
             # update existing attendance, change absent to on leave
             doc = frappe.get_doc("Attendance", attendance_name)
-            if doc.status == "Half Day" and status == "Half Day":
-                status = "Present"
             doc.db_set(
                 {
                     "status": status,

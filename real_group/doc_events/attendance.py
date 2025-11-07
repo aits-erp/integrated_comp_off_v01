@@ -16,9 +16,22 @@ def validate(doc, method=None):
 
 
 def on_submit(doc, method=None):
+    update_attendance_status(doc)
     update_attendance_tag(doc)
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
     frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
+
+
+def update_attendance_status(doc):
+    if doc.leave_application and doc.status == "Half Day":
+        is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
+        is_lwp = frappe.get_value("Leave Type", doc.leave_type, "is_lwp")
+        if is_holiday and is_holiday.get("is_half_day"):
+            if is_lwp:
+                doc.status = "Absent"
+            else:
+                doc.status = "Present"
+            frappe.db.set_value("Attendance", doc.name, "status", doc.status)
 
 
 def update_attendance_tag(doc):
@@ -27,9 +40,9 @@ def update_attendance_tag(doc):
     is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
     grade = frappe.get_value("Employee", doc.employee, "grade")
     is_sandwich = frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag")
-    if doc.status == "On Leave":
+    if doc.status == "On Leave" or doc.leave_application:
         leave_type = frappe.get_doc("Leave Type", doc.leave_type)
-        if is_sandwich and is_holiday and is_holiday.get("is_holiday"):
+        if is_sandwich and is_holiday and is_holiday.get("is_holiday") and not is_holiday.get("is_half_day"):
             status = "A"
         elif leave_type.is_lwp:
             status = "LWP"
