@@ -6,6 +6,11 @@ def autoname(doc, method):
     series = frappe.db.get_value(
         "Employee Series", {"company": doc.company, "is_active": 1}, ["start", "end"], as_dict=1
     )
+    if not series:
+        frappe.throw(
+            f"No active Employee Series found for company {doc.company}. "
+            "Please create and activate an Employee Series."
+        )
     start_from = cint(series.start)
     ending_at = cint(series.end)
 

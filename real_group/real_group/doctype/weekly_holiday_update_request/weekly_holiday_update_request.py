@@ -5,6 +5,8 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import get_link_to_form, getdate
 
+from real_group.helper.attendance_helper import get_weekly_off
+
 
 class WeeklyHolidayUpdateRequest(Document):
     # begin: auto-generated types
@@ -39,6 +41,7 @@ class WeeklyHolidayUpdateRequest(Document):
     def validate(self):
         self.validate_date()
         self.validate_back_dated()
+        get_weekly_off.clear_cache()
 
     def validate_date(self):
         date = getdate(self.valid_from)

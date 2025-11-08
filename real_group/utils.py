@@ -1,7 +1,8 @@
-from datetime import time, timedelta
+from datetime import date, time, timedelta
 
 import frappe
-from frappe.utils import add_days, get_time, getdate
+from frappe.utils import add_days, date_diff, get_time, getdate
+from frappe.utils.caching import redis_cache
 from hrms.hr.utils import get_leave_allocations
 from pypika.functions import Count
 
@@ -36,7 +37,6 @@ def is_holiday_for_employee(employee: str, date, weekly_holiday_name=None):
 
     data = {}
     holiday_list = get_holiday_list_for_employee(employee)
-    weekly_holiday_list = frappe.get_value("Employee", employee, "custom_weekly_holiday_list")
 
     is_holiday = frappe.db.get_value(
         "Holiday",
@@ -59,10 +59,12 @@ def is_holiday_for_employee(employee: str, date, weekly_holiday_name=None):
         }
         return data
     else:
+        if not weekly_holiday_name:
+            weekly_holiday_name = get_weekly_off_based_on_date(employee, date)
         is_holiday = frappe.db.get_value(
             "Weekly Off Holiday",
             {
-                "parent": weekly_holiday_list if not weekly_holiday_name else weekly_holiday_name,
+                "parent": weekly_holiday_name,
                 "holiday_date": getdate(date),
                 "parenttype": "Weekly Off List",
                 "parentfield": "holidays",
@@ -95,24 +97,42 @@ def find_half_day(employee: str, from_date, to_date):
     return False
 
 
-def get_holiday_dates_for_employee(employee: str, from_date, to_date):
+def get_holiday_dates_for_employee(employee: str, from_date, to_date, weekly_holiday_name=None):
     from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
-    holiday_list = get_holiday_list_for_employee(employee)
-    weekly_holiday_list = frappe.get_value("Employee", employee, "custom_weekly_holiday_list")
+    from_date = getdate(from_date)
+    to_date = getdate(to_date)
 
+    # Get employee's base holiday list
+    holiday_list = get_holiday_list_for_employee(employee)
+
+    # Fetch static holidays from holiday list
     holidays = frappe.get_all(
         "Holiday",
         filters={"parent": holiday_list, "holiday_date": ("between", [from_date, to_date])},
         pluck="holiday_date",
         order_by="holiday_date",
     )
-    weekly_holidays = frappe.get_all(
-        "Weekly Off Holiday",
-        filters={"parent": weekly_holiday_list, "holiday_date": ("between", [from_date, to_date])},
-        pluck="holiday_date",
-        order_by="holiday_date",
-    )
+
+    # Now dynamically check weekly offs
+    weekly_holidays = []
+    total_days = date_diff(to_date, from_date) + 1
+
+    for i in range(total_days):
+        current_date = add_days(from_date, i)
+        weekly_off_name = get_weekly_off_based_on_date(employee, current_date)
+
+        if not weekly_off_name:
+            continue  # No weekly off defined for this date range or employee
+
+        # Fetch weekly off for that specific date
+        weekly_off = frappe.db.exists(
+            "Weekly Off Holiday",
+            {"parent": weekly_off_name, "holiday_date": current_date},
+        )
+        if weekly_off:
+            weekly_holidays.append(current_date)
+
     return list(set(holidays + weekly_holidays))
 
 
@@ -216,3 +236,21 @@ def get_actual_leave_balance_cf(employee: str, leave_type: str) -> float:
     )
 
     return sum(leaves)
+
+
+def get_weekly_off_based_on_date(employee: str, date: date | str):
+    if isinstance(date, str):
+        date = getdate(date)
+    weekly_list = get_weekly_off(employee)
+    # Sort by valid_from in descending order to find the most recent applicable one first
+    sorted_weekly_list = sorted(weekly_list, key=lambda w: w.valid_from, reverse=True)
+    for w in sorted_weekly_list:
+        if date >= w.valid_from:
+            return w.weekly_off
+    return frappe.db.get_value("Employee", employee, "custom_weekly_holiday_list", cache=True)
+
+
+@redis_cache()
+def get_weekly_off(employee: str):
+    offs = frappe.get_all("Weekly Holiday Update Request", filters={"employee": employee, "docstatus": 1}, fields=["*"])
+    return offs
