@@ -14,7 +14,7 @@ class EmployeeLeaveTransfer(Document):
     if TYPE_CHECKING:
         from frappe.types import DF
 
-        existing_leave_allocation: DF.Link | None
+        existing_leave_type: DF.Link | None
         expire: DF.Check
         new_leave_type: DF.Link | None
         number_of_leaves: DF.Float
