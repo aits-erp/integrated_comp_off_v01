@@ -148,6 +148,7 @@ override_doctype_class = {
     "Leave Policy Assignment": "real_group.overrides.leave_policy_assignment.LeavePolicyAssignmentOverride",
     "Leave Allocation": "real_group.overrides.leave_allocation.LeaveAllocationOverride",
     "Attendance Request": "real_group.overrides.attendance_request.AttendanceRequestOverride",
+    "Employee Transfer": "real_group.overrides.employee_transfer.EmployeeTransferOverride",
 }
 
 # Document Events
@@ -170,6 +171,7 @@ doc_events = {
             "real_group.doc_events.employee.after_insert",
         ],
         "on_update": ["real_group.real_group.integration.update_employee"],
+        "validate": ["real_group.doc_events.employee.validate"],
     },
     "Shift Type": {"validate": ["real_group.doc_events.shift_type.validate"]},
     "Employee Checkin": {

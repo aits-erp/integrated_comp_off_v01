@@ -1,7 +1,4 @@
 frappe.ui.form.on("Employee Transfer", {
-  refresh: function (frm) {
-    frm.fields_dict.custom_employee_leave.grid.grid_buttons.hide();
-  },
   employee: function (frm) {
     if (frm.doc.employee) {
       frm.trigger("reallocate_leaves");
@@ -12,10 +9,35 @@ frappe.ui.form.on("Employee Transfer", {
       frm.trigger("get_leave_info");
     }
   },
+  validate: function (frm) {
+    if (frm.doc.custom_employee_leave) {
+      frm.doc.custom_employee_leave.forEach(function (d) {
+        if (!d.expire) {
+          if (!d.number_of_leaves) {
+            frappe.validated = false;
+            frappe.msgprint({
+              title: __("Missing Value"),
+              message: __("Number of Leaves is required in row {0} of Employee Leave Transfer table.", [d.idx]),
+              indicator: "red",
+            });
+          }
+          if (!d.new_leave_type) {
+            frappe.validated = false;
+            frappe.msgprint({
+              title: __("Missing Value"),
+              message: __("New Leave Type is required in row {0} of Employee Leave Transfer table.", [d.idx]),
+              indicator: "red",
+            });
+          }
+        }
+      });
+    }
+  },
   get_leave_info: function (frm) {
     if (!frm.doc.employee) {
       frappe.throw(__("Please select an Employee first."));
     }
+
     frappe.call({
       method: "hrms.hr.doctype.leave_application.leave_application.get_leave_details",
       args: { employee: frm.doc.employee, date: frappe.datetime.get_today() },
@@ -35,28 +57,5 @@ frappe.ui.form.on("Employee Transfer", {
         }
       },
     });
-  },
-});
-
-frappe.ui.form.on("Employee Leave Transfer", {
-  expire: function (frm, cdt, cdn) {
-    console.log(cdt, cdn);
-    var row = locals[cdt][cdn];
-    if (row.expire) {
-      frm.fields_dict["custom_employee_leave"].grid.grid_rows_by_docname[cdn].toggle_editable(
-        "number_of_leaves",
-        false
-      );
-      frm.fields_dict["custom_employee_leave"].grid.grid_rows_by_docname[cdn].toggle_editable("new_leave_type", false);
-
-      frm.fields_dict["custom_employee_leave"].grid.grid_rows_by_docname[cdn].toggle_reqd("number_of_leaves", false);
-      frm.fields_dict["custom_employee_leave"].grid.grid_rows_by_docname[cdn].toggle_reqd("new_leave_type", false);
-    } else {
-      frm.fields_dict["custom_employee_leave"].grid.grid_rows_by_docname[cdn].toggle_editable("number_of_leaves", true);
-      frm.fields_dict["custom_employee_leave"].grid.grid_rows_by_docname[cdn].toggle_editable("new_leave_type", true);
-
-      frm.fields_dict["custom_employee_leave"].grid.grid_rows_by_docname[cdn].toggle_reqd("number_of_leaves", true);
-      frm.fields_dict["custom_employee_leave"].grid.grid_rows_by_docname[cdn].toggle_reqd("new_leave_type", true);
-    }
   },
 });
