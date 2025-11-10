@@ -181,6 +181,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
 
 
 def update_time(checkins: list):
+    checkins = sorted(checkins, key=lambda x: x["time"])
     for checkin in checkins:
         checkin._backup_time = checkin.time
         checkin.time = checkin.custom_processed_time

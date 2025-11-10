@@ -194,6 +194,9 @@ doc_events = {
     "Attendance": {
         "validate": ["real_group.doc_events.attendance.validate"],
         "on_submit": ["real_group.doc_events.attendance.on_submit"],
+        "before_cancel": ["real_group.doc_events.attendance.before_cancel"],
+        "before_delete": ["real_group.doc_events.attendance.before_delete"],
+        "on_cancel": ["real_group.doc_events.attendance.on_cancel"],
     },
     "User": {
         "after_insert": ["real_group.real_group.integration.create_user"],
@@ -213,6 +216,12 @@ doc_events = {
     },
     "Leave Type": {
         "validate": ["real_group.doc_events.leave_type.validate"],
+    },
+    "Leave Application": {
+        "validate": "real_group.doc_events.leave_application.validate",
+        "on_update": "real_group.doc_events.leave_application.on_update",
+        "before_cancel": "real_group.doc_events.leave_application.before_cancel",
+        "before_delete": "real_group.doc_events.leave_application.before_delete",
     },
 }
 

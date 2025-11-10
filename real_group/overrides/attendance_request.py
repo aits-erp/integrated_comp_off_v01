@@ -4,13 +4,10 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, date_diff, format_date, get_datetime, get_link_to_form, getdate
 from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequest
-from hrms.hr.doctype.employee_checkin.employee_checkin import update_attendance_in_checkins
 
 from real_group.doc_events.attendance import allocate_c_off, allocate_incentive, update_attendance_tag
 from real_group.helper.attendance_helper import (
-    get_attendance,
-    mark_attendance_and_link_log,
-    update_time,
+    create_attendance,
 )
 from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
@@ -62,9 +59,7 @@ class AttendanceRequestOverride(AttendanceRequest):
             frappe.bold(old_status), frappe.bold(status)
         )
         doc.add_comment(comment_type="Info", text=text)
-        update_attendance_tag(doc)
-        allocate_c_off(doc)
-        allocate_incentive(doc)
+        self.process_jobs_after_update(doc)
         frappe.msgprint(
             _("Updated status from {0} to {1} for date {2} in the attendance record {3}").format(
                 frappe.bold(old_status),
@@ -74,6 +69,11 @@ class AttendanceRequestOverride(AttendanceRequest):
             ),
             title=_("Attendance Updated"),
         )
+
+    def process_jobs_after_update(self, doc):
+        frappe.enqueue(update_attendance_tag, doc=doc, queue="long", enqueue_after_commit=True)
+        frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
+        frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
 
     def get_working_hours(self):
         from_time = get_datetime(f"{self.from_date} {self.custom_from_time}")
@@ -154,7 +154,6 @@ class AttendanceRequestOverride(AttendanceRequest):
 
         return attendance_warnings
 
-    # TODO: Add override for on_cancel here
     # 1. If there is leave application in the attendance then after cancelling attendance, it should be re-created
     # for that leave application. (same goes for half day leave)
     # 2. If attendance is created from the employee checkins, then after cancelling attendance, new attendance should
@@ -164,13 +163,11 @@ class AttendanceRequestOverride(AttendanceRequest):
     def on_cancel(self):
         attendance_list = frappe.get_all(
             "Attendance",
-            {"employee": self.employee, "attendance_request": self.name, "docstatus": 1},
+            filters={"employee": self.employee, "attendance_request": self.name, "docstatus": 1},
             fields=["name", "attendance_date", "status"],
         )
         from_date = getdate(self.from_date)
         to_date = getdate(self.to_date)
-
-        grade = frappe.db.get_value("Employee", self.employee, "grade")
 
         half_day_date = getdate(self.half_day_date) if self.half_day else None
         while from_date <= to_date:
@@ -185,6 +182,8 @@ class AttendanceRequestOverride(AttendanceRequest):
                 if attendance
                 else False
             )
+            if attendance:
+                frappe.db.set_value("Attendance", attendance.name, "docstatus", 2)
 
             # CASE 1: For leave
             leave = frappe.db.get_value(
@@ -198,145 +197,14 @@ class AttendanceRequestOverride(AttendanceRequest):
                 ["name", "leave_type", "half_day", "half_day_date", "custom_half_type", "from_date", "to_date"],
                 as_dict=True,
             )
-            if leave:
-                if leave.half_day:
-                    if getdate(leave.from_date) == getdate(leave.to_date) and attendance:
-                        # if checkins exist, that means attendance was created from checkins for half and half day leave
-                        # else if was created from attendance request
-                        if has_checkins:
-                            # First create hald day attendance for leave
-                            doc = frappe.get_doc(
-                                {
-                                    "doctype": "Attendance",
-                                    "employee": self.employee,
-                                    "attendance_date": from_date,
-                                    "status": "On Leave",
-                                    "custom_half_type": leave.custom_half_type,
-                                    "company": self.company,
-                                    "leave_application": leave.name,
-                                    "leave_type": leave.leave_type,
-                                }
-                            ).insert(ignore_permissions=True)
-                            doc.submit()
+            if leave and has_checkins:
+                self.create_leave_attendance(leave, from_date, half_day_date, has_checkins)
+            elif leave and not has_checkins:
+                self.create_leave_attendance(leave, from_date, half_day_date, False)
 
-                            # Now process the checkins to create attendance for present half day
-                            logs = sorted(has_checkins, key=lambda x: x["time"])
-                            logs = update_time(logs)
-                            shift = logs[0].shift if logs else None
-
-                            # Unlink old attendance from check-ins
-                            update_attendance_in_checkins([c.name for c in logs], "")
-
-                            # Recalculate attendance based on check-ins
-                            (
-                                attendance_status,
-                                working_hours,
-                                late_entry,
-                                early_exit,
-                                in_time,
-                                out_time,
-                            ) = get_attendance(logs, grade, shift)
-
-                            attendance = mark_attendance_and_link_log(
-                                logs,
-                                attendance_status,
-                                from_date,
-                                working_hours,
-                                late_entry,
-                                early_exit,
-                                in_time,
-                                out_time,
-                                shift,
-                            )
-                        else:
-                            doc = frappe.get_doc(
-                                {
-                                    "doctype": "Attendance",
-                                    "employee": self.employee,
-                                    "attendance_date": from_date,
-                                    "status": "On Leave",
-                                    "custom_half_type": leave.custom_half_type,
-                                    "company": self.company,
-                                    "leave_application": leave.name,
-                                    "leave_type": leave.leave_type,
-                                }
-                            ).insert(ignore_permissions=True)
-                            doc.submit()
-                    elif getdate(leave.from_date) == getdate(leave.to_date):
-                        # Create half day attendance for leave
-                        doc = frappe.get_doc(
-                            {
-                                "doctype": "Attendance",
-                                "employee": self.employee,
-                                "attendance_date": from_date,
-                                "status": "On Leave",
-                                "custom_half_type": leave.custom_half_type,
-                                "company": self.company,
-                                "leave_application": leave.name,
-                                "leave_type": leave.leave_type,
-                            }
-                        ).insert(ignore_permissions=True)
-                        doc.submit()
-                    elif half_day_date and getdate(half_day_date) == from_date:
-                        # Create half day attendance for leave
-                        doc = frappe.get_doc(
-                            {
-                                "doctype": "Attendance",
-                                "employee": self.employee,
-                                "attendance_date": from_date,
-                                "status": "On Leave",
-                                "custom_half_type": leave.custom_half_type,
-                                "company": self.company,
-                                "leave_application": leave.name,
-                                "leave_type": leave.leave_type,
-                            }
-                        ).insert(ignore_permissions=True)
-                        doc.submit()
-
-                else:
-                    doc = frappe.get_doc(
-                        {
-                            "doctype": "Attendance",
-                            "employee": self.employee,
-                            "attendance_date": from_date,
-                            "status": "On Leave",
-                            "company": self.company,
-                            "leave_application": leave.name,
-                            "leave_type": leave.leave_type,
-                        }
-                    ).insert(ignore_permissions=True)
-                    doc.submit()
             # CASE 2: For checkins
             elif has_checkins:
-                # Now process the checkins to create attendance for present half day
-                logs = sorted(has_checkins, key=lambda x: x["time"])
-                logs = update_time(logs)
-                shift = logs[0].shift if logs else None
-
-                # Unlink old attendance from check-ins
-                update_attendance_in_checkins([c.name for c in logs], "")
-
-                # Recalculate attendance based on check-ins
-                (
-                    attendance_status,
-                    working_hours,
-                    late_entry,
-                    early_exit,
-                    in_time,
-                    out_time,
-                ) = get_attendance(logs, grade, shift)
-
-                attendance = mark_attendance_and_link_log(
-                    logs,
-                    attendance_status,
-                    from_date,
-                    working_hours,
-                    late_entry,
-                    early_exit,
-                    in_time,
-                    out_time,
-                    shift,
-                )
+                create_attendance(self.employee, from_date, has_checkins)
             else:
                 doc = frappe.get_doc(
                     {
@@ -348,3 +216,39 @@ class AttendanceRequestOverride(AttendanceRequest):
                     }
                 ).insert(ignore_permissions=True)
                 doc.submit()
+            from_date = add_days(from_date, 1)
+
+    def create_leave_attendance(self, leave, from_date, half_day_date, has_checkins):
+        if leave.half_day:
+            if getdate(leave.from_date) == getdate(leave.to_date) or (
+                half_day_date and getdate(half_day_date) == from_date
+            ):
+                doc = frappe.get_doc(
+                    {
+                        "doctype": "Attendance",
+                        "employee": self.employee,
+                        "attendance_date": from_date,
+                        "status": "Half Day",
+                        "custom_half_type": leave.custom_half_type,
+                        "company": self.company,
+                        "leave_application": leave.name,
+                        "leave_type": leave.leave_type,
+                    }
+                ).insert(ignore_permissions=True)
+                doc.submit()
+                if has_checkins:
+                    # Now process the checkins to create attendance for present half day
+                    create_attendance(from_date, self.employee, has_checkins)
+        else:
+            doc = frappe.get_doc(
+                {
+                    "doctype": "Attendance",
+                    "employee": self.employee,
+                    "attendance_date": from_date,
+                    "status": "On Leave",
+                    "company": self.company,
+                    "leave_application": leave.name,
+                    "leave_type": leave.leave_type,
+                }
+            ).insert(ignore_permissions=True)
+            doc.submit()

@@ -101,6 +101,8 @@ frappe.ui.form.on("Attendance Request", {
         },
         callback: function (r) {
           if (r.message) {
+            const leaves = r.message;
+            if (leaves.length < 1) return;
             frm.dashboard.add_section(
               frappe.render_template("existing_leave.html", {
                 leaves: r.message || [],
