@@ -7,7 +7,7 @@ def validate(doc, method=None):
     validate_attendance(doc)
 
     if doc.reason == "Mis Punch":
-        if doc.from_date != doc.to_date:
+        if getdate(doc.from_date) != getdate(doc.to_date):
             frappe.throw(frappe._("Attendance Request for Mis Punch can be marked for single day only!!"))
 
 

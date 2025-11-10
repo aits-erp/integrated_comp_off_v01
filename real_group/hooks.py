@@ -228,7 +228,10 @@ scheduler_events = {
             "real_group.tasks.process_attendance_for_no_checkin_applicable.process",
             "real_group.real_group.notifications.send_birthday_wishes",
         ],
-        "* 0 * * *": ["real_group.tasks.update_weekly_off_in_employee.process"],
+        "* 0 * * *": [
+            "real_group.tasks.update_weekly_off_in_employee.process",
+            "real_group.tasks.update_weekly_off_list.process",
+        ],
         "0 3 * * *": ["real_group.tasks.process_attendance.process"],
         "59 23 * * *": ["real_group.tasks.process_attendance_for_single_checkin.process"],
         "0 14 * * *": ["real_group.utils.allocate_leaves_for_worked_days"],

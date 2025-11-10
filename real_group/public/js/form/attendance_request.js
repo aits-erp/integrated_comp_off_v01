@@ -1,3 +1,32 @@
+frappe.templates["existing_leave.html"] = `
+<div class="form-message yellow">
+  <div>{{__("There are existing leaves on the selected date range.")}}</div>
+</div>
+<table class="table table-bordered table-hover">
+  <thead>
+    <tr>
+      <th style="width: 20%">{{ __("Name") }}</th>
+      <th style="width: 20%">{{ __("From Date") }}</th>
+      <th style="width: 20%">{{ __("To Date") }}</th>
+      <th style="width: 20%">{{ __("Is Half Day") }}</th>
+      <th style="width: 20%">{{ __("Half Day Date") }}</th>
+      <th style="width: 20%">{{ __("Status") }}</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for(var i=0; i < leaves.length; i++) { %} <tr>
+      <td class="small"><a href="{{ frappe.utils.get_form_link("Leave Application",leaves[i].name) }}">{{ leaves[i].name }}</a></td>
+      <td class="small"> {{ __(leaves[i].from_date) }} </td>
+      <td class="small"> {{ __(leaves[i].to_date) }} </td>
+      <td class="small"> {{ __(leaves[i].half_day ? "Yes" : "No") }} </td>
+      <td class="small"> {{ __(leaves[i].half_day_date) }} </td>
+      <td class="small"> {{ __(leaves[i].status) }} </td>
+      </tr>
+      {% } %}
+  </tbody>
+</table>`;
+
 frappe.ui.form.on("Attendance Request", {
   before_workflow_action: (frm) => {
     if (frm.selected_workflow_action == "Reject") {
@@ -59,6 +88,28 @@ frappe.ui.form.on("Attendance Request", {
   to_date: (frm) => {
     if (frm.doc.half_day) {
       frm.set_value("half_day_date", null);
+    }
+  },
+  refresh: (frm) => {
+    if (frm.doc.from_date && frm.doc.to_date && frm.doc.employee) {
+      frappe.call({
+        method: "real_group.api.attendance_request.get_leave_on_dates",
+        args: {
+          employee: frm.doc.employee,
+          from_date: frm.doc.from_date,
+          to_date: frm.doc.to_date,
+        },
+        callback: function (r) {
+          if (r.message) {
+            frm.dashboard.add_section(
+              frappe.render_template("existing_leave.html", {
+                leaves: r.message || [],
+              }),
+              __("Existing Leaves")
+            );
+          }
+        },
+      });
     }
   },
 });

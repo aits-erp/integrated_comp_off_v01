@@ -18,17 +18,18 @@ class WeeklyOffList(Document):
     if TYPE_CHECKING:
         from frappe.types import DF
 
-        from real_group.real_group.doctype.weekly_holiday.weekly_holiday import WeeklyHoliday
+        from real_group.real_group.doctype.weekly_off_holiday.weekly_off_holiday import WeeklyOffHoliday
 
         from_date: DF.Date
         holiday_list_name: DF.Data
-        holidays: DF.Table[WeeklyHoliday]
+        holidays: DF.Table[WeeklyOffHoliday]
         to_date: DF.Date
         total_holidays: DF.Int
         weekly_off: DF.Literal["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     # end: auto-generated types
 
     def validate(self):
+        self.remove_duplicate_dates()
         self.validate_days()
         self.total_holidays = len(self.holidays)
         self.validate_duplicate_date()
@@ -100,3 +101,17 @@ class WeeklyOffList(Document):
                 )
 
             unique_dates.append(row.holiday_date)
+
+    @frappe.whitelist()
+    def remove_duplicate_dates(self):
+        """Removes duplicate dates from the holidays table."""
+        unique_holidays = []
+        seen_dates = set()
+
+        for holiday in self.get("holidays"):
+            if holiday.holiday_date not in seen_dates:
+                unique_holidays.append(holiday)
+                seen_dates.add(holiday.holiday_date)
+
+        self.set("holidays", unique_holidays)
+        self.sort_holidays()
