@@ -26,10 +26,11 @@ def monkey_patch():
 
     import hrms.hr.doctype.leave_application.leave_application as la
 
-    from real_group.api.overrides.leave_application import get_holidays, get_number_of_leave_days
+    from real_group.api.overrides.leave_application import get_holidays, get_leave_balance_on, get_number_of_leave_days
 
     la.get_holidays = get_holidays
     la.get_number_of_leave_days = get_number_of_leave_days
+    la.get_leave_balance_on = get_leave_balance_on
 
 
 monkey_patch()  # nosemgrep
