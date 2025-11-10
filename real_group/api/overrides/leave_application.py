@@ -1,7 +1,13 @@
 import datetime
 
 import frappe
-from frappe.utils import add_days, cint, flt, getdate
+from frappe.utils import add_days, cint, date_diff, flt, getdate, nowdate
+from hrms.hr.doctype.leave_application.leave_application import (
+    get_allocation_expiry_for_cf_leaves,
+    get_leave_allocation_records,
+    get_leaves_for_period,
+    get_new_and_cf_leaves_taken,
+)
 from hrms.hr.doctype.leave_application.leave_application import get_holidays as _get_holidays
 
 from real_group.utils import is_holiday_for_employee
@@ -36,19 +42,25 @@ def get_number_of_leave_days(
     """
     Return number of leave days considering:
       - half days
-      - holidays
-      - sandwich leave logic
+      - full-day or half-day holidays
+      - sandwich leave logic (only if enabled in Employee Grade)
 
     Rules:
-    - Holiday counted as leave only if it lies between *two full* leave days.
-    - Half-day at either end breaks sandwich.
+    - Full-day holiday counted as leave only if it lies between *two full* leave days (sandwich).
+    - Half-day holidays always count as 0.5 day unless sandwiched.
+    - Half-day leave at either end breaks sandwich.
     - Holidays on from/to dates are excluded.
-    - Consecutive holidays handled as one block.
     """
+
     from_date = getdate(from_date)
     to_date = getdate(to_date)
     half_day_date = getdate(half_day_date) if half_day_date else None
     is_half_day = cint(half_day) == 1
+
+    grade = frappe.db.get_value("Employee", employee, "grade")
+    apply_sandwich = False
+    if grade:
+        apply_sandwich = frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag") == 1
 
     # Build date range
     all_dates = []
@@ -57,26 +69,29 @@ def get_number_of_leave_days(
         all_dates.append(current)
         current = add_days(current, 1)
 
-    # Preload holidays for all dates in one go
-    holiday_flags = {}
+    # Preload holiday info for all dates
+    holiday_info = {}
     for d in all_dates:
         info = is_holiday_for_employee(employee, d) or {}
-        holiday_flags[d] = bool(info.get("is_holiday"))
+        holiday_info[d] = {
+            "is_holiday": bool(info.get("is_holiday")),
+            "is_half_day": bool(info.get("is_half_day")),
+        }
 
     # Assign status per date
     status = {}
     for d in all_dates:
         if is_half_day and half_day_date == d:
-            status[d] = "half"
-        elif holiday_flags.get(d):
-            status[d] = "holiday"
+            status[d] = "half_leave"
+        elif holiday_info[d]["is_holiday"]:
+            status[d] = "half_holiday" if holiday_info[d]["is_half_day"] else "full_holiday"
         else:
-            status[d] = "full"
+            status[d] = "full_leave"
 
-    # Holidays on start or end are never counted
-    if status.get(from_date) == "holiday":
+    # Holidays on start or end are never counted in sandwich
+    if status.get(from_date, "").startswith("full_holiday"):
         status[from_date] = "excluded"
-    if status.get(to_date) == "holiday":
+    if status.get(to_date, "").startswith("full_holiday"):
         status[to_date] = "excluded"
 
     total = 0.0
@@ -88,21 +103,27 @@ def get_number_of_leave_days(
         current_status = status[current_date]
 
         # --- FULL LEAVE ---
-        if current_status == "full":
+        if current_status == "full_leave":
             total += 1
             i += 1
             continue
 
         # --- HALF LEAVE ---
-        if current_status == "half":
+        if current_status == "half_leave":
             total += 0.5
             i += 1
             continue
 
-        # --- HOLIDAY(S) BLOCK ---
-        if current_status == "holiday":
+        # --- HALF HOLIDAY ---
+        if current_status == "half_holiday":
+            total += 0.5  # always counts half
+            i += 1
+            continue
+
+        # --- FULL HOLIDAY(S) BLOCK ---
+        if current_status == "full_holiday":
             block_start = i
-            while i < n and status[all_dates[i]] == "holiday":
+            while i < n and status[all_dates[i]] == "full_holiday":
                 i += 1
             block_end = i - 1
 
@@ -110,11 +131,9 @@ def get_number_of_leave_days(
             prev_date = add_days(all_dates[block_start], -1)
             next_date = add_days(all_dates[block_end], 1)
 
-            prev_full = prev_date in status and status[prev_date] == "full"
-            next_full = next_date in status and status[next_date] == "full"
-
-            # Only count block if *both* sides are full leaves
-            if prev_full and next_full:
+            prev_full = prev_date in status and status[prev_date] == "full_leave"
+            next_full = next_date in status and status[next_date] == "full_leave"
+            if apply_sandwich and prev_full and next_full:
                 total += block_end - block_start + 1
             continue
 
@@ -122,3 +141,120 @@ def get_number_of_leave_days(
         i += 1
 
     return flt(total)
+
+
+# Taken from upstream, since existing method does not handle manually expired allocations
+@frappe.whitelist()
+def get_leave_balance_on(
+    employee: str,
+    leave_type: str,
+    date: datetime.date,
+    to_date: datetime.date | None = None,
+    consider_all_leaves_in_the_allocation_period: bool = False,
+    for_consumption: bool = False,
+):
+    """
+    Returns leave balance till date
+    :param employee: employee name
+    :param leave_type: leave type
+    :param date: date to check balance on
+    :param to_date: future date to check for allocation expiry
+    :param consider_all_leaves_in_the_allocation_period: consider all leaves taken till the allocation end date
+    :param for_consumption: flag to check if leave balance is required for consumption or display
+            eg: employee has leave balance = 10 but allocation is expiring in 1 day so employee can only consume 1 leave
+            in this case leave_balance = 10 but leave_balance_for_consumption = 1
+            if True, returns a dict eg: {'leave_balance': 10, 'leave_balance_for_consumption': 1}
+            else, returns leave_balance (in this case 10)
+    """
+
+    if not to_date:
+        to_date = nowdate()
+
+    allocation_records = get_leave_allocation_records(employee, date, leave_type)
+    allocation = allocation_records.get(leave_type, frappe._dict())
+
+    end_date = allocation.to_date if cint(consider_all_leaves_in_the_allocation_period) else date
+    cf_expiry = get_allocation_expiry_for_cf_leaves(employee, leave_type, to_date, allocation.from_date)
+
+    leaves_taken = get_leaves_for_period(employee, leave_type, allocation.from_date, end_date)
+
+    manually_expired_leaves = get_manually_expired_leaves(employee, leave_type, allocation.from_date, end_date)
+
+    remaining_leaves = get_remaining_leaves(allocation, leaves_taken, date, cf_expiry, manually_expired_leaves)
+
+    if for_consumption:
+        return remaining_leaves
+    else:
+        return remaining_leaves.get("leave_balance")
+
+
+def get_remaining_leaves(
+    allocation: dict,
+    leaves_taken: float,
+    date: str,
+    cf_expiry: str,
+    manually_expired_leaves: float,
+) -> dict[str, float]:
+    """Returns a dict of leave_balance and leave_balance_for_consumption
+    leave_balance returns the available leave balance
+    leave_balance_for_consumption returns the minimum leaves remaining after comparing with remaining days for allocation expiry
+    """
+
+    def _get_remaining_leaves(remaining_leaves, end_date):
+        """Returns minimum leaves remaining after comparing with remaining days for allocation expiry"""
+        if remaining_leaves > 0:
+            remaining_days = date_diff(end_date, date) + 1
+            remaining_leaves = min(remaining_days, remaining_leaves)
+
+        return remaining_leaves
+
+    if cf_expiry and allocation.unused_leaves:
+        # allocation contains both carry forwarded and new leaves
+        new_leaves_taken, cf_leaves_taken = get_new_and_cf_leaves_taken(allocation, cf_expiry)
+
+        if getdate(date) > getdate(cf_expiry):
+            # carry forwarded leaves have expired
+            cf_leaves = remaining_cf_leaves = 0
+        else:
+            cf_leaves = flt(allocation.unused_leaves) + flt(cf_leaves_taken)
+            remaining_cf_leaves = _get_remaining_leaves(cf_leaves, cf_expiry)
+
+        # new leaves allocated - new leaves taken + cf leave balance
+        # Note: `new_leaves_taken` is added here because its already a -ve number in the ledger
+        leave_balance = (
+            (flt(allocation.new_leaves_allocated) + flt(new_leaves_taken))
+            + flt(cf_leaves)
+            + flt(manually_expired_leaves)
+        )
+        leave_balance_for_consumption = (
+            (flt(allocation.new_leaves_allocated) + flt(new_leaves_taken))
+            + flt(remaining_cf_leaves)
+            + flt(manually_expired_leaves)
+        )
+    else:
+        # allocation only contains newly allocated leaves
+        leave_balance = leave_balance_for_consumption = (
+            flt(allocation.total_leaves_allocated) + flt(leaves_taken) + flt(manually_expired_leaves)
+        )
+
+    remaining_leaves = _get_remaining_leaves(leave_balance_for_consumption, allocation.to_date)
+    return frappe._dict(leave_balance=leave_balance, leave_balance_for_consumption=remaining_leaves)
+
+
+def get_manually_expired_leaves(employee: str, leave_type: str, from_date: datetime.date, end_date: datetime.date):
+    ledger = frappe.qb.DocType("Leave Ledger Entry")
+
+    leaves = (
+        frappe.qb.from_(ledger)
+        .select(ledger.leaves)
+        .where(
+            (ledger.docstatus == 1)
+            & (ledger.employee == employee)
+            & (ledger.leave_type == leave_type)
+            & (ledger.from_date >= from_date)
+            & (ledger.to_date <= end_date)
+            & (ledger.transaction_type == "Leave Allocation")
+            & ((ledger.is_expired == 1) & (ledger.is_carry_forward == 0))
+        )
+    ).run()
+    return leaves[0][0] if leaves else 0.0

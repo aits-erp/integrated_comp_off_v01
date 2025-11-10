@@ -52,6 +52,7 @@ doctype_js = {
     "Salary Slip": "public/js/form/salary_slip.js",
     "Shift Type": "public/js/form/shift_type.js",
     "Leave Type": "public/js/form/leave_type.js",
+    "Employee Transfer": "public/js/form/employee_transfer.js",
 }
 doctype_list_js = {
     "Leave Application": "public/js/list/leave_application.js",
@@ -147,6 +148,7 @@ override_doctype_class = {
     "Leave Policy Assignment": "real_group.overrides.leave_policy_assignment.LeavePolicyAssignmentOverride",
     "Leave Allocation": "real_group.overrides.leave_allocation.LeaveAllocationOverride",
     "Attendance Request": "real_group.overrides.attendance_request.AttendanceRequestOverride",
+    "Employee Transfer": "real_group.overrides.employee_transfer.EmployeeTransferOverride",
 }
 
 # Document Events
@@ -169,6 +171,7 @@ doc_events = {
             "real_group.doc_events.employee.after_insert",
         ],
         "on_update": ["real_group.real_group.integration.update_employee"],
+        "validate": ["real_group.doc_events.employee.validate"],
     },
     "Shift Type": {"validate": ["real_group.doc_events.shift_type.validate"]},
     "Employee Checkin": {
@@ -225,6 +228,7 @@ scheduler_events = {
             "real_group.tasks.process_attendance_for_no_checkin_applicable.process",
             "real_group.real_group.notifications.send_birthday_wishes",
         ],
+        "* 0 * * *": ["real_group.tasks.update_weekly_off_in_employee.process"],
         "0 3 * * *": ["real_group.tasks.process_attendance.process"],
         "59 23 * * *": ["real_group.tasks.process_attendance_for_single_checkin.process"],
         "0 14 * * *": ["real_group.utils.allocate_leaves_for_worked_days"],
@@ -262,6 +266,7 @@ override_whitelisted_methods = {
     "frappe.core.doctype.user.user.update_password": "real_group.api.overrides.user.update_user_password",
     "hrms.hr.doctype.leave_application.leave_application.get_holidays": "real_group.api.overrides.leave_application.get_holidays",
     "hrms.hr.doctype.leave_application.leave_application.get_number_of_leave_days": "real_group.api.overrides.leave_application.get_number_of_leave_days",
+    "hrms.hr.doctype.leave_application.leave_application.get_leave_balance_on": "real_group.api.overrides.leave_application.get_leave_balance_on",
 }
 #
 # each overriding function accepts a `data` argument;

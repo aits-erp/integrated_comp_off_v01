@@ -3,7 +3,7 @@
 
 frappe.ui.form.on("Weekly Off List", {
   refresh: function (frm) {
-    if (frm.doc.holidays) {
+    if (frm.doc.holidays && frm.doc.holidays.length > 0) {
       frm.set_value("total_holidays", frm.doc.holidays.length);
       frm.set_df_property("weekly_off", "read_only", 1);
       frm.fields_dict.get_weekly_off_dates.toggle(false);

@@ -3,6 +3,9 @@ frappe.ui.form.on("Leave Application", {
     if (frm.doc.half_day === 0) {
       frm.set_value("custom_half_type", "");
     }
+    if (frm.doc.half_day && frm.doc.to_date != frm.doc.from_date) {
+      frm.set_df_property("half_day_date", "reqd", 1);
+    }
   },
 
   leave_type: function (frm) {
@@ -11,6 +14,56 @@ frappe.ui.form.on("Leave Application", {
     }
   },
 
+  to_date: function (frm) {
+    if (!frm.doc.from_date || !frm.doc.to_date || !frm.doc.employee) {
+      return;
+    }
+    if (frm.doc.to_date == frm.doc.from_date) {
+      frappe.call({
+        method: "real_group.utils.is_holiday_for_employee",
+        args: {
+          employee: frm.doc.employee,
+          date: frm.doc.to_date,
+        },
+        freeze: true,
+        callback: function (r) {
+          if (r.message) {
+            const data = r.message;
+            if (data.is_half_day) {
+              frm.set_value("half_day", 1);
+              frm.set_df_property("half_day", "read_only", 1);
+              frm.set_df_property("half_day", "description", " (Auto set as it is half day holiday on this date.)");
+            }
+          }
+        },
+      });
+    } else {
+      frappe.call({
+        method: "real_group.utils.find_half_day",
+        args: {
+          employee: frm.doc.employee,
+          from_date: frm.doc.from_date,
+          to_date: frm.doc.to_date,
+        },
+        freeze: true,
+        callback: function (r) {
+          if (r.message) {
+            const date = r.message;
+            if (date) {
+              frm.set_value("half_day", 1);
+              setInterval(() => {
+                frm.set_value("half_day_date", date);
+                frm.set_value("half_day_date", date);
+                frm.set_df_property("half_day_date", "read_only", 1);
+              }, 100);
+              frm.set_df_property("half_day", "read_only", 1);
+              frm.set_df_property("half_day", "description", " (Auto set as there is half day holiday in this range.)");
+            }
+          }
+        },
+      });
+    }
+  },
   before_workflow_action: (frm) => {
     if (frm.doc.custom_reject_reason === "") {
       frappe.throw("set reason");
