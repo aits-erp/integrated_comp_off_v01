@@ -7,7 +7,7 @@ from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequ
 from hrms.hr.doctype.employee_checkin.employee_checkin import update_attendance_in_checkins
 
 from real_group.doc_events.attendance import allocate_c_off, allocate_incentive, update_attendance_tag
-from real_group.tasks.process_attendance import (
+from real_group.helper.attendance_helper import (
     get_attendance,
     mark_attendance_and_link_log,
     update_time,

@@ -59,11 +59,10 @@ class ShortLeave(Document):
         self.update_attendance_on_short_leave_cancel()
 
     def update_attendance_on_short_leave_cancel(self):
-        from real_group.tasks.process_attendance import (
+        from real_group.helper.attendance_helper import (
             get_attendance,
             mark_attendance_and_link_log,
             mark_half_day_based_on_deduction_cycle,
-            update_status,
             update_time,
         )
         from real_group.utils import is_holiday_for_employee
@@ -130,5 +129,4 @@ class ShortLeave(Document):
                 out_time,
                 shift,
             )
-            update_status(attendance, attendance_status, holiday)
             mark_half_day_based_on_deduction_cycle(self.employee, allowed_late_day, deduction_cycle, attendance)
