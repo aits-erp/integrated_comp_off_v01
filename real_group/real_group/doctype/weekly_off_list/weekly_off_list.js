@@ -1,13 +1,17 @@
 // Copyright (c) 2025, rtCamp and contributors
 // For license information, please see license.txt
-
 frappe.ui.form.on("Weekly Off List", {
   refresh: function (frm) {
+    console.log("Weekly Off List form refreshed.");
     if (frm.doc.holidays && frm.doc.holidays.length > 0) {
       frm.set_value("total_holidays", frm.doc.holidays.length);
       frm.set_df_property("weekly_off", "read_only", 1);
       frm.fields_dict.get_weekly_off_dates.toggle(false);
+    } else {
+      frm.set_df_property("weekly_off", "read_only", 0);
+      frm.fields_dict.get_weekly_off_dates.toggle(true);
     }
+    frm.$wrapper.find('[data-fieldname="clear_table"]').remove();
   },
   from_date: function (frm) {
     if (frm.doc.from_date && !frm.doc.to_date) {
@@ -17,6 +21,15 @@ frappe.ui.form.on("Weekly Off List", {
   },
 });
 
+frappe.ui.form.on("Weekly Off Holiday", {
+  holidays_delete(frm, cdt, cdn) {
+    if (!frm.doc.holidays || frm.doc.holidays.length === 0) {
+      frm.set_df_property("weekly_off", "read_only", 0);
+      frm.set_value("total_holidays", frm.doc.holidays.length);
+      frm.fields_dict.get_weekly_off_dates.toggle(true);
+    }
+  },
+});
 frappe.tour["Weekly Off List"] = [
   {
     fieldname: "holiday_list_name",
