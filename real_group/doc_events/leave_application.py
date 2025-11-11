@@ -1,11 +1,12 @@
 import frappe
-from frappe.utils import add_days
+from frappe.utils import add_days, getdate
 
 
 def validate(doc, method=None):
     validate_compensation_leave(doc)
     validate_workflow_state(doc)
     validate_attendance(doc)
+    validate_cross_month_leave(doc)
 
 
 def on_update(doc, method=None):
@@ -90,6 +91,14 @@ def validate_attendance(doc):
                 frappe.throw(
                     frappe._("Attendance is already marked for the Employee {0} on {1}").format(doc.employee, date)
                 )
+
+
+def validate_cross_month_leave(doc):
+    from_date = getdate(doc.from_date)
+    to_date = getdate(doc.to_date)
+
+    if from_date.month != to_date.month or from_date.year != to_date.year:
+        frappe.throw(frappe._("Leave application cannot span across multiple months."))
 
 
 def assign_leave(doc):
