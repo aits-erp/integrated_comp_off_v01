@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import add_days, date_diff, getdate
+from frappe.utils import date_diff, getdate
 
 
 def validate(doc, method=None):
@@ -7,7 +7,7 @@ def validate(doc, method=None):
     validate_attendance(doc)
 
     if doc.reason == "Mis Punch":
-        if doc.from_date != doc.to_date:
+        if getdate(doc.from_date) != getdate(doc.to_date):
             frappe.throw(frappe._("Attendance Request for Mis Punch can be marked for single day only!!"))
 
 
@@ -77,19 +77,11 @@ def cancel_short_leaves(doc):
 
 
 def validate_attendance(doc):
-    from_date = getdate(doc.from_date)
-    to_date = getdate(doc.to_date)
-
-    range = []
-    while from_date <= to_date:
-        range.append(from_date)
-        from_date = add_days(from_date, 1)
-
     if frappe.db.exists(
         "Attendance",
         {
             "employee": doc.employee,
-            "attendance_date": ["in", range],
+            "attendance_date": ["between", [doc.from_date, doc.to_date]],
             "status": "Present",
             "docstatus": ["!=", 2],
         },

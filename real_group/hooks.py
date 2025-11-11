@@ -194,6 +194,9 @@ doc_events = {
     "Attendance": {
         "validate": ["real_group.doc_events.attendance.validate"],
         "on_submit": ["real_group.doc_events.attendance.on_submit"],
+        "before_cancel": ["real_group.doc_events.attendance.before_cancel"],
+        "before_delete": ["real_group.doc_events.attendance.before_delete"],
+        "on_cancel": ["real_group.doc_events.attendance.on_cancel"],
     },
     "User": {
         "after_insert": ["real_group.real_group.integration.create_user"],
@@ -214,6 +217,12 @@ doc_events = {
     "Leave Type": {
         "validate": ["real_group.doc_events.leave_type.validate"],
     },
+    "Leave Application": {
+        "validate": "real_group.doc_events.leave_application.validate",
+        "on_update": "real_group.doc_events.leave_application.on_update",
+        "before_cancel": "real_group.doc_events.leave_application.before_cancel",
+        "before_delete": "real_group.doc_events.leave_application.before_delete",
+    },
 }
 
 # Scheduled Tasks
@@ -228,7 +237,10 @@ scheduler_events = {
             "real_group.tasks.process_attendance_for_no_checkin_applicable.process",
             "real_group.real_group.notifications.send_birthday_wishes",
         ],
-        "* 0 * * *": ["real_group.tasks.update_weekly_off_in_employee.process"],
+        "* 0 * * *": [
+            "real_group.tasks.update_weekly_off_in_employee.process",
+            "real_group.tasks.update_weekly_off_list.process",
+        ],
         "0 3 * * *": ["real_group.tasks.process_attendance.process"],
         "59 23 * * *": ["real_group.tasks.process_attendance_for_single_checkin.process"],
         "0 14 * * *": ["real_group.utils.allocate_leaves_for_worked_days"],

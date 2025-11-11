@@ -11,7 +11,7 @@ from hrms.hr.doctype.leave_application.leave_application import (
     is_lwp,
 )
 
-from real_group.doc_events.attendance import update_attendance_tag
+from real_group.doc_events.attendance import allocate_c_off, allocate_incentive, update_attendance_tag
 from real_group.helper.attendance_helper import create_attendance
 from real_group.utils import get_actual_leave_balance_cf, get_holiday_dates_for_employee, is_holiday_for_employee
 
@@ -27,6 +27,11 @@ class LeaveApplicationOverride(LeaveApplication):
             frappe.throw(
                 _("Leave cannot be applied before employee's joining date: {0}").format(format_date(joining_date))
             )
+
+    def process_jobs_after_update(self, doc):
+        frappe.enqueue(update_attendance_tag, doc=doc, queue="long", enqueue_after_commit=True)
+        frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
+        frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
 
     def update_attendance(self):
         if self.status != "Approved":
@@ -123,7 +128,7 @@ class LeaveApplicationOverride(LeaveApplication):
                     else None,
                 }
             )
-            update_attendance_tag(doc)
+            self.process_jobs_after_update(doc)
         else:
             # make new attendance and submit it
             doc = frappe.new_doc("Attendance")

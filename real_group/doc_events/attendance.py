@@ -20,12 +20,71 @@ def validate(doc, method=None):
         doc.custom_working_hours = None
 
 
+def before_cancel(doc, method=None):
+    if is_salary_processed(doc):
+        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."))
+
+
+def on_cancel(doc, method=None):
+    cancel_incentive_or_c_off(doc)
+
+
+def before_delete(doc, method=None):
+    if is_salary_processed(doc):
+        frappe.throw(frappe._("Cannot delete: Salary for this period has already been submitted."))
+
+
 def on_submit(doc, method=None):
     update_attendance_status(doc)
     update_attendance_tag(doc)
     frappe.enqueue(sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True)
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
     frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
+
+
+def is_salary_processed(doc):
+    return frappe.db.exists(
+        "Salary Slip",
+        {
+            "employee": doc.employee,
+            "start_date": ["<=", doc.attendance_date],
+            "end_date": [">=", doc.attendance_date],
+            "docstatus": 1,
+        },
+    )
+
+
+def cancel_incentive_or_c_off(doc):
+    c_offs = frappe.db.get_all(
+        "Compensatory Leave Request",
+        filters={
+            "employee": doc.employee,
+            "work_from_date": doc.attendance_date,
+            "docstatus": 1,
+        },
+    )
+    for c_off in c_offs:
+        c_off_doc = frappe.get_doc("Compensatory Leave Request", c_off.name)
+        c_off_doc.cancel()
+
+    incentive_logs = frappe.db.get_all(
+        "Incentive Log",
+        filters={
+            "employee": doc.employee,
+            "work_date": doc.attendance_date,
+            "docstatus": 1,
+        },
+    )
+    for incentive_log in incentive_logs:
+        incentive_log_doc = frappe.get_doc("Incentive Log", incentive_log.name)
+        incentive_log_doc.cancel()
+        additional_salary = frappe.db.get_value(
+            "Additional Salary",
+            {"employee": doc.employee, "custom_incentive_reference": incentive_log_doc.name, "docstatus": 1},
+        )
+        if additional_salary:
+            additional_salary_doc = frappe.get_doc("Additional Salary", additional_salary)
+            additional_salary_doc.cancel()
 
 
 def update_attendance_status(doc):
