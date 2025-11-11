@@ -153,35 +153,36 @@ def update_attendance_tag(doc):
 
 
 def allocate_incentive(doc):
-    def _create_additional_salary(employee: str, amount):
+    def _create_additional_salary(employee: str, amount, incentive_log_name):
         new_additional_salary = frappe.get_doc(
             dict(
                 doctype="Additional Salary",
                 employee=employee,
                 payroll_date=get_last_day(getdate()),
                 salary_component="Incentives",
-                leave_type="Compensatory Off",
                 amount=amount,
+                custom_incentive_reference=incentive_log_name,
             )
         )
         new_additional_salary.insert(ignore_permissions=True)
         new_additional_salary.submit()
 
-    def _create_incentive_log(employee: str, amount, from_date, to_date, work_date, status):
+    def _create_incentive_log(employee: str, amount, from_date, to_date, work_date, status, hours_worked):
         incentive_log = frappe.get_doc(
             dict(
                 doctype="Incentive Log",
                 employee=employee,
                 from_date=from_date,
                 to_date=to_date,
-                leave_type="Compensatory Off",
                 incentive=amount,
                 work_date=work_date,
                 status=status,
+                extra_worked_hours=hours_worked,
             )
         )
         incentive_log.insert(ignore_permissions=True)
         incentive_log.submit()
+        return incentive_log
 
     def round_incentive(amount):
         return (amount // 25) * 25
@@ -286,8 +287,10 @@ def allocate_incentive(doc):
 
     additional_incentive = round_incentive(additional_incentive)
 
-    _create_additional_salary(employee.name, additional_incentive)
-    _create_incentive_log(employee.name, additional_incentive, month_start, month_end, doc.attendance_date, status)
+    incentive_log = _create_incentive_log(
+        employee.name, additional_incentive, month_start, month_end, doc.attendance_date, status, worked_hrs_in_delta
+    )
+    _create_additional_salary(employee.name, additional_incentive, incentive_log.name)
 
 
 def allocate_c_off(doc):
@@ -359,6 +362,7 @@ def allocate_c_off(doc):
             "status": f"{status}:{diff}",
             "expiry": add_days(getdate(doc.attendance_date), grade_doc.custom_comp_off_validity),
             "reason": status,
+            "custom_extra_work_hours": worked_hrs_in_delta,
         }
     )
     comp_off.insert(ignore_permissions=True, ignore_if_duplicate=True)
