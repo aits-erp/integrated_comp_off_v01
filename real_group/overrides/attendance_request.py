@@ -2,10 +2,16 @@ from datetime import timedelta
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, format_date, get_datetime, get_link_to_form, getdate
+from frappe.utils import add_days, date_diff, format_date, get_timedelta, getdate
 from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequest
 
-from real_group.doc_events.attendance import allocate_c_off, allocate_incentive, update_attendance_tag
+from real_group.doc_events.attendance import (
+    allocate_c_off,
+    allocate_incentive,
+    revert_sandwich_attendance,
+    sandwich_attendance,
+    update_attendance_tag,
+)
 from real_group.helper.attendance_helper import (
     create_attendance,
 )
@@ -16,71 +22,45 @@ class AttendanceRequestOverride(AttendanceRequest):
     def create_or_update_attendance(self, date: str):
         attendance_name = self.get_attendance_record(date)
         status = self.get_attendance_status(date)
-
+        attendance = None
         if attendance_name:
-            # update existing attendance, change the status
-            doc = frappe.get_doc("Attendance", attendance_name)
-            old_status = doc.status
+            old_status = frappe.db.get_value("Attendance", attendance_name, "status")
 
-            if old_status != status:
-                # Update working hours by adding existing working hours with new working hours
-                self.update_existing_attendance(doc, old_status, status, date)
-            else:
-                if old_status == "Half Day" and status == "Half Day":
-                    status = "Present"
-                    self.update_existing_attendance(doc, old_status, status, date)
+            if old_status == status and old_status == "Half Day" and status == "Half Day":
+                status = "Present"
+            # Need to create new record, so cancel the existing one
+            frappe.db.set_value("Attendance", attendance_name, "docstatus", 2)
+            attendance = frappe.get_doc("Attendance", attendance_name)
 
+        if attendance:
+            doc = frappe.copy_doc(attendance)
         else:
-            # submit a new attendance record
             doc = frappe.new_doc("Attendance")
-            doc.employee = self.employee
-            doc.attendance_date = date
-            doc.shift = self.shift
-            doc.company = self.company
-            doc.attendance_request = self.name
-            doc.status = status
-            # Update working hours
-            doc.working_hours = self.get_working_hours()
-            doc.insert(ignore_permissions=True)
-            doc.submit()
 
-    def update_existing_attendance(self, doc, old_status, status, date):
-        working_hours = self.get_working_hours() + (doc.working_hours or 0)
-        working_hours_time = self.get_working_hours_time(working_hours)
-        doc.db_set(
+        doc.update(
             {
-                "status": status,
+                "employee": self.employee,
+                "attendance_date": date,
+                "shift": self.shift,
+                "company": self.company,
                 "attendance_request": self.name,
-                "working_hours": working_hours,
-                "custom_working_hours": working_hours_time,
+                "status": status,
+                "working_hours": doc.working_hours + self.get_working_hours(),
             }
         )
-        text = _("changed the status from {0} to {1} via Attendance Request").format(
-            frappe.bold(old_status), frappe.bold(status)
-        )
-        doc.add_comment(comment_type="Info", text=text)
-        self.process_jobs_after_update(doc)
-        frappe.msgprint(
-            _("Updated status from {0} to {1} for date {2} in the attendance record {3}").format(
-                frappe.bold(old_status),
-                frappe.bold(status),
-                frappe.bold(format_date(date)),
-                get_link_to_form("Attendance", doc.name),
-            ),
-            title=_("Attendance Updated"),
-        )
+        doc.insert(ignore_permissions=True)
+        doc.submit()
 
     def process_jobs_after_update(self, doc):
+        frappe.enqueue(sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True)
+        frappe.enqueue(revert_sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True)
         frappe.enqueue(update_attendance_tag, doc=doc, queue="long", enqueue_after_commit=True)
         frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
         frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
 
     def get_working_hours(self):
-        from_time = get_datetime(f"{self.from_date} {self.custom_from_time}")
-        to_time = get_datetime(f"{self.to_date} {self.custom_to_time}")
-        delta = to_time - from_time
-        working_hours = convert_time_to_hours(delta)
-        return working_hours
+        delta = get_timedelta(self.custom_to_time) - get_timedelta(self.custom_from_time)
+        return convert_time_to_hours(delta)
 
     def get_working_hours_time(self, hours: float):
         total_seconds = round(hours * 3600 / 60) * 60

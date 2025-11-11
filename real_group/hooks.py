@@ -187,7 +187,6 @@ doc_events = {
         "validate": ["real_group.doc_events.attendace_request.validate"],
         "before_cancel": ["real_group.doc_events.attendace_request.before_cancel"],
         "before_delete": ["real_group.doc_events.attendace_request.before_delete"],
-        "before_insert": ["real_group.doc_events.attendace_request.before_insert"],
         "on_cancel": ["real_group.doc_events.attendace_request.on_cancel"],
         "on_submit": ["real_group.doc_events.attendace_request.on_submit"],
     },
@@ -197,6 +196,7 @@ doc_events = {
         "before_cancel": ["real_group.doc_events.attendance.before_cancel"],
         "before_delete": ["real_group.doc_events.attendance.before_delete"],
         "on_cancel": ["real_group.doc_events.attendance.on_cancel"],
+        "on_update": ["real_group.doc_events.attendance.on_update"],
     },
     "User": {
         "after_insert": ["real_group.real_group.integration.create_user"],

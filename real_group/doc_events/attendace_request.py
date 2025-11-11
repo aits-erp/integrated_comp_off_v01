@@ -11,27 +11,6 @@ def validate(doc, method=None):
             frappe.throw(frappe._("Attendance Request for Mis Punch can be marked for single day only!!"))
 
 
-def before_insert(doc, method=None):
-    from frappe.desk.doctype.bulk_update.bulk_update import submit_cancel_or_update_docs
-
-    start_date = doc.from_date
-    end_date = doc.to_date
-
-    names = frappe.db.get_values(
-        "Attendance Request",
-        {
-            "employee": doc.employee,
-            "from_date": [">=", start_date],
-            "to_date": ["<=", end_date],
-            "docstatus": ["!=", 2],
-        },
-        fieldname="name",
-        pluck=True,
-    )
-    if names:
-        submit_cancel_or_update_docs("Attendance Request", names, "cancel")
-
-
 def before_cancel(doc, method=None):
     if is_salary_processed(doc):
         frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."))
