@@ -11,5 +11,6 @@ def execute():
         "Leave Application",
         "Update Leave Allocation",
         "Leave Application Validation",
+        "Set Employee Attendance ID",
     ]
     frappe.db.delete("Server Script", {"name": ("in", names)})
