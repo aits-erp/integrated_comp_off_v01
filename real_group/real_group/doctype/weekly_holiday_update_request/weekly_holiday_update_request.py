@@ -7,6 +7,16 @@ from frappe.utils import get_link_to_form, getdate
 
 from real_group.utils import get_weekly_off
 
+DAY_MAPPING = {
+    "Sunday": "SUN",
+    "Monday": "MON",
+    "Tuesday": "TUE",
+    "Wednesday": "WED",
+    "Thursday": "THU",
+    "Friday": "FRI",
+    "Saturday": "SAT",
+}
+
 
 class WeeklyHolidayUpdateRequest(Document):
     # begin: auto-generated types
@@ -34,8 +44,11 @@ class WeeklyHolidayUpdateRequest(Document):
         self.update_weekly_off_in_employee()
 
     def update_weekly_off_in_employee(self):
+        weekly_off = frappe.get_value("Weekly Off List", self.weekly_off, "weekly_off")
+        off = DAY_MAPPING.get(weekly_off)
         employee = frappe.get_doc("Employee", self.employee)
         employee.custom_weekly_holiday_list = self.weekly_off
+        employee.custom_off_days = off
         employee.save()
 
     def validate(self):
