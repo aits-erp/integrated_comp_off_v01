@@ -28,6 +28,23 @@ frappe.templates["existing_leave.html"] = `
 </table>`;
 
 frappe.ui.form.on("Attendance Request", {
+  custom_from_time: (frm) => {
+    if (!frm.doc.from_date || !frm.doc.employee || !frm.doc.custom_from_time) return;
+    frappe.call({
+      method: "real_group.api.attendance_request.closest_shift_for_time",
+      args: {
+        time: frm.doc.custom_from_time,
+        date: frm.doc.from_date,
+        employee: frm.doc.employee,
+      },
+      callback: function (r) {
+        if (r.message) {
+          frm.set_value("shift", r.message);
+          frm.set_df_property("shift", "read_only", 1);
+        }
+      },
+    });
+  },
   before_workflow_action: (frm) => {
     if (frm.selected_workflow_action == "Reject") {
       let dialog = new frappe.ui.Dialog({
