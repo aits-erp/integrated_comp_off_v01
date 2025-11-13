@@ -1,9 +1,10 @@
 import frappe
-from frappe.utils import date_diff, getdate
+from frappe.utils import date_diff, get_link_to_form, getdate
 
 
 def validate(doc, method=None):
     validate_change_request_day(doc)
+    validate_date(doc)
     validate_attendance(doc)
 
     if doc.reason == "Mis Punch":
@@ -53,6 +54,37 @@ def cancel_short_leaves(doc):
         for sl in short_leaves:
             sl_doc = frappe.get_doc("Short Leave", sl)
             sl_doc.cancel()
+
+
+def validate_date(doc):
+    leave = frappe.db.exists(
+        "Leave Application",
+        {
+            "employee": doc.employee,
+            "from_date": ["<=", doc.to_date],
+            "to_date": [">=", doc.from_date],
+            "docstatus": ["!=", 2],
+        },
+    )
+    if leave:
+        leave = frappe.get_doc("Leave Application", leave)
+        if leave.docstatus == 1 and not leave.half_day:
+            frappe.throw(
+                frappe._(
+                    "Leave Application {0} exists for the selected date range. Attendance Request cannot be processed."
+                ).format(get_link_to_form("Leave Application", leave.name))
+            )
+        if (
+            leave.half_day_date
+            and doc.half_day_date
+            and getdate(leave.half_day_date) == getdate(doc.half_day_date)
+            and leave.custom_half_type == doc.custom_half_type
+        ):
+            frappe.throw(
+                frappe._(
+                    "Leave Application {0} exists for the selected half day. Attendance Request cannot be processed."
+                ).format(get_link_to_form("Leave Application", leave.name))
+            )
 
 
 def validate_attendance(doc):

@@ -103,6 +103,14 @@ def update_attendance_status(doc):
                 doc.status = "Present"
             frappe.db.set_value("Attendance", doc.name, "status", doc.status)
 
+        if doc.attendance_request:
+            request_half_day_date = frappe.get_value("Attendance Request", doc.attendance_request, "half_day_date")
+            leave_half_date = frappe.get_value("Leave Application", doc.leave_application, "half_day_date")
+            if request_half_day_date and leave_half_date and getdate(request_half_day_date) == getdate(leave_half_date):
+                doc.status = "Present"
+
+        frappe.db.set_value("Attendance", doc.name, "status", doc.status)
+
 
 def update_attendance_tag(doc):
     status = ""
