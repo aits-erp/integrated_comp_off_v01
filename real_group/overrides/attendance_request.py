@@ -5,13 +5,6 @@ from frappe import _
 from frappe.utils import add_days, date_diff, format_date, get_timedelta, getdate
 from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequest
 
-from real_group.doc_events.attendance import (
-    allocate_c_off,
-    allocate_incentive,
-    revert_sandwich_attendance,
-    sandwich_attendance,
-    update_attendance_tag,
-)
 from real_group.helper.attendance_helper import (
     create_attendance,
 )
@@ -29,7 +22,8 @@ class AttendanceRequestOverride(AttendanceRequest):
             if old_status == status and old_status == "Half Day" and status == "Half Day":
                 status = "Present"
             # Need to create new record, so cancel the existing one
-            frappe.db.set_value("Attendance", attendance_name, "docstatus", 2)
+            old_attendance = frappe.get_doc("Attendance", attendance_name)
+            old_attendance.cancel()
             attendance = frappe.get_doc("Attendance", attendance_name)
 
         if attendance:
@@ -50,13 +44,6 @@ class AttendanceRequestOverride(AttendanceRequest):
         )
         doc.insert(ignore_permissions=True)
         doc.submit()
-
-    def process_jobs_after_update(self, doc):
-        frappe.enqueue(sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True)
-        frappe.enqueue(revert_sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True)
-        frappe.enqueue(update_attendance_tag, doc=doc, queue="long", enqueue_after_commit=True)
-        frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
-        frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
 
     def get_working_hours(self):
         delta = get_timedelta(self.custom_to_time) - get_timedelta(self.custom_from_time)
@@ -163,7 +150,8 @@ class AttendanceRequestOverride(AttendanceRequest):
                 else False
             )
             if attendance:
-                frappe.db.set_value("Attendance", attendance.name, "docstatus", 2)
+                old_attendance = frappe.get_doc("Attendance", attendance.name)
+                old_attendance.cancel()
 
             # CASE 1: For leave
             leave = frappe.db.get_value(
