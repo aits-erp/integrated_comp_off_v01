@@ -21,7 +21,7 @@ def validate(doc, method=None):
 
 
 def on_update(doc, method=None):
-    revert_sandwich_attendance(doc)
+    frappe.enqueue(revert_sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True)
 
 
 def before_cancel(doc, method=None):
@@ -418,10 +418,10 @@ def sandwich_attendance(doc):
     for _date in to_mark_absent:
         attendance = frappe.db.exists("Attendance", {"employee": doc.employee, "attendance_date": _date})
         if attendance:
-            doc = frappe.get_doc("Attendance", attendance)
-            if doc.status == "Absent" and doc.custom_marked_absent_by_sandwich:
+            attendance = frappe.get_doc("Attendance", attendance)
+            if attendance.status == "Absent" and attendance.custom_marked_absent_by_sandwich:
                 continue
-            doc.cancel()
+            attendance.cancel()
         new_attendance = frappe.get_doc(
             {
                 "doctype": "Attendance",
