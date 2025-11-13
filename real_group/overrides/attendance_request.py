@@ -39,7 +39,7 @@ class AttendanceRequestOverride(AttendanceRequest):
                 "company": self.company,
                 "attendance_request": self.name,
                 "status": status,
-                "working_hours": doc.working_hours + self.get_working_hours(),
+                "working_hours": self.get_working_hours(),
             }
         )
         doc.insert(ignore_permissions=True)
