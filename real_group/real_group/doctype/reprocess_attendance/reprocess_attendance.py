@@ -1,11 +1,10 @@
 # Copyright (c) 2024, Step Tech and contributors
 # For license information, please see license.txt
 
-from datetime import datetime
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import add_days, get_datetime, get_last_day, get_link_to_form, getdate
+from frappe.utils import add_days, get_datetime, get_link_to_form, getdate
 
 from real_group.tasks.process_attendance import process as _process_attendance
 from real_group.utils import is_holiday_for_employee
@@ -21,73 +20,94 @@ class ReprocessAttendance(Document):
         from frappe.types import DF
 
         amended_from: DF.Link | None
-        branch: DF.Link | None
+        branch: DF.Link
         company: DF.Link
         department: DF.Link | None
         division: DF.Link | None
         employee: DF.Link
-        month: DF.Literal["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        from_date: DF.Date
         reprocess_attendance_bulk: DF.Link | None
         status: DF.Literal["Draft", "In Progress", "Completed", "Error"]
-        year: DF.Literal["", "2023", "2024"]
+        to_date: DF.Date
     # end: auto-generated types
 
+    def validate(self):
+        self.validate_dates()
+        self.validate_salary_slip(*self.get_dates())
+
+    def before_submit(self):
+        from_date, to_date = self.get_dates()
+        self.validate_salary_slip(from_date, to_date)
+
+    def on_submit(self):
+        self.process_removal()
+        self.reprocess()
+
+    def get_leave_applications(self, from_date, to_date):
+        leave_applications = frappe.get_all(
+            "Leave Application",
+            filters={
+                "employee": self.employee,
+                "from_date": ["between", [from_date, to_date]],
+                "to_date": ["between", [from_date, to_date]],
+                "docstatus": 1,
+            },
+            pluck="name",
+        )
+        return leave_applications
+
+    def get_requests(self, from_date, to_date):
+        attendance_requests = frappe.get_all(
+            "Attendance Request",
+            filters={
+                "employee": self.employee,
+                "from_date": ["between", [from_date, to_date]],
+                "to_date": ["between", [from_date, to_date]],
+                "docstatus": 1,
+            },
+            pluck="name",
+        )
+        return attendance_requests
+
+    def validate_dates(self):
+        from_date, to_date = self.get_dates()
+        if from_date > to_date:
+            frappe.throw(frappe._("From Date cannot be greater than To Date"))
+        if to_date > getdate():
+            frappe.throw(frappe._("To Date cannot be greater than today's date"))
+
     def get_dates(self):
-        month = datetime.strptime(self.month, "%b").month
-        year = int(self.year)
-        from_date = datetime(year, month, 1).date()
-        to_date = get_last_day(from_date)
-        return from_date, to_date
+        return getdate(self.from_date), getdate(self.to_date)
 
     def validate_salary_slip(self, from_date, to_date):
-        Salary_Slip = frappe.qb.DocType("Salary Slip")
-        query = (
-            frappe.qb.from_(Salary_Slip)
-            .select(Salary_Slip.name, Salary_Slip.employee, Salary_Slip.start_date, Salary_Slip.end_date)
-            .where((Salary_Slip.start_date <= from_date) & (Salary_Slip.end_date >= to_date))
+        salary_exists = frappe.db.exists(
+            "Salary Slip",
+            {
+                "employee": self.employee,
+                "start_date": ["<=", from_date],
+                "end_date": [">=", to_date],
+                "docstatus": ["!=", 2],
+            },
         )
-        result = query.run(as_dict=True)
-
-        if result and len(result) > 0:
+        if salary_exists:
             frappe.throw(
                 frappe._("Salary Slip(s) exist for the selected period: {0}").format(
-                    ", ".join([get_link_to_form("Salary Slip", r.name) for r in result])
+                    get_link_to_form("Salary Slip", salary_exists)
                 )
             )
-
-    def get_weekly_off(self):
-        offs = frappe.get_all(
-            "Weekly Holiday Update Request", filters={"employee": self.employee, "docstatus": 1}, fields=["*"]
-        )
-        return offs
-
-    def get_weekly_off_based_on_date(self, date, weekly_list):
-        # Sort by valid_from in descending order to find the most recent applicable one first
-        sorted_weekly_list = sorted(weekly_list, key=lambda w: w.valid_from, reverse=True)
-        for w in sorted_weekly_list:
-            if date >= w.valid_from:
-                return w.weekly_off
-        return frappe.db.get_value("Employee", self.employee, "custom_weekly_holiday_list", cache=True)
 
     def get_link_to_self(self):
         return get_link_to_form("Reprocess Attendance", self.name)
 
     def process_removal(self):
         from_date, to_date = self.get_dates()
-        self.delete_attendance(from_date, to_date)
-        self.delete_incentive_log(from_date, to_date)
-        self.delete_additional_salary(from_date, to_date)
-        self.delete_comp_leave_requests(from_date, to_date)
+        self.cancel_attendance(from_date, to_date)
         frappe.db.commit()  # nosemgrep
 
-    def on_submit(self):
-        frappe.enqueue_doc(self.doctype, self.name, "reprocess", queue="long", timeout=3600)
-
     def reprocess(self):
-        self.process_removal()
         from_date, to_date = self.get_dates()
         employee_grade = frappe.db.get_value("Employee", self.employee, "grade")
-        grade = frappe.get_doc("Employee Grade", employee_grade)
+        grade = frappe.get_doc("Employee Grade", employee_grade, for_update=False)
         if grade.custom_no_punch_applicable:
             self.process_for_no_checkins(from_date, to_date)
         elif grade.custom_single_punch_applicable:
@@ -123,10 +143,7 @@ class ReprocessAttendance(Document):
 
     def process_single_checkins(self, from_date, to_date):
         start_date = from_date
-        if getdate(to_date) > getdate():
-            end_date = getdate()
-        else:
-            end_date = getdate(to_date)
+        end_date = to_date
 
         while start_date <= add_days(end_date, 1):
             start_time = get_datetime(add_days(start_date, -1))
@@ -197,67 +214,46 @@ class ReprocessAttendance(Document):
             start_date = add_days(start_date, 1)
 
     def process_attendance(self, from_date, to_date):
-        weekly_offs = self.get_weekly_off()
         start_date = from_date
-        if getdate(to_date) > getdate():
-            end_date = getdate()
-        else:
-            end_date = getdate(to_date)
+        end_date = to_date
 
         while start_date <= add_days(end_date, 1):
-            weekly_holiday_name = self.get_weekly_off_based_on_date(start_date, weekly_offs)
-            _process_attendance(
-                from_date=start_date, employee_names=[self.employee], weekly_holiday_name=weekly_holiday_name
-            )
+            _process_attendance(from_date=start_date, employee_names=[self.employee])
             start_date = add_days(start_date, 1)
 
-    def before_submit(self):
-        from_date, to_date = self.get_dates()
-        self.validate_salary_slip(from_date, to_date)
+        self.apply_leave_applications(from_date, to_date)
+        self.apply_attendance_requests(from_date, to_date)
 
-        # self.delete_comp_leave_applications(fr_date, processed_till)
-        # self.delete_attendance_requests(fr_date, processed_till)
+    def apply_attendance_requests(self, from_date, to_date):
+        requests = self.get_requests(from_date, to_date)
+        for request in requests:
+            doc = frappe.get_doc("Attendance Request", request)
+            doc.create_attendance_records()
 
-    def delete_attendance(self, from_date=None, to_date=None):
+    def apply_leave_applications(self, from_date, to_date):
+        leave_applications = self.get_leave_applications(from_date, to_date)
+        for application in leave_applications:
+            doc = frappe.get_doc("Leave Application", application)
+            doc.update_attendance()
+
+    def cancel_attendance(self, from_date=None, to_date=None):
         attendances = frappe.get_all(
             "Attendance",
-            filters={"employee": self.employee, "attendance_date": ["between", [from_date, to_date]]},
+            filters={"employee": self.employee, "attendance_date": ["between", [from_date, to_date]], "docstatus": 1},
             pluck="name",
         )
 
         for attendance in attendances:
             doc = frappe.get_doc("Attendance", attendance)
+            doc.cancel()
             doc.add_comment(
                 comment_type="Comment",
                 text=frappe._("Cancelled by Reprocess Attendance {0}".format(self.get_link_to_self())),
             )
-            frappe.db.set_value("Attendance", attendance, "docstatus", 2)
 
-    def delete_comp_leave_requests(self, from_date, to_date):
-        leave_requests = frappe.get_all(
-            "Compensatory Leave Request",
-            filters={
-                "employee": self.employee,
-                "work_from_date": ["between", [from_date, to_date]],
-                "docstatus": 1,
-                "leave_type": "Compensatory Off",
-            },
-            pluck="name",
-        )
+    def cancel_leave_applications(self, from_date, to_date):
+        # TODO: DO WE NEED TO CANCEL THE APPLICATION
 
-        for leave in leave_requests:
-            a_doc = frappe.get_doc("Compensatory Leave Request", leave)
-            a_doc.add_comment(
-                comment_type="Comment",
-                text=frappe._("Cancelled by Reprocess Attendance {0}".format(self.get_link_to_self())),
-            )
-            if a_doc.docstatus == 1 and a_doc.status != 2:
-                a_doc.cancel()
-            else:
-                frappe.db.set_value("Compensatory Leave Request", leave, "docstatus", 2)
-            frappe.db.set_value("Compensatory Leave Request", leave, "status", "Cancelled")
-
-    def delete_comp_leave_applications(self, fr_date=None, t_date=None):
         emp_cond = f" and employee = '{self.employee}'" if self.employee else ""
         conditions = f"{emp_cond}"
 
@@ -272,7 +268,7 @@ class ReprocessAttendance(Document):
             AND ar.docstatus = 1
             AND ar.leave_type = 'Compensatory Off'
         """,
-            (fr_date, t_date, fr_date, t_date),
+            (from_date, to_date, from_date, to_date),
             as_dict=True,
         )
 
@@ -281,75 +277,27 @@ class ReprocessAttendance(Document):
                 a_doc = frappe.get_doc("Leave Application", a.get("name"))
                 if a_doc.docstatus == 1:
                     a_doc.cancel()
-                    frappe.db.set_value("Leave Application", a.get("name"), "status", "Cancelled")
-                    frappe.db.set_value("Leave Application", a.get("name"), "workflow_state", "Cancelled")
-                    frappe.db.commit()
-                    # a_doc.delete()
-                # else:
-                # 	a_doc.delete()
-
-    def delete_attendance_requests(self, fr_date=None, t_date=None):
-        emp_cond = f" and ar.employee = '{self.employee}'" if self.employee else ""
-        conditions = f"{emp_cond}"
-
-        all_attendance_requests = frappe.db.sql(
-            f"""
-            SELECT ar.name
-            FROM `tabAttendance Request` ar
-            WHERE 1=1
-            {conditions}
-            AND from_date BETWEEN '{fr_date}' AND '{t_date}'
-            AND to_date BETWEEN '{fr_date}' AND '{t_date}'
-            AND ar.docstatus = 1
-        """,
-            (),
-            as_dict=True,
-        )
-
-        if all_attendance_requests:
-            for a in all_attendance_requests:
-                a_doc = frappe.get_doc("Attendance Request", a.get("name"))
-                if a_doc.docstatus == 1:
-                    a_doc.cancel()
-                    frappe.db.set_value("Attendance Request", a.get("name"), "status", "Cancelled")
-                    frappe.db.set_value("Attendance Request", a.get("name"), "workflow_state", "Cancelled")
                     frappe.db.commit()
 
-    def delete_additional_salary(self, from_date, to_date):
-        salaries = frappe.get_all(
-            "Additional Salary",
-            filters={
-                "employee": self.employee,
-                "payroll_date": ["between", [from_date, to_date]],
-                "salary_component": "Incentives",
-                "type": "Earning",
-                "docstatus": 1,
-            },
-            pluck="name",
-        )
-        for salary in salaries:
-            doc = frappe.get_doc("Additional Salary", salary)
-            doc.add_comment(
-                comment_type="Comment",
-                text=frappe._("Cancelled by Reprocess Attendance {0}".format(self.get_link_to_self())),
-            )
-            doc.cancel()
-
-    def delete_incentive_log(self, from_date, to_date):
-        logs = frappe.get_all(
-            "Incentive Log",
+    def cancel_attendance_requests(self, from_date, to_date):
+        attendance_requests = frappe.get_all(
+            "Attendance Request",
             filters={
                 "employee": self.employee,
                 "from_date": ["between", [from_date, to_date]],
                 "to_date": ["between", [from_date, to_date]],
+                "docstatus": 1,
             },
             pluck="name",
         )
 
-        for log in logs:
-            log = frappe.get_doc("Incentive Log", log)
-            log.add_comment(
+        for request in attendance_requests:
+            a_doc = frappe.get_doc("Attendance Request", request)
+            a_doc.add_comment(
                 comment_type="Comment",
                 text=frappe._("Cancelled by Reprocess Attendance {0}".format(self.get_link_to_self())),
             )
-            log.cancel()
+            if a_doc.docstatus == 1:
+                a_doc.cancel()
+
+        return attendance_requests

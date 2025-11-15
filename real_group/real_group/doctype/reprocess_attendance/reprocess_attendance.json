@@ -7,16 +7,16 @@
  "field_order": [
   "section_break_umb1",
   "column_break_ipax",
+  "employee",
   "company",
   "branch",
+  "from_date",
+  "to_date",
+  "column_break_pobs",
   "division",
   "department",
-  "column_break_pobs",
-  "month",
-  "year",
-  "employee",
-  "reprocess_attendance_bulk",
   "status",
+  "reprocess_attendance_bulk",
   "section_break_msfd",
   "amended_from"
  ],
@@ -39,6 +39,8 @@
   {
    "fieldname": "employee",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Employee",
    "options": "Employee",
    "reqd": 1
@@ -55,47 +57,38 @@
    "fieldname": "company",
    "fieldtype": "Link",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Company",
    "options": "Company",
+   "read_only": 1,
    "reqd": 1
   },
   {
    "fieldname": "branch",
    "fieldtype": "Link",
+   "in_standard_filter": 1,
    "label": "Branch",
-   "options": "Branch"
+   "options": "Branch",
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "division",
    "fieldtype": "Link",
    "label": "Division",
-   "options": "Division"
+   "options": "Division",
+   "read_only": 1
   },
   {
    "fieldname": "department",
    "fieldtype": "Link",
    "label": "Department",
-   "options": "Department"
+   "options": "Department",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_pobs",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "month",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Month",
-   "options": "\nJan\nFeb\nMar\nApr\nMay\nJun\nJul\nAug\nSep\nOct\nNov\nDec",
-   "reqd": 1
-  },
-  {
-   "fieldname": "year",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Year",
-   "options": "\n2023\n2024",
-   "reqd": 1
   },
   {
    "fieldname": "reprocess_attendance_bulk",
@@ -111,6 +104,20 @@
    "label": "Status",
    "options": "Draft\nIn Progress\nCompleted\nError",
    "read_only": 1
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "From Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "To Date",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
@@ -129,7 +136,7 @@
    "link_fieldname": "custom_reprocess_reference"
   }
  ],
- "modified": "2025-11-03 14:48:31.564377",
+ "modified": "2025-11-15 19:11:38.293120",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Reprocess Attendance",
@@ -163,7 +170,6 @@
    "write": 1
   }
  ],
- "queue_in_background": 1,
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",

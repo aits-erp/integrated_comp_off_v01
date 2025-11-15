@@ -235,6 +235,7 @@ scheduler_events = {
         "0 9 * * *": [
             "real_group.tasks.process_attendance_for_no_checkin_applicable.process",
             "real_group.real_group.notifications.send_birthday_wishes",
+            "real_group.real_group.doctype.gate_pass.gate_pass.expire_gate_passes",
         ],
         "* 0 * * *": [
             "real_group.tasks.update_weekly_off_in_employee.process",

@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.desk.form.assign_to import add as assign
-from frappe.desk.form.assign_to import remove as unassign
+from frappe.desk.form.assign_to import close_all_assignments
 from frappe.model.document import Document
 from frappe.utils import get_datetime, getdate
 
@@ -29,8 +29,9 @@ class GatePass(Document):
 
     # end: auto-generated types
     def validate(self):
-        self.validate_date()
-        self.validate_checkin()
+        # self.validate_date()
+        # self.validate_checkin()
+        pass
 
     def validate_date(self):
         if getdate(self.date) < getdate():
@@ -45,10 +46,8 @@ class GatePass(Document):
         if hasattr(self, "workflow_state") and self.workflow_state == "Gate Pass":
             self.assign_to_gate_approver()
 
-        if hasattr(self, "workflow_state") and self.workflow_state == "Approved":
-            assigned_user = self.get_assigned_users()
-            if assigned_user:
-                unassign("Gate Pass", self.name, assign_to=assigned_user, ignore_permissions=True)
+        if hasattr(self, "workflow_state") and (self.workflow_state == "Approved" or self.workflow_state == "Rejected"):
+            close_all_assignments("Gate Pass", self.name, ignore_permissions=True)
 
     def assign_to_gate_approver(self):
         approver = frappe.db.get_value("Employee", self.employee, "custom_gate_pass_approver")
@@ -61,3 +60,14 @@ class GatePass(Document):
             "description": "Gate Pass Approval Request",
         }
         assign(args, ignore_permissions=True)
+
+
+def expire_gate_passes():
+    gate_passes = frappe.get_all(
+        "Gate Pass",
+        filters={"docstatus": 0, "date": ("<", getdate())},
+        fields=["name"],
+        pluck=True,
+    )
+    for gate_pass in gate_passes:
+        close_all_assignments("Gate Pass", gate_pass, ignore_permissions=True)

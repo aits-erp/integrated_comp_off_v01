@@ -46,7 +46,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
     if existing_attendance:
         existing_attendance = frappe.get_doc("Attendance", existing_attendance)
         if existing_attendance.status == "Half Day" and existing_attendance.leave_application:
-            shift = logs[0].shift
+            shift = logs[0].shift if logs else existing_attendance.shift
             (
                 attendance_status,
                 working_hours,
@@ -58,8 +58,10 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
 
             if attendance_status == "Half Day":
                 attendance_status = "Present"
+            if attendance_status == "Absent":
+                attendance_status = "Half Day"
 
-            existing_attendance.update(
+            existing_attendance.db_set(
                 {
                     "status": attendance_status,
                     "working_hours": working_hours,
@@ -70,7 +72,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
                     "out_time": out_time,
                 }
             )
-            existing_attendance.save(ignore_permissions=True)
+
     elif holiday and not logs:
         if holiday.get("is_half_day"):
             frappe.get_doc(
@@ -93,7 +95,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
                 },
             ).insert(ignore_permissions=True).submit()
     elif logs and not holiday:
-        shift = logs[0].shift
+        shift = logs[0].shift if logs else existing_attendance.shift
 
         (
             attendance_status,
@@ -138,7 +140,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
                     "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
                 }
             ).insert(ignore_permissions=True)
-        shift = logs[0].shift
+        shift = logs[0].shift if logs else existing_attendance.shift
 
         (
             attendance_status,
