@@ -11,7 +11,8 @@
   "amended_from",
   "column_break_moor",
   "date",
-  "reason"
+  "reason",
+  "status"
  ],
  "fields": [
   {
@@ -32,6 +33,7 @@
    "fieldname": "employee",
    "fieldtype": "Link",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Employee",
    "options": "Employee",
    "reqd": 1
@@ -50,6 +52,8 @@
   {
    "fieldname": "date",
    "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Date",
    "reqd": 1
   },
@@ -58,12 +62,20 @@
    "fieldtype": "Small Text",
    "label": "Reason",
    "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nPending\nRejected\nApproved",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-11-13 19:56:53.705511",
+ "modified": "2025-11-13 21:03:05.088598",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Gate Pass",
@@ -85,6 +97,7 @@
   },
   {
    "create": 1,
+   "print": 1,
    "read": 1,
    "role": "Employee",
    "select": 1,
