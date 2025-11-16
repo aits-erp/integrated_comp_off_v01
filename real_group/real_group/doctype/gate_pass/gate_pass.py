@@ -28,10 +28,9 @@ class GatePass(Document):
         status: DF.Literal["Draft", "Pending", "Rejected", "Approved"]
 
     # end: auto-generated types
-    def validate(self):
-        # self.validate_date()
-        # self.validate_checkin()
-        pass
+    def before_insert(self):
+        self.validate_date()
+        self.validate_checkin()
 
     def validate_date(self):
         if getdate(self.date) < getdate():
@@ -66,8 +65,10 @@ def expire_gate_passes():
     gate_passes = frappe.get_all(
         "Gate Pass",
         filters={"docstatus": 0, "date": ("<", getdate())},
-        fields=["name"],
-        pluck=True,
+        pluck="name",
     )
     for gate_pass in gate_passes:
+        doc = frappe.get_doc("Gate Pass", gate_pass)
+        doc.status = "Rejected"
+        doc.submit()
         close_all_assignments("Gate Pass", gate_pass, ignore_permissions=True)
