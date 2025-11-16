@@ -46,7 +46,6 @@ def process_employee_checkin(logs):
             continue
         employee = frappe.get_cached_doc("Employee", emp, for_update=False)
         grade = employee.grade
-        shift_from_grade = frappe.db.get_values("Multiple Shifts", {"parent": employee.grade}, "shift", pluck="shift")
 
         for log in emp_logs:
             first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime)
@@ -74,23 +73,8 @@ def process_employee_checkin(logs):
                 doc.insert()
 
             else:
-                allowed_shifts = [employee.default_shift]
-                allowed_shifts.extend(shift_from_grade)
                 for_date = getdate(log.punch_date)
-                assigned_shifts = frappe.get_all(
-                    "Shift Assignment",
-                    filters={
-                        "employee": emp,
-                        "start_date": ("<=", for_date),
-                        "end_date": (">=", for_date),
-                        "status": "Active",
-                    },
-                    pluck="shift_type",
-                )
-                allowed_shifts.extend(assigned_shifts)
-
-                allowed_shifts = [x for x in allowed_shifts if x is not None]
-                allowed_shifts = list(set(allowed_shifts))
+                allowed_shifts = get_employee_allowed_shifts(emp, for_date)
                 closest_shift = find_closest_shift_from_punch_time(allowed_shifts, log.punch_time)
 
                 shift_info = fetch_shift_details(closest_shift, get_datetime(log.punch_datetime), grade)
@@ -140,7 +124,7 @@ def process_employee_checkout(logs):
             continue
         employee = frappe.get_cached_doc("Employee", emp, for_update=False)
         grade = employee.grade
-        shift_from_grade = frappe.db.get_values("Multiple Shifts", {"parent": employee.grade}, "shift", pluck="shift")
+
         for log in emp_logs:
             first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime, for_checkout=True)
 
@@ -167,23 +151,8 @@ def process_employee_checkout(logs):
                 doc.insert()
                 frappe.db.commit()
             else:
-                allowed_shifts = [employee.default_shift]
-                allowed_shifts.extend(shift_from_grade)
                 for_date = getdate(log.punch_date)
-                assigned_shifts = frappe.get_all(
-                    "Shift Assignment",
-                    filters={
-                        "employee": emp,
-                        "start_date": ("<=", for_date),
-                        "end_date": (">=", for_date),
-                        "status": "Active",
-                    },
-                    pluck="shift_type",
-                )
-                allowed_shifts.extend(assigned_shifts)
-
-                allowed_shifts = [x for x in allowed_shifts if x is not None]
-                allowed_shifts = list(set(allowed_shifts))
+                allowed_shifts = get_employee_allowed_shifts(emp, for_date)
                 closest_shift = find_closest_shift_from_punch_time(allowed_shifts, log.punch_time)
 
                 shift_info = fetch_shift_details(
@@ -388,3 +357,29 @@ def get_shift_type(shift_type_name: str) -> dict:
         ],
         as_dict=1,
     )
+
+
+def get_employee_allowed_shifts(employee: str, for_date) -> list[str]:
+    employee = frappe.get_cached_doc("Employee", employee, for_update=False)
+
+    shift_from_grade = frappe.db.get_values("Multiple Shifts", {"parent": employee.grade}, "shift", pluck="shift")
+
+    allowed_shifts = [employee.default_shift]
+    allowed_shifts.extend(shift_from_grade)
+
+    for_date = getdate(for_date)
+    assigned_shifts = frappe.get_all(
+        "Shift Assignment",
+        filters={
+            "employee": employee.name,
+            "start_date": ("<=", for_date),
+            "end_date": (">=", for_date),
+            "status": "Active",
+        },
+        pluck="shift_type",
+    )
+    allowed_shifts.extend(assigned_shifts)
+
+    allowed_shifts = [x for x in allowed_shifts if x is not None]
+    allowed_shifts = list(set(allowed_shifts))
+    return allowed_shifts

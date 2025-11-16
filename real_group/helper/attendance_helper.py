@@ -26,7 +26,7 @@ from real_group.utils import (
 
 
 # Main function to create or update attendance
-def create_attendance(employee: str, date: str | date, logs: list[dict] | None) -> None:
+def create_attendance(employee: str, date: str | date, logs: list[dict] | None, reprocess_ref=None) -> None:
     employee_doc = frappe.get_cached_doc("Employee", employee)
     if logs:
         logs = update_time(logs)
@@ -46,7 +46,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
     if existing_attendance:
         existing_attendance = frappe.get_doc("Attendance", existing_attendance)
         if existing_attendance.status == "Half Day" and existing_attendance.leave_application:
-            shift = logs[0].shift
+            shift = logs[0].shift if logs else existing_attendance.shift
             (
                 attendance_status,
                 working_hours,
@@ -58,8 +58,10 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
 
             if attendance_status == "Half Day":
                 attendance_status = "Present"
+            if attendance_status == "Absent":
+                attendance_status = "Half Day"
 
-            existing_attendance.update(
+            existing_attendance.db_set(
                 {
                     "status": attendance_status,
                     "working_hours": working_hours,
@@ -68,9 +70,10 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
                     "early_exit": early_exit,
                     "in_time": in_time,
                     "out_time": out_time,
+                    "custom_reprocess_reference": reprocess_ref,
                 }
             )
-            existing_attendance.save(ignore_permissions=True)
+
     elif holiday and not logs:
         if holiday.get("is_half_day"):
             frappe.get_doc(
@@ -80,6 +83,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
                     "status": "Half Day",
                     "employee": employee,
                     "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
+                    "custom_reprocess_reference": reprocess_ref,
                 },
             ).insert(ignore_permissions=True).submit()
         else:
@@ -90,10 +94,11 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
                     "status": "Present",
                     "employee": employee,
                     "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
+                    "custom_reprocess_reference": reprocess_ref,
                 },
             ).insert(ignore_permissions=True).submit()
     elif logs and not holiday:
-        shift = logs[0].shift
+        shift = logs[0].shift if logs else existing_attendance.shift
 
         (
             attendance_status,
@@ -114,7 +119,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
             out_time,
             shift,
         )
-        # update_status(attendance, attendance_status, holiday)
+        attendance.db_set("custom_reprocess_reference", reprocess_ref)
         mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance)
     elif logs and holiday:
         is_half_day_holiday = holiday.get("is_half_day")
@@ -126,6 +131,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
                     "attendance_date": date,
                     "status": "Half Day",
                     "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
+                    "custom_reprocess_reference": reprocess_ref,
                 }
             ).insert(ignore_permissions=True)
         else:
@@ -136,9 +142,10 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
                     "attendance_date": date,
                     "status": "Present",
                     "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
+                    "custom_reprocess_reference": reprocess_ref,
                 }
             ).insert(ignore_permissions=True)
-        shift = logs[0].shift
+        shift = logs[0].shift if logs else existing_attendance.shift
 
         (
             attendance_status,
@@ -160,6 +167,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
                 "early_exit": early_exit,
                 "in_time": in_time,
                 "out_time": out_time,
+                "custom_reprocess_reference": reprocess_ref,
             }
         )
         doc.save(ignore_permissions=True).submit()
@@ -175,6 +183,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None) 
                 "attendance_date": date,
                 "status": "Absent",
                 "custom_attendance_tag": "A",
+                "custom_reprocess_reference": reprocess_ref,
             }
         ).insert(ignore_permissions=True)
         attendance.submit()

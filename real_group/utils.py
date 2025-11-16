@@ -158,6 +158,26 @@ def fetch_leaves_for_working_days(employee: str, from_date, to_date, on_working_
     return new_leaves
 
 
+def get_remaining_days_for_pro_rated(employee: str, from_date, to_date, on_working_days: int):
+    Leave_Type = frappe.qb.DocType("Leave Type")
+    Attendance = frappe.qb.DocType("Attendance")
+    query = (
+        frappe.qb.from_(Attendance)
+        .left_join(Leave_Type)
+        .on(Attendance.leave_type == Leave_Type.name)
+        .select(Count(Attendance.name))
+        .where(
+            (Attendance.employee == employee)
+            & (Attendance.attendance_date.between(from_date, to_date))
+            & (Attendance.status.notin(["Absent"]))
+            & (Attendance.docstatus.notin([2]))
+            & ((Leave_Type.is_lwp == 0) | (Leave_Type.is_lwp.isnull()))
+        )
+    )
+    working_days = query.run()[0][0] or 0
+    return working_days % on_working_days
+
+
 def allocate_leaves_for_worked_days():
     from frappe.utils import cint
 

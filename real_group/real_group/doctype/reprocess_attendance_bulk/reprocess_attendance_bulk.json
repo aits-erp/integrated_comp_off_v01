@@ -1,6 +1,5 @@
 {
  "actions": [],
- "allow_rename": 1,
  "creation": "2024-10-16 12:10:11.031430",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -12,9 +11,8 @@
   "division",
   "department",
   "column_break_pobs",
-  "month",
-  "year",
-  "employee",
+  "from_date",
+  "to_date",
   "section_break_msfd",
   "amended_from"
  ],
@@ -32,53 +30,39 @@
    "fieldname": "company",
    "fieldtype": "Link",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Company",
    "options": "Company",
-   "reqd": 1
+   "reqd": 1,
+   "set_only_once": 1
   },
   {
    "fieldname": "branch",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Branch",
-   "options": "Branch"
+   "options": "Branch",
+   "reqd": 1,
+   "set_only_once": 1
   },
   {
    "fieldname": "division",
    "fieldtype": "Link",
    "label": "Division",
-   "options": "Division"
+   "options": "Division",
+   "set_only_once": 1
   },
   {
    "fieldname": "department",
    "fieldtype": "Link",
    "label": "Department",
-   "options": "Department"
+   "options": "Department",
+   "set_only_once": 1
   },
   {
    "fieldname": "column_break_pobs",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "month",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Month",
-   "options": "\nJan\nFeb\nMar\nApr\nMay\nJun\nJul\nAug\nSep\nOct\nNov\nDec",
-   "reqd": 1
-  },
-  {
-   "fieldname": "year",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Year",
-   "options": "\n2023\n2024",
-   "reqd": 1
-  },
-  {
-   "fieldname": "employee",
-   "fieldtype": "Link",
-   "label": "Employee",
-   "options": "Employee"
   },
   {
    "fieldname": "section_break_msfd",
@@ -103,6 +87,22 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "From Date",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "To Date",
+   "reqd": 1,
+   "set_only_once": 1
   }
  ],
  "index_web_pages_for_search": 1,
@@ -113,7 +113,7 @@
    "link_fieldname": "reprocess_attendance_bulk"
   }
  ],
- "modified": "2025-11-03 12:18:01.538033",
+ "modified": "2025-11-16 18:13:11.809062",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Reprocess Attendance Bulk",
@@ -150,5 +150,6 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

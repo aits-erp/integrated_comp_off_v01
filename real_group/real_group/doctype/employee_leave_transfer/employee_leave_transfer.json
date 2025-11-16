@@ -27,6 +27,7 @@
    "in_list_view": 1,
    "label": "Number Of Leaves",
    "mandatory_depends_on": "!expire",
+   "read_only": 1,
    "read_only_depends_on": "expire"
   },
   {
@@ -49,7 +50,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-11-09 18:42:21.022035",
+ "modified": "2025-11-16 18:22:48.215253",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Employee Leave Transfer",

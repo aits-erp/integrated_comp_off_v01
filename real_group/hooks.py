@@ -196,7 +196,6 @@ doc_events = {
         "before_cancel": ["real_group.doc_events.attendance.before_cancel"],
         "before_delete": ["real_group.doc_events.attendance.before_delete"],
         "on_cancel": ["real_group.doc_events.attendance.on_cancel"],
-        "on_update": ["real_group.doc_events.attendance.on_update"],
     },
     "User": {
         "after_insert": ["real_group.real_group.integration.create_user"],
@@ -236,6 +235,7 @@ scheduler_events = {
         "0 9 * * *": [
             "real_group.tasks.process_attendance_for_no_checkin_applicable.process",
             "real_group.real_group.notifications.send_birthday_wishes",
+            "real_group.real_group.doctype.gate_pass.gate_pass.expire_gate_passes",
         ],
         "* 0 * * *": [
             "real_group.tasks.update_weekly_off_in_employee.process",
@@ -352,4 +352,7 @@ fixtures = [
     {"dt": "Print Format", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Server Script", "filters": [["module", "=", "Real Group"]]},
     {"dt": "Property Setter", "filters": [["module", "=", "Real Group"]]},
+    {"dt": "Workflow"},
+    {"dt": "Workflow State"},
+    {"dt": "Workflow Action Master"},
 ]
