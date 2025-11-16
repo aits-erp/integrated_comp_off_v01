@@ -11,7 +11,7 @@ from frappe.utils import (
 from real_group.helper.attendance_helper import create_attendance
 
 
-def process(from_date=None, employee_names: list | None = None):
+def process(from_date=None, employee_names: list | None = None, reprocess_ref=None):
     start_date = add_days(getdate(from_date), -1)
     end_date = getdate(from_date)
     start_date_for_night_shift = add_days(getdate(from_date), -2)
@@ -49,7 +49,7 @@ def process(from_date=None, employee_names: list | None = None):
     # Process all employees, including those without logs
     for employee in employees:
         group = logs_by_employee.get(employee, [])
-        create_attendance(employee, start_date, group)
+        create_attendance(employee, start_date, group, reprocess_ref)
 
         frappe.db.commit()  # nosemgrep
 
@@ -75,5 +75,5 @@ def process(from_date=None, employee_names: list | None = None):
     # Process all employees for night shift, including those without logs
     for employee in employees:
         group = night_logs_by_employee.get(employee, [])
-        create_attendance(employee, start_date_for_night_shift, group)
+        create_attendance(employee, start_date_for_night_shift, group, reprocess_ref)
         frappe.db.commit()  # nosemgrep

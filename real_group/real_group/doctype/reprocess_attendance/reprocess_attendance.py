@@ -163,6 +163,7 @@ class ReprocessAttendance(Document):
                         "attendance_date": start_date,
                         "status": "Present",
                         "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
+                        "custom_reprocess_reference": self.name,
                     }
                 )
                 attendance.insert(ignore_permissions=True)
@@ -175,6 +176,7 @@ class ReprocessAttendance(Document):
                         "attendance_date": start_date,
                         "status": "Present",
                         "custom_attendance_tag": "POH",
+                        "custom_reprocess_reference": self.name,
                     }
                 )
                 attendance.insert(ignore_permissions=True)
@@ -188,6 +190,7 @@ class ReprocessAttendance(Document):
                             "attendance_date": start_date,
                             "status": "Absent",
                             "custom_attendance_tag": "A",
+                            "custom_reprocess_reference": self.name,
                         }
                     )
                     attendance.insert(ignore_permissions=True)
@@ -203,6 +206,7 @@ class ReprocessAttendance(Document):
                             "attendance_date": shift_date,
                             "status": "Present",
                             "custom_attendance_tag": "P",
+                            "custom_reprocess_reference": self.name,
                         }
                     )
                     attendance.insert(ignore_permissions=True)
@@ -218,7 +222,12 @@ class ReprocessAttendance(Document):
         end_date = to_date
 
         while start_date <= add_days(end_date, 1):
-            _process_attendance(from_date=start_date, employee_names=[self.employee])
+            try:
+                _process_attendance(from_date=start_date, employee_names=[self.employee], reprocess_ref=self.name)
+            except Exception:
+                frappe.log_error(
+                    frappe.get_traceback(), f"Error in Reprocess Attendance: {self.name} for date {start_date}"
+                )
             start_date = add_days(start_date, 1)
 
         self.apply_leave_applications(from_date, to_date)
@@ -227,14 +236,26 @@ class ReprocessAttendance(Document):
     def apply_attendance_requests(self, from_date, to_date):
         requests = self.get_requests(from_date, to_date)
         for request in requests:
-            doc = frappe.get_doc("Attendance Request", request)
-            doc.create_attendance_records()
+            try:
+                doc = frappe.get_doc("Attendance Request", request)
+                doc.create_attendance_records()
+            except Exception:
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    f"Error in Reprocess Attendance while applying Attendance Request: {request} for Reprocess Attendance: {self.name}",
+                )
 
     def apply_leave_applications(self, from_date, to_date):
         leave_applications = self.get_leave_applications(from_date, to_date)
         for application in leave_applications:
-            doc = frappe.get_doc("Leave Application", application)
-            doc.update_attendance()
+            try:
+                doc = frappe.get_doc("Leave Application", application)
+                doc.update_attendance()
+            except Exception:
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    f"Error in Reprocess Attendance while applying Leave Application: {application} for Reprocess Attendance: {self.name}",
+                )
 
     def cancel_attendance(self, from_date=None, to_date=None):
         attendances = frappe.get_all(
@@ -250,54 +271,3 @@ class ReprocessAttendance(Document):
                 comment_type="Comment",
                 text=frappe._("Cancelled by Reprocess Attendance {0}".format(self.get_link_to_self())),
             )
-
-    def cancel_leave_applications(self, from_date, to_date):
-        # TODO: DO WE NEED TO CANCEL THE APPLICATION
-
-        emp_cond = f" and employee = '{self.employee}'" if self.employee else ""
-        conditions = f"{emp_cond}"
-
-        all_comp_leave_applications = frappe.db.sql(
-            f"""
-            SELECT ar.name
-            FROM `tabLeave Application` ar
-            WHERE 1=1
-            {conditions}
-            AND from_date BETWEEN %s AND %s
-            AND to_date BETWEEN %s AND %s
-            AND ar.docstatus = 1
-            AND ar.leave_type = 'Compensatory Off'
-        """,
-            (from_date, to_date, from_date, to_date),
-            as_dict=True,
-        )
-
-        if all_comp_leave_applications:
-            for a in all_comp_leave_applications:
-                a_doc = frappe.get_doc("Leave Application", a.get("name"))
-                if a_doc.docstatus == 1:
-                    a_doc.cancel()
-                    frappe.db.commit()
-
-    def cancel_attendance_requests(self, from_date, to_date):
-        attendance_requests = frappe.get_all(
-            "Attendance Request",
-            filters={
-                "employee": self.employee,
-                "from_date": ["between", [from_date, to_date]],
-                "to_date": ["between", [from_date, to_date]],
-                "docstatus": 1,
-            },
-            pluck="name",
-        )
-
-        for request in attendance_requests:
-            a_doc = frappe.get_doc("Attendance Request", request)
-            a_doc.add_comment(
-                comment_type="Comment",
-                text=frappe._("Cancelled by Reprocess Attendance {0}".format(self.get_link_to_self())),
-            )
-            if a_doc.docstatus == 1:
-                a_doc.cancel()
-
-        return attendance_requests

@@ -28,7 +28,6 @@ class ReprocessAttendanceBulk(Document):
         self.validate_dates()
 
     def on_submit(self):
-        return
         data = self.get_reprocess_attendance()
         for d in data:
             reprocess_attendance = frappe.get_doc("Reprocess Attendance", d)
@@ -42,9 +41,11 @@ class ReprocessAttendanceBulk(Document):
         )
 
     def validate_dates(self):
-        if self.from_date > self.to_date:
+        from_date = getdate(self.from_date)
+        to_date = getdate(self.to_date)
+        if from_date > to_date:
             frappe.throw(frappe._("From Date cannot be greater than To Date"))
-        if self.to_date > getdate():
+        if to_date > getdate():
             frappe.throw(frappe._("To Date cannot be greater than today's date"))
 
     def after_insert(self):

@@ -174,6 +174,7 @@ def allocate_incentive(doc):
                 salary_component="Incentives",
                 amount=amount,
                 custom_incentive_reference=incentive_log_name,
+                custom_reprocess_reference=doc.custom_reprocess_reference,
             )
         )
         new_additional_salary.insert(ignore_permissions=True)
