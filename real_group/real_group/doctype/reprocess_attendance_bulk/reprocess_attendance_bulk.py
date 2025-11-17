@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import getdate
+from frappe.utils import get_link_to_form, getdate
 
 
 class ReprocessAttendanceBulk(Document):
@@ -27,6 +27,11 @@ class ReprocessAttendanceBulk(Document):
     def validate(self):
         self.validate_dates()
 
+    def before_submit(self):
+        self.validate_attendance_request()
+        self.validate_leave_application()
+        self.validate_salary_slip()
+
     def on_submit(self):
         data = self.get_reprocess_attendance()
         for d in data:
@@ -40,6 +45,46 @@ class ReprocessAttendanceBulk(Document):
             pluck="name",
         )
 
+    def validate_leave_application(self):
+        employees = self.get_employees()
+        leave_requests = frappe.get_all(
+            "Leave Application",
+            filters={
+                "employee": ["in", employees],
+                "from_date": ["<=", self.to_date],
+                "to_date": [">=", self.from_date],
+                "docstatus": ["!=", 2],
+                "workflow_state": ["in", ["Draft", "Pending at HOD", "Pending at HR"]],
+            },
+            pluck="name",
+        )
+        if leave_requests:
+            frappe.throw(
+                frappe._(
+                    "Leave Requests {0} exist for the selected employees and date range. Please resolve them before proceeding."
+                ).format(", ".join([get_link_to_form("Leave Application", lr) for lr in leave_requests]))
+            )
+
+    def validate_attendance_request(self):
+        employees = self.get_employees()
+        attendance_requests = frappe.get_all(
+            "Attendance Request",
+            filters={
+                "employee": ["in", employees],
+                "from_date": ["<=", self.to_date],
+                "to_date": [">=", self.from_date],
+                "docstatus": ["!=", 2],
+                "workflow_state": ["in", ["Draft", "Pending at HOD", "Gate Pass", "Pending at HR"]],
+            },
+            pluck="name",
+        )
+        if attendance_requests:
+            frappe.throw(
+                frappe._(
+                    "Attendance Requests {0} exist for the selected employees and date range. Please resolve them before proceeding."
+                ).format(", ".join([get_link_to_form("Attendance Request", ar) for ar in attendance_requests]))
+            )
+
     def validate_dates(self):
         from_date = getdate(self.from_date)
         to_date = getdate(self.to_date)
@@ -50,6 +95,26 @@ class ReprocessAttendanceBulk(Document):
 
     def after_insert(self):
         self.create_reprocess_attendance()
+
+    def validate_salary_slip(self):
+        from_date, to_date = self.get_dates()
+        employees = self.get_employees()
+        salary_slips = frappe.get_all(
+            "Salary Slip",
+            {
+                "employee": ["in", employees],
+                "start_date": ["<=", from_date],
+                "end_date": [">=", to_date],
+                "docstatus": ["!=", 2],
+            },
+            pluck="name",
+        )
+        if salary_slips:
+            frappe.throw(
+                frappe._("Salary Slip(s) exist for the selected period: {0}").format(
+                    ", ".join([get_link_to_form("Salary Slip", ss) for ss in salary_slips])
+                )
+            )
 
     def create_reprocess_attendance(self):
         employees = self.get_employees()

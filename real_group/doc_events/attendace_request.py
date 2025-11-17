@@ -3,6 +3,7 @@ from frappe.utils import date_diff, get_link_to_form, getdate
 
 
 def validate(doc, method=None):
+    validate_zero_punch_employee(doc)
     validate_change_request_day(doc)
     validate_date(doc)
     validate_attendance(doc)
@@ -28,6 +29,13 @@ def on_submit(doc, method=None):
 
 def on_cancel(doc, method=None):
     doc.status = "Cancelled"
+
+
+def validate_zero_punch_employee(doc):
+    grade = frappe.get_value("Employee", doc.employee, "grade")
+    is_zero_punch = frappe.get_value("Employee Grade", grade, "custom_no_punch_applicable")
+    if is_zero_punch:
+        frappe.throw(frappe._("Attendance Request cannot be created for Zero Punch Employee"))
 
 
 def cancel_short_leaves(doc):
@@ -64,6 +72,7 @@ def validate_date(doc):
             "from_date": ["<=", doc.to_date],
             "to_date": [">=", doc.from_date],
             "docstatus": ["!=", 2],
+            "workflow_state": ["not in", ["Rejected", "Cancelled", "Reject by HOD", "Reject by HR", "Reject at Gate"]],
         },
         fields=["docstatus", "name", "half_day_date", "custom_half_type", "half_day", "from_date", "to_date"],
     )
@@ -107,6 +116,7 @@ def validate_date(doc):
             "to_date": [">=", doc.from_date],
             "docstatus": ["!=", 2],
             "name": ["!=", doc.name],
+            "workflow_state": ["not in", ["Rejected", "Cancelled", "Reject by HOD", "Reject by HR", "Reject at Gate"]],
         },
         fields=["name", "from_date", "to_date", "half_day_date", "custom_half_type"],
     )
