@@ -12,6 +12,9 @@ from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 
 class AttendanceRequestOverride(AttendanceRequest):
+    def validate_request_overlap(self):
+        return  # Overriding the base method to disable overlap validation
+
     def create_or_update_attendance(self, date: str):
         attendance_name = self.get_attendance_record(date)
         status = self.get_attendance_status(date)

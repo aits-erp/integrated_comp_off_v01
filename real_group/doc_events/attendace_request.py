@@ -57,34 +57,80 @@ def cancel_short_leaves(doc):
 
 
 def validate_date(doc):
-    leave = frappe.db.exists(
+    leaves = frappe.get_all(
         "Leave Application",
-        {
+        filters={
             "employee": doc.employee,
             "from_date": ["<=", doc.to_date],
             "to_date": [">=", doc.from_date],
             "docstatus": ["!=", 2],
         },
+        fields=["docstatus", "name", "half_day_date", "custom_half_type", "half_day", "from_date", "to_date"],
     )
-    if leave:
-        leave = frappe.get_doc("Leave Application", leave)
-        if leave.docstatus == 1 and not leave.half_day:
-            frappe.throw(
-                frappe._(
-                    "Leave Application {0} exists for the selected date range. Attendance Request cannot be processed."
-                ).format(get_link_to_form("Leave Application", leave.name))
-            )
-        if (
-            leave.half_day_date
-            and doc.half_day_date
-            and getdate(leave.half_day_date) == getdate(doc.half_day_date)
-            and leave.custom_half_type == doc.custom_half_type
-        ):
-            frappe.throw(
-                frappe._(
-                    "Leave Application {0} exists for the selected half day. Attendance Request cannot be processed."
-                ).format(get_link_to_form("Leave Application", leave.name))
-            )
+    if leaves:
+        for l in leaves:
+            if l.docstatus == 1 and not l.half_day:
+                frappe.throw(
+                    frappe._(
+                        "Leave Application {0} exists for the selected date range. Attendance Request cannot be processed."
+                    ).format(get_link_to_form("Leave Application", l.name))
+                )
+
+            if l.half_day:
+                if (
+                    l.half_day_date
+                    and doc.half_day_date
+                    and getdate(l.half_day_date) == getdate(doc.half_day_date)
+                    and l.custom_half_type == doc.custom_half_type
+                ):
+                    frappe.throw(
+                        frappe._(
+                            "Leave Application {0} exists for the selected half day. Attendance Request cannot be processed."
+                        ).format(get_link_to_form("Leave Application", l.name))
+                    )
+
+                if (
+                    getdate(l.from_date) == getdate(l.to_date)
+                    and getdate(l.from_date) == getdate(doc.half_day_date)
+                    and l.custom_half_type == doc.custom_half_type
+                ):
+                    frappe.throw(
+                        frappe._(
+                            "Leave Application {0} exists for the selected half day. Attendance Request cannot be processed."
+                        ).format(get_link_to_form("Leave Application", l.name))
+                    )
+    requests = frappe.get_all(
+        "Attendance Request",
+        filters={
+            "employee": doc.employee,
+            "from_date": ["<=", doc.to_date],
+            "to_date": [">=", doc.from_date],
+            "docstatus": ["!=", 2],
+            "name": ["!=", doc.name],
+        },
+        fields=["name", "from_date", "to_date", "half_day_date", "custom_half_type"],
+    )
+    if requests:
+        for r in requests:
+            if not r.half_day_date:
+                frappe.throw(
+                    frappe._(
+                        "Attendance Request {0} exists for the selected date range. Attendance Request cannot be processed."
+                    ).format(get_link_to_form("Attendance Request", r.name))
+                )
+
+            if r.half_day_date:
+                if (
+                    r.half_day_date
+                    and doc.half_day_date
+                    and getdate(r.half_day_date) == getdate(doc.half_day_date)
+                    and r.custom_half_type == doc.custom_half_type
+                ):
+                    frappe.throw(
+                        frappe._(
+                            "Attendance Request {0} exists for the selected half day. Attendance Request cannot be processed."
+                        ).format(get_link_to_form("Attendance Request", r.name))
+                    )
 
 
 def validate_attendance(doc):
