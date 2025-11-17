@@ -12,6 +12,9 @@ from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 
 class AttendanceRequestOverride(AttendanceRequest):
+    def validate_request_overlap(self):
+        return  # Overriding the base method to disable overlap validation
+
     def create_or_update_attendance(self, date: str):
         attendance_name = self.get_attendance_record(date)
         status = self.get_attendance_status(date)
@@ -31,6 +34,10 @@ class AttendanceRequestOverride(AttendanceRequest):
         else:
             doc = frappe.new_doc("Attendance")
 
+        if doc.working_hours:
+            doc.working_hours += self.get_working_hours()
+        else:
+            doc.working_hours = self.get_working_hours()
         doc.update(
             {
                 "employee": self.employee,
@@ -39,7 +46,6 @@ class AttendanceRequestOverride(AttendanceRequest):
                 "company": self.company,
                 "attendance_request": self.name,
                 "status": status,
-                "working_hours": self.get_working_hours(),
             }
         )
         doc.insert(ignore_permissions=True)

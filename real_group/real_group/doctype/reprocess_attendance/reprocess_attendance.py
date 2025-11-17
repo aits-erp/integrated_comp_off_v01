@@ -38,6 +38,8 @@ class ReprocessAttendance(Document):
     def before_submit(self):
         from_date, to_date = self.get_dates()
         self.validate_salary_slip(from_date, to_date)
+        self.validate_attendance_request()
+        self.validate_leave_application()
 
     def on_submit(self):
         self.process_removal()
@@ -75,6 +77,44 @@ class ReprocessAttendance(Document):
             frappe.throw(frappe._("From Date cannot be greater than To Date"))
         if to_date > getdate():
             frappe.throw(frappe._("To Date cannot be greater than today's date"))
+
+    def validate_leave_application(self):
+        leave_requests = frappe.get_all(
+            "Leave Application",
+            filters={
+                "employee": self.employee,
+                "from_date": ["<=", self.to_date],
+                "to_date": [">=", self.from_date],
+                "docstatus": ["!=", 2],
+                "workflow_state": ["in", ["Draft", "Pending at HOD", "Pending at HR"]],
+            },
+            pluck="name",
+        )
+        if leave_requests:
+            frappe.throw(
+                frappe._(
+                    "Leave Requests {0} exist for the selected date range. Please resolve them before proceeding."
+                ).format(", ".join([get_link_to_form("Leave Application", lr) for lr in leave_requests]))
+            )
+
+    def validate_attendance_request(self):
+        attendance_requests = frappe.get_all(
+            "Attendance Request",
+            filters={
+                "employee": self.employee,
+                "from_date": ["<=", self.to_date],
+                "to_date": [">=", self.from_date],
+                "docstatus": ["!=", 2],
+                "workflow_state": ["in", ["Draft", "Pending at HOD", "Gate Pass", "Pending at HR"]],
+            },
+            pluck="name",
+        )
+        if attendance_requests:
+            frappe.throw(
+                frappe._(
+                    "Attendance Requests {0} exist for the selected date range. Please resolve them before proceeding."
+                ).format(", ".join([get_link_to_form("Attendance Request", ar) for ar in attendance_requests]))
+            )
 
     def get_dates(self):
         return getdate(self.from_date), getdate(self.to_date)
