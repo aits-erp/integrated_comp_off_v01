@@ -93,6 +93,7 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "From Date",
+   "no_copy": 1,
    "reqd": 1,
    "set_only_once": 1
   },
@@ -101,6 +102,7 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "To Date",
+   "no_copy": 1,
    "reqd": 1,
    "set_only_once": 1
   }
@@ -113,7 +115,7 @@
    "link_fieldname": "reprocess_attendance_bulk"
   }
  ],
- "modified": "2025-11-16 18:13:11.809062",
+ "modified": "2025-11-24 10:54:53.924732",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Reprocess Attendance Bulk",

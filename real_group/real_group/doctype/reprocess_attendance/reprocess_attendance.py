@@ -4,7 +4,7 @@
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import add_days, get_datetime, get_link_to_form, getdate
+from frappe.utils import add_days, date_diff, get_datetime, get_link_to_form, getdate
 
 from real_group.tasks.process_attendance import process as _process_attendance
 from real_group.utils import is_holiday_for_employee
@@ -33,6 +33,7 @@ class ReprocessAttendance(Document):
 
     def validate(self):
         self.validate_dates()
+        self.validate_allowed_days()
         self.validate_salary_slip(*self.get_dates())
 
     def before_submit(self):
@@ -77,6 +78,12 @@ class ReprocessAttendance(Document):
             frappe.throw(frappe._("From Date cannot be greater than To Date"))
         if to_date > getdate():
             frappe.throw(frappe._("To Date cannot be greater than today's date"))
+
+    def validate_allowed_days(self):
+        _, to_date = self.get_dates()
+        day_diff = date_diff(getdate(), to_date)
+        if day_diff < 2:
+            frappe.throw(frappe._("To Date must be at least 2 days before today's date"))
 
     def validate_leave_application(self):
         leave_requests = frappe.get_all(

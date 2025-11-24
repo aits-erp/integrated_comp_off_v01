@@ -2,15 +2,24 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Reprocess Attendance", {
-  refresh(frm) {
-    if (frm.doc.reprocess_attendance_bulk) {
-      frm.set_df_property("company", "read_only", 1);
-      frm.set_df_property("branch", "read_only", 1);
-      frm.set_df_property("division", "read_only", 1);
-      frm.set_df_property("department", "read_only", 1);
-      frm.set_df_property("month", "read_only", 1);
-      frm.set_df_property("year", "read_only", 1);
-      frm.set_df_property("employee", "read_only", 1);
+  employee: function (frm) {
+    frappe.db.get_value("Employee", frm.doc.employee, ["company", "branch"]).then((r) => {
+      const data = r.message;
+      frm.set_value("company", data.company);
+      frm.set_value("branch", data.branch);
+    });
+  },
+  validate(frm) {
+    frm.trigger("validateDate");
+  },
+  to_date(frm) {
+    frm.trigger("validateDate");
+  },
+  validateDate(frm) {
+    const dayDiff = Math.abs(parseInt(frappe.datetime.get_day_diff(frm.doc.to_date, frappe.datetime.get_today())));
+    if (dayDiff < 2) {
+      frappe.msgprint(__("To Date must be at least 2 days before today's date"));
+      frappe.validated = false;
     }
   },
 });
