@@ -103,6 +103,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
+   "no_copy": 1,
    "options": "Draft\nIn Progress\nCompleted\nError",
    "read_only": 1
   },
@@ -137,7 +138,7 @@
    "link_fieldname": "custom_reprocess_reference"
   }
  ],
- "modified": "2025-11-24 10:54:29.958564",
+ "modified": "2025-11-24 19:06:40.711707",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Reprocess Attendance",

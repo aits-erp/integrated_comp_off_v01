@@ -357,3 +357,7 @@ fixtures = [
     {"dt": "Workflow State"},
     {"dt": "Workflow Action Master"},
 ]
+
+persistent_cache_keys = [
+    "reprocess-attendance-*",  # Attendance Reprocessing related caches
+]

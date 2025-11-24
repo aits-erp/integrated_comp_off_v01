@@ -46,14 +46,16 @@ class LeaveApplicationOverride(LeaveApplication):
         # Fetch all dates in range
         all_dates = [d for d in daterange(from_date, to_date)]
 
+        # Build holiday map: must include half-day info
         holiday_map = {}
         for d in all_dates:
             info = is_holiday_for_employee(self.employee, d) or {}
             holiday_map[d] = {
                 "is_holiday": bool(info.get("is_holiday")),
-                "is_half_day": bool(info.get("is_half_day")),  # ← needs to be returned by is_holiday_for_employee()
+                "is_half_day": bool(info.get("is_half_day")),
             }
 
+        # Initial status map
         status = {}
         for d in all_dates:
             if self.half_day and getdate(self.half_day_date) == d:
@@ -64,55 +66,41 @@ class LeaveApplicationOverride(LeaveApplication):
                 status[d] = "full_leave"
 
         if apply_sandwich:
-            i = 0
-            n = len(all_dates)
-            while i < n:
-                d = all_dates[i]
-                if status[d] == "full_holiday":  # ← only consider full holidays
-                    block_start = i
-                    while i < n and status[all_dates[i]] == "full_holiday":
-                        i += 1
-                    block_end = i - 1
-
-                    prev_d = add_days(all_dates[block_start], -1)
-                    next_d = add_days(all_dates[block_end], 1)
-
-                    prev_is_full = prev_d in status and status[prev_d] == "full_leave"
-                    next_is_full = next_d in status and status[next_d] == "full_leave"
-
-                    # Only count if both adjacent are full leave days
-                    if prev_is_full and next_is_full:
-                        for j in range(block_start, block_end + 1):
-                            status[all_dates[j]] = "full_leave"
-                else:
-                    i += 1
+            for d in all_dates:
+                if status[d] == "full_holiday":
+                    status[d] = "full_leave"
         else:
-            # Exclude full holidays from attendance update if sandwich not applied
+            # Remove holidays entirely if sandwich is NOT applied
             holiday_dates = get_holiday_dates_for_employee(self.employee, self.from_date, self.to_date)
             all_dates = [d for d in all_dates if d.strftime("%Y-%m-%d") not in holiday_dates]
-
         for d in all_dates:
             date_str = d.strftime("%Y-%m-%d")
             attendance_name = frappe.db.exists(
-                "Attendance", dict(employee=self.employee, attendance_date=date_str, docstatus=("!=", 2))
+                "Attendance", {"employee": self.employee, "attendance_date": date_str, "docstatus": ("!=", 2)}
             )
 
             day_status = status[d]
+
+            # Holidays should not create attendance when sandwich disabled
             if day_status == "full_holiday":
                 continue
-            elif apply_sandwich and day_status == "full_leave":
-                # If sandwich is applied and this date falls in sandwich block, mark as Absent
+
+            # For sandwich → converted holidays are now full_leave → mark absent
+            if apply_sandwich and day_status == "full_leave" and holiday_map[d]["is_holiday"]:
                 self.create_or_update_attendance(attendance_name, date_str, status="Absent")
+                continue
+
+            # Normal leave or half-day logic
+            is_lwp = frappe.db.get_value("Leave Type", self.leave_type, "is_lwp")
+
+            if self.half_day and getdate(self.half_day_date) == d:
+                final_status = "Half Day"
+            elif is_lwp:
+                final_status = "Absent"
             else:
-                is_lwp = frappe.db.get_value("Leave Type", self.leave_type, "is_lwp")
-                status = (
-                    "Half Day"
-                    if self.half_day_date and getdate(date_str) == getdate(self.half_day_date)
-                    else "On Leave"
-                    if not is_lwp
-                    else "Absent"
-                )
-                self.create_or_update_attendance(attendance_name, date_str, status=status)
+                final_status = "On Leave"
+
+            self.create_or_update_attendance(attendance_name, date_str, status=final_status)
 
     def create_or_update_attendance(self, attendance_name, date, status="On Leave"):
         if attendance_name:
@@ -150,7 +138,7 @@ class LeaveApplicationOverride(LeaveApplication):
         if self.docstatus != 2:
             return
 
-        from frappe.utils import add_days, getdate
+        from frappe.utils import getdate
 
         Attendance = frappe.qb.DocType("Attendance")
 
