@@ -274,3 +274,9 @@ def get_weekly_off_based_on_date(employee: str, date: date | str):
 def get_weekly_off(employee: str):
     offs = frappe.get_all("Weekly Holiday Update Request", filters={"employee": employee, "docstatus": 1}, fields=["*"])
     return offs
+
+
+def validate_employee_and_user(username: str):
+    if frappe.db.exists("Employee", username):
+        return True
+    return False
