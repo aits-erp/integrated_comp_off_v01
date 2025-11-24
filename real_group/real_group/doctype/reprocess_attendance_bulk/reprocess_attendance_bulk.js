@@ -1,8 +1,18 @@
 // Copyright (c) 2024, Step Tech and contributors
 // For license information, please see license.txt
 
-// frappe.ui.form.on("Reprocess Attendance Bulk", {
-// 	refresh(frm) {
-
-// 	},
-// });
+frappe.ui.form.on("Reprocess Attendance Bulk", {
+  validate(frm) {
+    frm.trigger("validateDate");
+  },
+  to_date(frm) {
+    frm.trigger("validateDate");
+  },
+  validateDate(frm) {
+    const dayDiff = Math.abs(parseInt(frappe.datetime.get_day_diff(frm.doc.to_date, frappe.datetime.get_today())));
+    if (dayDiff < 2) {
+      frappe.msgprint(__("To Date must be at least 2 days before today's date"));
+      frappe.validated = false;
+    }
+  },
+});

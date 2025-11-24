@@ -198,6 +198,7 @@ doc_events = {
         "on_cancel": ["real_group.doc_events.attendance.on_cancel"],
     },
     "User": {
+        "validate": ["real_group.doc_events.user.validate"],
         "after_insert": ["real_group.real_group.integration.create_user"],
         "on_update": ["real_group.real_group.integration.update_user"],
         "update_password": ["real_group.real_group.integration.update_user_password"],

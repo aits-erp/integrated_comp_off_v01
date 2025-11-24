@@ -2,8 +2,6 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.desk.form.assign_to import add as assign
-from frappe.desk.form.assign_to import close_all_assignments
 from frappe.model.document import Document
 from frappe.utils import get_datetime, getdate
 
@@ -41,25 +39,6 @@ class GatePass(Document):
         if not has_checkin:
             frappe.throw(frappe._("Employee  has not checked in today. Cannot create Gate Pass."))
 
-    def on_update(self):
-        if hasattr(self, "workflow_state") and self.workflow_state == "Gate Pass":
-            self.assign_to_gate_approver()
-
-        if hasattr(self, "workflow_state") and (self.workflow_state == "Approved" or self.workflow_state == "Rejected"):
-            close_all_assignments("Gate Pass", self.name, ignore_permissions=True)
-
-    def assign_to_gate_approver(self):
-        approver = frappe.db.get_value("Employee", self.employee, "custom_gate_pass_approver")
-        if not approver:
-            frappe.throw(frappe._("No Gate Pass Approver assigned for Employee {0}.".format(self.employee)))
-        args = {
-            "assign_to": [approver],
-            "doctype": "Gate Pass",
-            "name": self.name,
-            "description": "Gate Pass Approval Request",
-        }
-        assign(args, ignore_permissions=True)
-
 
 def expire_gate_passes():
     gate_passes = frappe.get_all(
@@ -71,4 +50,3 @@ def expire_gate_passes():
         doc = frappe.get_doc("Gate Pass", gate_pass)
         doc.status = "Rejected"
         doc.submit()
-        close_all_assignments("Gate Pass", gate_pass, ignore_permissions=True)

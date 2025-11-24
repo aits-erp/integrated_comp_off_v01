@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import get_link_to_form, getdate
+from frappe.utils import date_diff, get_link_to_form, getdate
 
 
 class ReprocessAttendanceBulk(Document):
@@ -26,6 +26,7 @@ class ReprocessAttendanceBulk(Document):
 
     def validate(self):
         self.validate_dates()
+        self.validate_allowed_days()
 
     def before_submit(self):
         self.validate_attendance_request()
@@ -92,6 +93,12 @@ class ReprocessAttendanceBulk(Document):
             frappe.throw(frappe._("From Date cannot be greater than To Date"))
         if to_date > getdate():
             frappe.throw(frappe._("To Date cannot be greater than today's date"))
+
+    def validate_allowed_days(self):
+        _, to_date = self.get_dates()
+        day_diff = date_diff(getdate(), to_date)
+        if day_diff < 2:
+            frappe.throw(frappe._("To Date must be at least 2 days before today's date"))
 
     def after_insert(self):
         self.create_reprocess_attendance()

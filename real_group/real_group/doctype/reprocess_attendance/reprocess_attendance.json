@@ -93,8 +93,10 @@
    "fieldname": "reprocess_attendance_bulk",
    "fieldtype": "Link",
    "label": "Reprocess Attendance Bulk",
+   "no_copy": 1,
    "options": "Reprocess Attendance Bulk",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "default": "Draft",
@@ -135,7 +137,7 @@
    "link_fieldname": "custom_reprocess_reference"
   }
  ],
- "modified": "2025-11-16 17:47:26.359671",
+ "modified": "2025-11-24 10:54:29.958564",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Reprocess Attendance",
