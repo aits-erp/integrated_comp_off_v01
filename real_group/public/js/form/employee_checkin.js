@@ -11,6 +11,7 @@ frappe.ui.form.on("Employee Checkin", {
             frm.add_custom_button(__('Fetch Location'), function () {
                 fetch_geolocation(frm);
             });
+            fetch_geolocation(frm);
         }
     }
 });

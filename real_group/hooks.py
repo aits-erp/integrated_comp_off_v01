@@ -183,6 +183,7 @@ doc_events = {
         "before_insert": [
             "real_group.doc_events.employee_checkin.before_insert",
         ],
+        "before_save": ["real_group.doc_events.employee_checkin.before_save"],
     },
     "Attendance Request": {
         "validate": ["real_group.doc_events.attendace_request.validate"],

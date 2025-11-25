@@ -10,13 +10,6 @@ from real_group.utils import set_geolocation_from_coordinates
 
 
 class EmployeeCheckinOverride(EmployeeCheckin):
-    def before_save(self):
-        self.validate_remote_checkin()
-
-    def validate(self):
-        super().validate()
-        self.set_geolocation()
-
     @frappe.whitelist()
     def set_geolocation(self):
         set_geolocation_from_coordinates(self)
@@ -25,17 +18,6 @@ class EmployeeCheckinOverride(EmployeeCheckin):
         if hasattr(self, "flags") and not getattr(self.flags, "is_shift_fetch_required", False):
             return
         super().fetch_shift()
-
-    def validate_remote_checkin(self):
-        if not self.employee:
-            return
-        posting_location = frappe.db.get_value("Employee", self.employee, "custom_posting_location")
-        if posting_location == "Remote Office":
-            if not (self.custom_latitude and self.custom_longitude):
-                frappe.throw(
-                    _("For employees with 'Remote Office' posting location, latitude and longitude are mandatory.")
-                )
-
 
 # Taken from latest frappe hrms codebase, which includes half-day attendance handling
 def mark_attendance_and_link_log(
