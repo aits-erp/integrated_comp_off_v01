@@ -19,6 +19,8 @@ from hrms.hr.doctype.leave_policy_assignment.leave_policy_assignment import (
     calculate_pro_rated_leaves,
 )
 
+from real_group.api.employee_transfer import adjust_value
+
 
 class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
     def get_new_leaves(self, annual_allocation, leave_details, date_of_joining):
@@ -36,10 +38,23 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
             and current_date < getdate(self.effective_to)
         ):
             new_leaves_allocated = self.get_leaves_for_passed_period(annual_allocation, leave_details, date_of_joining)
-        elif leave_details.custom_calculate_based_on_working_days and leave_details.custom_number_of_working_days > 0:
+        elif (
+            leave_details.custom_calculate_based_on_working_days
+            and leave_details.custom_number_of_working_days > 0
+            and not leave_details.custom_avail_leave_in_next_calendar_year
+        ):
             # calculate leaves based on working days
             new_leaves_allocated = self.get_leaves_for_working_days(leave_details.custom_number_of_working_days)
             new_leaves_allocated = min(annual_allocation, new_leaves_allocated)
+        elif (
+            leave_details.custom_calculate_based_on_working_days
+            and leave_details.custom_number_of_working_days > 0
+            and leave_details.custom_avail_leave_in_next_calendar_year
+        ):
+            # calculate leaves based on working days of previous year
+            new_leaves_allocated = self.get_leaves_for_previous_leave_period(
+                leave_details.custom_number_of_working_days
+            )
         else:
             # calculate pro-rated leaves for other leave types
             new_leaves_allocated = calculate_pro_rated_leaves(
@@ -170,6 +185,24 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
 
         return leaves
 
+    def get_leaves_for_previous_leave_period(self, working_days: int):
+        from real_group.utils import fetch_leaves_for_working_days, get_remaining_days_for_pro_rated
+
+        # This method is used to calculate the leaves for previous year, based on the Indian Factory Act.
+        # Which says employee can earned 1 leave per applicable days worked in the previous year.
+        from_date = add_months(get_year_start(self.effective_from), -12)
+        to_date = add_months(get_year_ending(self.effective_to), -12)
+        new_leaves = fetch_leaves_for_working_days(
+            self.employee,
+            from_date,
+            to_date,
+            working_days,
+        )
+        days = get_remaining_days_for_pro_rated(self.employee, from_date, to_date, working_days)
+        leaves = days / working_days
+        new_leaves += leaves
+        return adjust_value(new_leaves)
+
 
 def get_pro_rata_period_end_date(consider_current_month):
     # for earned leave, pro-rata period ends on the last day of the month
@@ -239,6 +272,7 @@ def get_leave_type_details():
             # Custom fields for Real Group
             "custom_calculate_based_on_working_days",
             "custom_number_of_working_days",
+            "custom_avail_leave_in_next_calendar_year",
         ],
     )
     for d in leave_types:
