@@ -157,29 +157,48 @@ class LeaveApplicationOverride(LeaveApplication):
 
         if not result:
             return
-
+        checkin_map = {}
         for row in result:
             attendance_date = getdate(row.attendance_date)
             attendance_name = row.name
-
-            # Cancel the existing attendance record
-            frappe.db.set_value("Attendance", attendance_name, "docstatus", 2)
-            frappe.db.commit()
-
-            # Skip future dates
-            if attendance_date > getdate():
-                continue
 
             checkins = frappe.get_all(
                 "Employee Checkin",
                 filters={
                     "employee": self.employee,
-                    "time": ["between", [attendance_date, add_days(attendance_date, 1)]],
+                    "attendance": attendance_name,
                 },
                 fields=["*"],
                 order_by="time",
             )
-            create_attendance(self.employee, attendance_date, checkins)
+            checkin_map.setdefault(attendance_date, []).extend(checkins)
+            attendance_doc = frappe.get_doc("Attendance", attendance_name)
+            if attendance_doc.docstatus == 1:
+                attendance_doc.cancel()
+
+        start_date = getdate(self.from_date)
+        end_date = getdate(self.to_date)
+
+        while start_date <= end_date:
+            if start_date > getdate():
+                start_date = add_days(start_date, 1)
+                continue
+            checkins = checkin_map.get(start_date, [])
+            create_attendance(self.employee, start_date, checkins)
+            attendance_request = frappe.db.get_value(
+                "Attendance Request",
+                {
+                    "employee": self.employee,
+                    "from_date": ["<=", start_date],
+                    "to_date": [">=", start_date],
+                },
+                "name",
+            )
+            if attendance_request:
+                request_doc = frappe.get_doc("Attendance Request", attendance_request)
+                request_doc.create_or_update_attendance(start_date)
+
+            start_date = add_days(start_date, 1)
 
     def validate_balance_leaves(self):
         if self.from_date and self.to_date:
