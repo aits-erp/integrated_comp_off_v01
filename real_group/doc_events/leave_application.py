@@ -224,7 +224,7 @@ def validate_el_and_cl(doc):
         "Leave Application",
         filters={
             "employee": doc.employee,
-            "docstatus": 1,
+            "docstatus": ["!=", 2],
             "name": ["!=", doc.name],
         },
         fields=["name", "leave_type", "from_date", "to_date", "half_day", "half_day_date"],
