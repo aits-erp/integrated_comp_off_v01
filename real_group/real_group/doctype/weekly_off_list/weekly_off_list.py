@@ -26,7 +26,10 @@ class WeeklyOffList(Document):
         to_date: DF.Date
         total_holidays: DF.Int
         weekly_off: DF.Literal["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
     # end: auto-generated types
+    def before_validate(self):
+        self.get_weekly_off_dates()
 
     def validate(self):
         self.remove_duplicate_dates()

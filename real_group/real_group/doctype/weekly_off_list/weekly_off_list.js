@@ -2,7 +2,6 @@
 // For license information, please see license.txt
 frappe.ui.form.on("Weekly Off List", {
   refresh: function (frm) {
-    console.log("Weekly Off List form refreshed.");
     if (frm.doc.holidays && frm.doc.holidays.length > 0) {
       frm.set_value("total_holidays", frm.doc.holidays.length);
       frm.set_df_property("weekly_off", "read_only", 1);
