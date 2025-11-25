@@ -237,7 +237,7 @@ def get_wo_leaves():
     return frappe.get_all(
         "Leave Type",
         fields=["*"],
-        filters={"custom_calculate_based_on_working_days": 1},
+        filters={"custom_calculate_based_on_working_days": 1, "custom_avail_leave_in_next_calendar_year": 0},
     )
 
 

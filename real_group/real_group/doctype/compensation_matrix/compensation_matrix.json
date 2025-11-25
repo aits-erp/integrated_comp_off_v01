@@ -15,7 +15,7 @@
  ],
  "fields": [
   {
-   "description": "eg. HH:MM",
+   "description": "eg. HH:MM:SS",
    "fieldname": "shift_duration",
    "fieldtype": "Time",
    "in_list_view": 1,
@@ -53,7 +53,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-16 12:47:50.321233",
+ "modified": "2025-11-25 20:45:54.445824",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Compensation Matrix",
