@@ -29,6 +29,7 @@ class ReprocessAttendanceBulk(Document):
         self.validate_allowed_days()
 
     def before_submit(self):
+        self.validate_in_progress_attendance()
         self.validate_attendance_request()
         self.validate_leave_application()
         self.validate_salary_slip()
@@ -45,6 +46,26 @@ class ReprocessAttendanceBulk(Document):
             filters={"reprocess_attendance_bulk": self.name},
             pluck="name",
         )
+
+    def validate_in_progress_attendance(self):
+        employees = self.get_employees()
+        in_progress_attendance = frappe.get_all(
+            "Reprocess Attendance",
+            filters={
+                "employee": ["in", employees],
+                "from_date": ["<=", self.to_date],
+                "to_date": [">=", self.from_date],
+                "docstatus": ["!=", 2],
+                "status": "In Progress",
+            },
+            pluck="name",
+        )
+        if in_progress_attendance:
+            frappe.throw(
+                frappe._(
+                    "Reprocess Attendance records {0} are still in progress for the selected employees and date range. Please resolve them before proceeding."
+                ).format(", ".join([get_link_to_form("Reprocess Attendance", ra) for ra in in_progress_attendance]))
+            )
 
     def validate_leave_application(self):
         employees = self.get_employees()

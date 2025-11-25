@@ -8,6 +8,12 @@ from frappe.model.workflow import get_workflow_state_field
 from frappe.utils import add_days, date_diff, get_datetime, get_link_to_form, getdate
 
 from real_group.api.overrides.leave_application import get_leave_balance_on
+from real_group.doc_events.attendance import (
+    allocate_c_off,
+    allocate_incentive,
+    revert_sandwich_attendance,
+    sandwich_attendance,
+)
 from real_group.tasks.process_attendance import process as _process_attendance
 from real_group.utils import is_holiday_for_employee
 
@@ -39,6 +45,7 @@ class ReprocessAttendance(Document):
         self.validate_salary_slip(*self.get_dates())
 
     def before_submit(self):
+        self.validate_pending_attendance()
         from_date, to_date = self.get_dates()
         self.validate_salary_slip(from_date, to_date)
         self.validate_attendance_request()
@@ -73,6 +80,26 @@ class ReprocessAttendance(Document):
             pluck="name",
         )
         return attendance_requests
+
+    def validate_pending_attendance(self):
+        pending_attendance = frappe.get_all(
+            "Reprocess Attendance",
+            filters={
+                "employee": self.employee,
+                "from_date": ["<=", self.to_date],
+                "to_date": [">=", self.from_date],
+                "docstatus": 1,
+                "status": "In Progress",
+                "name": ["!=", self.name],
+            },
+            pluck="name",
+        )
+        if pending_attendance:
+            frappe.throw(
+                frappe._(
+                    "There is already a pending Reprocess Attendance {0} for the selected employee and date range."
+                ).format(", ".join([get_link_to_form("Reprocess Attendance", pa) for pa in pending_attendance]))
+            )
 
     def validate_dates(self):
         from_date, to_date = self.get_dates()
@@ -157,6 +184,7 @@ class ReprocessAttendance(Document):
         frappe.db.commit()  # nosemgrep
 
     def reprocess(self):
+        frappe.flags.in_reprocess_attendance = True
         from_date, to_date = self.get_dates()
         employee_grade = frappe.db.get_value("Employee", self.employee, "grade")
         grade = frappe.get_doc("Employee Grade", employee_grade, for_update=False)
@@ -193,6 +221,8 @@ class ReprocessAttendance(Document):
             attendance.submit()
             frappe.db.commit()  # nosemgrep
             start_date = add_days(start_date, 1)
+
+        self.process_leave_and_requests(from_date, to_date)
 
     def process_single_checkins(self, from_date, to_date):
         start_date = from_date
@@ -269,6 +299,7 @@ class ReprocessAttendance(Document):
             attendance.add_tag("Single Check in Required")
             frappe.db.commit()  # nosemgrep
             start_date = add_days(start_date, 1)
+        self.process_leave_and_requests(from_date, to_date)
 
     def process_attendance(self, from_date, to_date):
         start_date = from_date
@@ -283,6 +314,29 @@ class ReprocessAttendance(Document):
                 )
             start_date = add_days(start_date, 1)
 
+        self.process_leave_and_requests(from_date, to_date)
+
+    def process_leave_and_requests(self, from_date, to_date):
+        attendances = frappe.get_all(
+            "Attendance",
+            filters={
+                "employee": self.employee,
+                "attendance_date": ["between", [from_date, to_date]],
+                "custom_reprocess_reference": self.name,
+                "docstatus": 1,
+            },
+            pluck="name",
+        )
+        for attendance in attendances:
+            doc = frappe.get_doc("Attendance", attendance)
+            allocate_c_off(doc)
+            allocate_incentive(doc)
+            if doc.status == "Absent":
+                sandwich_attendance(doc)
+            else:
+                revert_sandwich_attendance(doc)
+        frappe.db.commit()  # nosemgrep
+
         self.apply_leave_applications()
         self.apply_attendance_requests()
 
@@ -291,10 +345,34 @@ class ReprocessAttendance(Document):
         for request in requests:
             try:
                 doc = frappe.get_doc("Attendance Request", request)
-                new_request = frappe.copy_doc(doc)
-                new_request.status = "Approved"
-                new_request.name = None
-                new_request.insert(ignore_permissions=True).submit()
+                start_date = getdate(doc.from_date)
+                end_date = getdate(doc.to_date)
+                half_day_date = getdate(doc.half_day_date) if doc.half_day_date else None
+                while start_date <= end_date:
+                    try:
+                        new_request = frappe.copy_doc(doc)
+                        new_request.from_date = start_date
+                        new_request.to_date = start_date
+                        if doc.half_day:
+                            new_request.half_day = 1
+                            if (half_day_date == start_date) or (doc.from_date == doc.to_date):
+                                new_request.half_day_date = start_date
+                        else:
+                            new_request.half_day = 0
+                            new_request.half_day_date = None
+                        new_request.status = "Approved"
+                        workflow_name = new_request.meta.get_workflow()
+                        field_name = get_workflow_state_field(workflow_name)
+                        new_request.update({field_name: "Approved"})
+                        new_request.name = None
+                        new_request.insert(ignore_permissions=True)
+                        new_request.submit()
+                    except Exception:
+                        frappe.log_error(
+                            frappe.get_traceback(),
+                            f"Error in Reprocess Attendance : {self.name}",
+                        )
+                    start_date = add_days(start_date, 1)
             except Exception:
                 frappe.log_error(
                     frappe.get_traceback(),
