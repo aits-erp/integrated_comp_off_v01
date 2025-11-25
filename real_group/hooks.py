@@ -53,6 +53,7 @@ doctype_js = {
     "Shift Type": "public/js/form/shift_type.js",
     "Leave Type": "public/js/form/leave_type.js",
     "Employee Transfer": "public/js/form/employee_transfer.js",
+    "Employee Checkin": "public/js/form/employee_checkin.js",
 }
 doctype_list_js = {
     "Leave Application": "public/js/list/leave_application.js",

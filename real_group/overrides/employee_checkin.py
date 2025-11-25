@@ -6,9 +6,17 @@ from hrms.hr.doctype.employee_checkin.employee_checkin import (
     skip_attendance_in_checkins,
     update_attendance_in_checkins,
 )
-
+from real_group.utils import set_geolocation_from_coordinates
 
 class EmployeeCheckinOverride(EmployeeCheckin):
+    def validate(self):
+        super().validate()
+        self.set_geolocation()
+    
+    @frappe.whitelist()
+    def set_geolocation(self):
+        set_geolocation_from_coordinates(self)
+    
     def fetch_shift(self):
         if hasattr(self, "flags") and not getattr(self.flags, "is_shift_fetch_required", False):
             return

@@ -280,3 +280,38 @@ def validate_employee_and_user(username: str):
     if frappe.db.exists("Employee", username):
         return True
     return False
+
+
+@frappe.whitelist()
+def set_geolocation_from_coordinates(doc):
+    if doc.get("employee"):
+        posting_location = frappe.db.get_value("Employee", doc.employee, "custom_posting_location")
+        if posting_location == "Local Office":
+            return
+
+    if not (doc.custom_latitude and doc.custom_longitude):
+        return
+
+    doc.custom_location = frappe.json.dumps(
+        {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {},
+                    # geojson needs coordinates in reverse order: long, lat instead of lat, long
+                    "geometry": {"type": "Point", "coordinates": [doc.custom_longitude, doc.custom_latitude]},
+                }
+            ],
+        }
+    )
+
+
+def get_distance_between_coordinates(lat1, long1, lat2, long2):
+    from math import asin, cos, pi, sqrt
+
+    r = 6371
+    p = pi / 180
+
+    a = 0.5 - cos((lat2 - lat1) * p) / 2 + cos(lat1 * p) * cos(lat2 * p) * (1 - cos((long2 - long1) * p)) / 2
+    return 2 * r * asin(sqrt(a)) * 1000
