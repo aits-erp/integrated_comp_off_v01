@@ -1,5 +1,6 @@
 frappe.ui.form.on("Employee Checkin", {
     employee: async (frm) => {
+        hide_location_fields(frm);
         frm.remove_custom_button("Fetch Location");
         const r = await frappe.db.get_value(
             "Employee",
@@ -12,10 +13,25 @@ frappe.ui.form.on("Employee Checkin", {
                 fetch_geolocation(frm);
             });
             fetch_geolocation(frm);
+            show_location_fields(frm);
         }
+    },
+    onload: (frm) => {
+        hide_location_fields(frm);
     }
 });
 
+function hide_location_fields(frm) {
+    frm.set_df_property("custom_latitude", "hidden", 1);
+    frm.set_df_property("custom_longitude", "hidden", 1);
+    frm.set_df_property("custom_location", "hidden", 1);
+}
+
+function show_location_fields(frm) {
+    frm.set_df_property("custom_latitude", "hidden", 0);
+    frm.set_df_property("custom_longitude", "hidden", 0);
+    frm.set_df_property("custom_location", "hidden", 0);
+}
 
 fetch_geolocation = async (frm) => {
     if (!navigator.geolocation) {
