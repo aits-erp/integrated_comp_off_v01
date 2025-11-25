@@ -88,7 +88,7 @@ class ReprocessAttendance(Document):
                 "employee": self.employee,
                 "from_date": ["<=", self.to_date],
                 "to_date": [">=", self.from_date],
-                "docstatus": 1,
+                "docstatus": ["!=", 2],
                 "status": "In Progress",
                 "name": ["!=", self.name],
             },
