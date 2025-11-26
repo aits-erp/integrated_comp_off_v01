@@ -6791,7 +6791,7 @@
   "columns": 0,
   "default": null,
   "depends_on": "eval:doc.custom_calculate_based_on_working_days",
-  "description": null,
+  "description": "If this is <b>True</b>, then whenever the leave allocation is done via the Leave Control Panel, leaves will be allocated based on the previous year's working days.",
   "docstatus": 0,
   "doctype": "Custom Field",
   "dt": "Leave Type",
