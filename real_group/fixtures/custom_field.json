@@ -8100,7 +8100,7 @@
   "collapsible": 0,
   "collapsible_depends_on": null,
   "columns": 0,
-  "default": "1:10:00",
+  "default": null,
   "depends_on": null,
   "description": "The time before the shift start time during which Employee Check-in is considered for attendance",
   "docstatus": 0,
