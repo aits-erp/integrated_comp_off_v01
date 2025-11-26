@@ -31,16 +31,16 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "From Date",
-   "reqd": 1,
-   "set_only_once": 1
+   "read_only_depends_on": "eval:doc.from_date",
+   "reqd": 1
   },
   {
    "fieldname": "to_date",
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "To Date",
-   "reqd": 1,
-   "set_only_once": 1
+   "read_only_depends_on": "eval:doc.to_date",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_lysz",
@@ -96,7 +96,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-13 13:10:25.414672",
+ "modified": "2025-11-25 21:22:59.081219",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Weekly Off List",

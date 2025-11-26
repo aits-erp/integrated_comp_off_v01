@@ -25,19 +25,6 @@ frappe.ui.form.on("Compensation Matrix Details", {
       frappe.throw(__("Value for C Off Credit must end in .0 or .5"));
     frappe.validated = false;
   },
-  from_hrs(frm, cdt, cdn) {
-    let row = frappe.get_doc(cdt, cdn);
-    var time_str = row.from_hrs;
-    var formatted_time = moment(time_str, ["HH:mm:ss"]).format("HH:mm");
-    frappe.model.set_value(cdt, cdn, "from_hrs", formatted_time);
-  },
-
-  to_hrs(frm, cdt, cdn) {
-    let row = frappe.get_doc(cdt, cdn);
-    var time_str = row.to_hrs;
-    var formatted_time = moment(time_str, ["HH:mm:ss"]).format("HH:mm");
-    frappe.model.set_value(cdt, cdn, "to_hrs", formatted_time);
-  },
 
   c_off_credit(frm, cdt, cdn) {
     let row = frappe.get_doc(cdt, cdn);

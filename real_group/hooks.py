@@ -174,6 +174,9 @@ doc_events = {
         "on_update": ["real_group.real_group.integration.update_employee"],
         "validate": ["real_group.doc_events.employee.validate"],
     },
+    "Holiday List": {
+        "validate": "real_group.doc_events.holiday_list.validate",
+    },
     "Shift Type": {"validate": ["real_group.doc_events.shift_type.validate"]},
     "Employee Checkin": {
         "validate": "real_group.doc_events.employee_checkin.validate",
@@ -358,4 +361,8 @@ fixtures = [
     {"dt": "Workflow"},
     {"dt": "Workflow State"},
     {"dt": "Workflow Action Master"},
+]
+
+persistent_cache_keys = [
+    "reprocess-attendance-*",  # Attendance Reprocessing related caches
 ]

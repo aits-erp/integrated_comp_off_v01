@@ -1,8 +1,12 @@
 import frappe
 from frappe.utils import add_days, getdate
 
+from real_group.utils import is_holiday_for_employee
+
 
 def validate(doc, method=None):
+    validate_cl(doc)
+    validate_el_and_cl(doc)
     validate_compensation_leave(doc)
     validate_workflow_state(doc)
     validate_attendance(doc)
@@ -187,3 +191,77 @@ def assign_leave(doc):
                 )
             )
             assignment.insert()
+
+
+def validate_cl(doc):
+    leave_type = doc.leave_type
+    is_based_on_working_days = frappe.db.get_value("Leave Type", leave_type, "custom_calculate_based_on_working_days")
+    is_cl = "casual" in leave_type.lower()
+    if not is_based_on_working_days and is_cl:
+        prev_day = add_days(doc.from_date, -1)
+        next_day = add_days(doc.to_date, 1)
+
+        if is_holiday_for_employee(doc.employee, prev_day) or is_holiday_for_employee(doc.employee, next_day):
+            frappe.throw(
+                frappe._(
+                    "Casual Leave cannot be applied before or after a holiday or weekly off. Please adjust your leave dates."
+                )
+            )
+
+
+def validate_el_and_cl(doc):
+    leave_type = doc.leave_type
+
+    leave_type_lower = leave_type.lower()
+    is_el = "earned" in leave_type_lower
+    is_cl = "casual" in leave_type_lower
+
+    if not (is_el or is_cl):
+        return
+
+    # Check for overlapping or adjacent leave applications
+    overlapping_leaves = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": doc.employee,
+            "docstatus": ["!=", 2],
+            "name": ["!=", doc.name],
+        },
+        fields=["name", "leave_type", "from_date", "to_date", "half_day", "half_day_date"],
+    )
+    doc_from = getdate(doc.from_date)
+    doc_to = getdate(doc.to_date)
+
+    for leave in overlapping_leaves:
+        other_type = leave.leave_type.lower()
+        other_is_el = "earned" in other_type
+        other_is_cl = "casual" in other_type
+
+        # Only compare EL vs CL
+        if (is_el and other_is_el) or (is_cl and other_is_cl):
+            continue
+
+        other_from = getdate(leave.from_date)
+        other_to = getdate(leave.to_date)
+
+        # ---- 1️⃣ SAME DATE (FULL-DAY OR HALF-DAY) ----
+        # Case: Half-day on same date
+        if doc.half_day and leave.half_day:
+            if doc.half_day_date == leave.half_day_date:
+                frappe.throw(
+                    "EL and CL cannot be applied on the same date for different halves. "
+                    "One Present day is mandatory between EL and CL."
+                )
+
+        # Case: full-day overlap or same single date
+        if doc_from <= other_to and other_from <= doc_to:
+            # Only treat it as violation if actual date intersection (not range overlap logic)
+            # means one of the dates is exactly same
+            if doc_from == other_from or doc_from == other_to or doc_to == other_from or doc_to == other_to:
+                frappe.throw(
+                    "EL and CL cannot be applied on the same date. One Present day is mandatory between EL and CL."
+                )
+
+        # ---- 2️⃣ ADJACENT (Continuation) ----
+        if doc_from == add_days(other_to, 1) or doc_to == add_days(other_from, -1):
+            frappe.throw("EL and CL cannot be applied in continuation. One Present day is mandatory between EL and CL.")
