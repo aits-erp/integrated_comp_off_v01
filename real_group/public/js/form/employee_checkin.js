@@ -18,6 +18,24 @@ frappe.ui.form.on("Employee Checkin", {
     },
     onload: (frm) => {
         hide_location_fields(frm);
+    },
+    before_save: async (frm) => {
+        const r = await frappe.db.get_value(
+            "Employee",
+            frm.doc.employee,
+            "custom_posting_location"
+        );
+
+        if (r.message && r.message.custom_posting_location == "Remote Office") {
+            if (!frm.doc.custom_latitude || !frm.doc.custom_longitude) {
+                frappe.msgprint({
+                    message: __("Please fetch your location before saving"),
+                    title: __("Location Required"),
+                    indicator: "red",
+                });
+                frappe.validated = false;
+            }
+        }
     }
 });
 
