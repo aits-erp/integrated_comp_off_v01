@@ -53,6 +53,7 @@ doctype_js = {
     "Shift Type": "public/js/form/shift_type.js",
     "Leave Type": "public/js/form/leave_type.js",
     "Employee Transfer": "public/js/form/employee_transfer.js",
+    "Employee Checkin": "public/js/form/employee_checkin.js",
 }
 doctype_list_js = {
     "Leave Application": "public/js/list/leave_application.js",
@@ -182,6 +183,7 @@ doc_events = {
         "before_insert": [
             "real_group.doc_events.employee_checkin.before_insert",
         ],
+        "before_save": ["real_group.doc_events.employee_checkin.before_save"],
     },
     "Attendance Request": {
         "validate": ["real_group.doc_events.attendace_request.validate"],
