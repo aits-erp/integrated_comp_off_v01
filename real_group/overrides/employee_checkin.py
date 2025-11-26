@@ -6,14 +6,18 @@ from hrms.hr.doctype.employee_checkin.employee_checkin import (
     skip_attendance_in_checkins,
     update_attendance_in_checkins,
 )
+from real_group.utils import set_geolocation_from_coordinates
 
 
 class EmployeeCheckinOverride(EmployeeCheckin):
+    @frappe.whitelist()
+    def set_geolocation(self):
+        set_geolocation_from_coordinates(self)
+
     def fetch_shift(self):
         if hasattr(self, "flags") and not getattr(self.flags, "is_shift_fetch_required", False):
             return
         super().fetch_shift()
-
 
 # Taken from latest frappe hrms codebase, which includes half-day attendance handling
 def mark_attendance_and_link_log(

@@ -19,4 +19,4 @@ def shift_actual_start(doc):
     grace = get_time(doc.custom_late_entry_grace_period)
     if doc.start_time and grace:
         actual_start = get_timedelta(doc.start_time) + get_timedelta(format_time(grace))
-        doc.custom_actual_start_time = actual_start
+        doc.custom_actual_start_time = format_time(actual_start)

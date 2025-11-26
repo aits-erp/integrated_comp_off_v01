@@ -3,13 +3,14 @@ import json
 import frappe
 from frappe.integrations.utils import make_get_request
 from frappe.utils import get_datetime, get_timedelta, getdate
-
+from frappe import _
 from real_group.tasks.process_employee_checkin import fetch_shift_details
 
 
 def validate(doc, method=None):
     doc.custom_processed_time = doc.time
     update_processed_time(doc)
+    set_geolocation(doc)
 
 
 def before_insert(doc, method=None):
@@ -18,6 +19,10 @@ def before_insert(doc, method=None):
 
 def after_insert(doc, method=None):
     send_sms_on_late_checkin(doc)
+
+
+def before_save(doc, method=None):
+    validate_remote_checkin(doc)
 
 
 def update_processed_time(doc):
@@ -150,3 +155,20 @@ def get_sms_creds():
     if not setup:
         return None
     return setup
+
+
+def set_geolocation(doc):
+    from real_group.utils import set_geolocation_from_coordinates
+
+    set_geolocation_from_coordinates(doc)
+
+
+def validate_remote_checkin(doc):
+    if not doc.employee:
+        return
+    posting_location = frappe.db.get_value("Employee", doc.employee, "custom_posting_location")
+    if posting_location == "Remote Office":
+        if not (doc.custom_latitude and doc.custom_longitude):
+            frappe.throw(
+                _("For employees with 'Remote Office' posting location, latitude and longitude are mandatory.")
+            )
