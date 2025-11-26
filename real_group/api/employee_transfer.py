@@ -14,10 +14,12 @@ def get_leave_details(employee: str):
     allocation = data.get("leave_allocation")
     if allocation:
         for leave_type, details in allocation.items():
-            is_based_on_worked_days = frappe.db.get_value(
-                "Leave Type", leave_type, "custom_calculate_based_on_working_days"
+            is_based_on_worked_days, avail_in_next_year = frappe.db.get_value(
+                "Leave Type",
+                leave_type,
+                ["custom_calculate_based_on_working_days", "custom_avail_leave_in_next_calendar_year"],
             )
-            if is_based_on_worked_days:
+            if is_based_on_worked_days and not avail_in_next_year:
                 allocation = get_leave_allocation_records(employee, getdate(), leave_type)
                 from_date = allocation.from_date
                 to_date = allocation.to_date
