@@ -75,7 +75,7 @@ def validate_aadhar(doc):
 
     if len(duplicate_aadhar) > 0:
         links = [get_link_to_form("Employee", d["name"]) for d in duplicate_aadhar]
-        frappe.msgprint(
+        frappe.throw(
             f"Same Aadhar Number {doc.custom_aadhar_number} with the Active employees Records: " + ", ".join(links)
         )
 
