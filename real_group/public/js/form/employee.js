@@ -1,3 +1,12 @@
+const DAY_MAPPING = {
+  Sunday: "SUN",
+  Monday: "MON",
+  Tuesday: "TUE",
+  Wednesday: "WED",
+  Thursday: "THU",
+  Friday: "FRI",
+  Saturday: "SAT",
+};
 frappe.ui.form.on("Employee", {
   refresh(frm) {
     frm.set_query("holiday_list", () => {
@@ -7,7 +16,10 @@ frappe.ui.form.on("Employee", {
         },
       };
     });
-    // Add a custom button if aadhaar number is use in multiple employees
+
+    if (frm.doc.custom_off_days && !frm.doc.__islocal) {
+      frm.set_df_property("custom_off_days", "read_only", 1);
+    }
     if (frm.doc.custom_aadhar_number) {
       frappe.db
         .get_list("Employee", {
@@ -73,7 +85,14 @@ frappe.ui.form.on("Employee", {
       frm.set_df_property("custom_weekly_holiday_list", "read_only", 1);
     }
   },
-
+  custom_weekly_holiday_list: function (frm) {
+    if (frm.doc.custom_weekly_holiday_list) {
+      frappe.db.get_value("Weekly Off List", frm.doc.custom_weekly_holiday_list, "weekly_off").then((res) => {
+        const weekly_off = DAY_MAPPING[res.message.weekly_off];
+        frm.set_value("custom_off_days", weekly_off);
+      });
+    }
+  },
   company: function (frm) {
     if (frm.doc.company && frm.doc.company === "Real Ispat and Power Ltd") {
       frm.set_value("naming_series", "RB-EMP-UID");

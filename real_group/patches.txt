@@ -19,3 +19,4 @@ real_group.patches.migrate_weekly_off
 real_group.patches.update_time_in_shift
 real_group.patches.remove_scripts_v1
 real_group.patches.remove_scripts_v2
+real_group.patches.remove_scripts_v3
