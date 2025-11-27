@@ -19,17 +19,17 @@ frappe.ui.form.on("Employee", {
         })
         .then((records) => {
           if (records.length > 0) {
-            frm.set_df_property("custom_linked_aadhaar", "hidden", 0);
+            frm.set_df_property("custom_linked_aadhar", "hidden", 0);
             setTimeout(function () {
-              let button = frm.fields_dict.custom_linked_aadhaar.$wrapper.find("button");
+              let button = frm.fields_dict.custom_linked_aadhar.$wrapper.find("button");
               window.applyCustomButtonStyle(button);
             }, 100);
           } else {
-            frm.set_df_property("custom_linked_aadhaar", "hidden", 1);
+            frm.set_df_property("custom_linked_aadhar", "hidden", 1);
           }
         });
     } else {
-      frm.set_df_property("custom_linked_aadhaar", "hidden", 1); // hide if no Aadhar
+      frm.set_df_property("custom_linked_aadhar", "hidden", 1); // hide if no Aadhar
     }
 
     if (frm.doc.pan_number) {
@@ -97,8 +97,8 @@ frappe.ui.form.on("Employee", {
     }
   },
 
-  custom_linked_aadhaar: function (frm) {
-    let is_hidden = frm.get_field("custom_linked_aadhaar").df.hidden;
+  custom_linked_aadhar: function (frm) {
+    let is_hidden = frm.get_field("custom_linked_aadhar").df.hidden;
     if (!is_hidden) {
       if (frm.doc.custom_aadhar_number) {
         frappe.db
