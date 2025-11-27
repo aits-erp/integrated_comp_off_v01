@@ -173,3 +173,6 @@ class ReprocessAttendanceBulk(Document):
         if self.department:
             filters["department"] = self.department
         return frappe.get_all("Employee", filters=filters, pluck="name")
+    
+    def get_dates(self):
+        return getdate(self.from_date), getdate(self.to_date)
