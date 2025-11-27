@@ -5,10 +5,10 @@ frappe.ui.form.on("Employee Checkin", {
         const r = await frappe.db.get_value(
             "Employee",
             frm.doc.employee,
-            "custom_posting_location"
+            "custom_is_remote_office"
         );
 
-        if (r.message && r.message.custom_posting_location == "Remote Office") {
+        if (r.message && r.message.custom_is_remote_office == "1") {
             frm.add_custom_button(__('Fetch Location'), function () {
                 fetch_geolocation(frm);
             });
@@ -23,10 +23,10 @@ frappe.ui.form.on("Employee Checkin", {
         const r = await frappe.db.get_value(
             "Employee",
             frm.doc.employee,
-            "custom_posting_location"
+            "custom_is_remote_office"
         );
 
-        if (r.message && r.message.custom_posting_location == "Remote Office") {
+        if (r.message && r.message.custom_is_remote_office == "1") {
             if (!frm.doc.custom_latitude || !frm.doc.custom_longitude) {
                 frappe.msgprint({
                     message: __("Please fetch your location before saving"),

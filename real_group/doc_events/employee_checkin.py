@@ -166,8 +166,8 @@ def set_geolocation(doc):
 def validate_remote_checkin(doc):
     if not doc.employee:
         return
-    posting_location = frappe.db.get_value("Employee", doc.employee, "custom_posting_location")
-    if posting_location == "Remote Office":
+    posting_location = frappe.db.get_value("Employee", doc.employee, "custom_is_remote_office")
+    if posting_location == "1":
         if not (doc.custom_latitude and doc.custom_longitude):
             frappe.throw(
                 _("For employees with 'Remote Office' posting location, latitude and longitude are mandatory.")
