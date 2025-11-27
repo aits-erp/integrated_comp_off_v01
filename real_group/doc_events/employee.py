@@ -91,7 +91,7 @@ def validate_aadhar(doc):
 
     if len(duplicate_pans) > 0:
         links = [get_link_to_form("Employee", d["name"]) for d in duplicate_pans]
-        frappe.msgprint(f"Same PAN Number {doc.pan_number} with the Active employees Records: " + ", ".join(links))
+        frappe.throw(f"Same PAN Number {doc.pan_number} with the Active employees Records: " + ", ".join(links))
 
 
 def validate_employee_data(doc):
