@@ -13,7 +13,6 @@ from real_group.real_group.employee_map import (
     UPDATE_USER_MAP,
     USER_MAP,
 )
-from real_group.utils import validate_employee_and_user
 
 # ----------------Oracle Connection
 
@@ -478,18 +477,10 @@ def get_account_update_query(map, table_name, employee_code):
 
 
 def create_user(doc, method):
-    if not validate_employee_and_user(doc.username):
-        frappe.msgprint(
-            "Employee does not exists for the user {} which you are trying to create, this will lead to user not being created in Oracle master.".format(
-                doc.username
-            ),
-            indicator="orange",
-        )
-        return
     if frappe.db.exists("Employee", doc.username):
         company = frappe.db.get_value("Employee", doc.username, "company")
     else:
-        frappe.throw(f"Employee not found for the user -> {doc.username}")
+        return
 
     con = oracle_connection(company)
     if not con:
@@ -539,18 +530,10 @@ def create_user(doc, method):
 
 
 def update_user(doc, method):
-    if not validate_employee_and_user(doc.username):
-        frappe.msgprint(
-            "Employee does not exists for the user {} which you are trying to create, this will lead to user not being created in Oracle master.".format(
-                doc.username
-            ),
-            indicator="orange",
-        )
-        return
     if frappe.db.exists("Employee", doc.username):
         company = frappe.db.get_value("Employee", doc.username, "company")
     else:
-        frappe.throw(f"Employee not found for the user -> {doc.username}")
+        return
 
     con = oracle_connection(company)
     if not con:

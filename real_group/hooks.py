@@ -171,7 +171,7 @@ doc_events = {
             "real_group.real_group.integration.create_employee",
             "real_group.doc_events.employee.after_insert",
         ],
-        "on_update": ["real_group.real_group.integration.update_employee"],
+        "on_update": ["real_group.doc_events.employee.on_update"],
         "validate": ["real_group.doc_events.employee.validate"],
     },
     "Holiday List": {
