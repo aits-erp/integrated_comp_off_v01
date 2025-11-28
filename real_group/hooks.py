@@ -231,6 +231,9 @@ doc_events = {
     "Employee Grade": {
         "validate": "real_group.doc_events.employee_grade.validate",
     },
+    "Branch": {
+        "on_update": "real_group.doc_events.branch.on_update",
+    },
 }
 
 # Scheduled Tasks

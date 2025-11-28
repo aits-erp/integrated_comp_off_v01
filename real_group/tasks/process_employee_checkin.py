@@ -11,7 +11,7 @@ def process():
     logs = frappe.get_all(
         "Bio Attendance Log",
         filters={"is_processed": "N"},
-        fields=["*"],
+        fields=["*", "employee_id as employee"],
         limit_page_length=1000,
         order_by="punch_datetime asc",
     )
