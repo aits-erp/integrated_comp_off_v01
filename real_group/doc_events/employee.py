@@ -1,6 +1,8 @@
 import frappe
 from frappe.utils import cint, get_link_to_form
 
+from real_group.real_group.integration import update_user
+
 
 def autoname(doc, method):
     series = frappe.db.get_value(
@@ -57,6 +59,19 @@ def after_insert(doc, method=None):
     weekly_off_update_doc.flags.ignore_update_employee = True
     weekly_off_update_doc.insert(ignore_permissions=True)
     weekly_off_update_doc.submit()
+
+
+def on_update(doc, method=None):
+    update_user_details(doc)
+
+
+def update_user_details(doc):
+    if not doc.has_value_changed("user_id"):
+        return
+    if str(doc.user_id).strip() != str(doc.name).strip():
+        frappe.throw(frappe._("Employee ID and User ID must be same"))
+    user = frappe.get_doc("User", doc.user_id)
+    update_user(user, method=None)
 
 
 def validate_aadhar(doc):
