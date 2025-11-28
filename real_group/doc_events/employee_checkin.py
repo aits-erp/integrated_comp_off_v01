@@ -1,9 +1,10 @@
 import json
 
 import frappe
+from frappe import _
 from frappe.integrations.utils import make_get_request
 from frappe.utils import get_datetime, get_timedelta, getdate
-from frappe import _
+
 from real_group.tasks.process_employee_checkin import fetch_shift_details
 
 
@@ -166,8 +167,8 @@ def set_geolocation(doc):
 def validate_remote_checkin(doc):
     if not doc.employee:
         return
-    posting_location = frappe.db.get_value("Employee", doc.employee, "custom_posting_location")
-    if posting_location == "Remote Office":
+    posting_location = frappe.db.get_value("Employee", doc.employee, "custom_is_remote_office")
+    if posting_location:
         if not (doc.custom_latitude and doc.custom_longitude):
             frappe.throw(
                 _("For employees with 'Remote Office' posting location, latitude and longitude are mandatory.")

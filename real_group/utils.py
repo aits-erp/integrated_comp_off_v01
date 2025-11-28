@@ -285,8 +285,8 @@ def validate_employee_and_user(username: str):
 @frappe.whitelist()
 def set_geolocation_from_coordinates(doc):
     if doc.get("employee"):
-        posting_location = frappe.db.get_value("Employee", doc.employee, "custom_posting_location")
-        if posting_location == "Local Office":
+        posting_location = frappe.db.get_value("Employee", doc.employee, "custom_is_remote_office")
+        if not posting_location:
             return
 
     if not (doc.custom_latitude and doc.custom_longitude):
