@@ -5,29 +5,22 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "employee",
+  "employee_id",
   "punch_date",
   "punch_time",
   "punch_datetime",
-  "punch_datetime_backup",
+  "punch_date_backup",
   "column_break_ivwh",
   "area",
   "terminal_id",
   "punch_direction",
   "is_processed",
   "time_pro_reference_id",
+  "present_day",
   "section_break_kplq",
   "message"
  ],
  "fields": [
-  {
-   "fieldname": "employee",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Employee",
-   "options": "Employee",
-   "reqd": 1
-  },
   {
    "fieldname": "punch_date",
    "fieldtype": "Date",
@@ -93,15 +86,29 @@
    "label": "Time Pro Reference ID"
   },
   {
-   "fieldname": "punch_datetime_backup",
-   "fieldtype": "Datetime",
-   "label": "Punch Datetime Backup",
+   "fieldname": "punch_date_backup",
+   "fieldtype": "Date",
+   "label": "Punch Date Backup",
    "read_only": 1
+  },
+  {
+   "fieldname": "present_day",
+   "fieldtype": "Data",
+   "label": "Present Day",
+   "read_only": 1
+  },
+  {
+   "fieldname": "employee_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2025-10-31 13:23:41.242500",
+ "modified": "2025-11-28 10:55:31.028334",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Bio Attendance Log",
@@ -125,6 +132,5 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "employee",
  "track_changes": 1
 }

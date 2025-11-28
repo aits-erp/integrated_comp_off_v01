@@ -157,6 +157,9 @@ def validate_attendance(doc):
 
 
 def validate_change_request_day(doc):
+    roles = frappe.get_roles()
+    if "HR Manager" in roles or "HR User" in roles:
+        return
     branch = frappe.get_value("Employee", doc.employee, "branch")
     allowed_days = frappe.get_value("Branch", branch, "custom_change_request")
     if not allowed_days:

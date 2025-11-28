@@ -228,6 +228,9 @@ doc_events = {
         "before_cancel": "real_group.doc_events.leave_application.before_cancel",
         "before_delete": "real_group.doc_events.leave_application.before_delete",
     },
+    "Employee Grade": {
+        "validate": "real_group.doc_events.employee_grade.validate",
+    },
     "Branch": {
         "on_update": "real_group.doc_events.branch.on_update",
     },

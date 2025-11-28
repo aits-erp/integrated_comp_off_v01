@@ -17,13 +17,14 @@ class BioAttendanceLog(Document):
         from frappe.types import DF
 
         area: DF.Data | None
-        employee: DF.Link
+        employee_id: DF.Link
         is_processed: DF.Literal["", "N", "Y", "E"]
         message: DF.Text | None
         name: DF.Int | None
+        present_day: DF.Data | None
         punch_date: DF.Date | None
+        punch_date_backup: DF.Date | None
         punch_datetime: DF.Datetime | None
-        punch_datetime_backup: DF.Datetime | None
         punch_direction: DF.Literal["", "I", "O"]
         punch_time: DF.Time | None
         terminal_id: DF.Data | None
