@@ -48,59 +48,67 @@ def process_employee_checkin(logs):
         grade = employee.grade
 
         for log in emp_logs:
-            first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime)
-            # If we have a existing checkin, we don't need to calculate which shift to assign
-            # Just use shift from last checkin
-            if first_checkin_shift:
-                shift_info = fetch_shift_details(first_checkin_shift, get_datetime(log.punch_datetime), grade)
+            try:
+                first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime)
+                # If we have a existing checkin, we don't need to calculate which shift to assign
+                # Just use shift from last checkin
+                if first_checkin_shift:
+                    shift_info = fetch_shift_details(first_checkin_shift, get_datetime(log.punch_datetime), grade)
 
-                doc = frappe.get_doc(
-                    {
-                        "doctype": "Employee Checkin",
-                        "employee": emp,
-                        "time": get_datetime(log.punch_datetime),
-                        "shift": first_checkin_shift,
-                        "log_type": "IN",
-                        "custom_bio_log_id": log.name,
-                        "device_id": log.terminal_id,
-                        "shift_start": shift_info.start_datetime,
-                        "shift_end": shift_info.end_datetime,
-                        "shift_actual_start": shift_info.actual_start,
-                        "shift_actual_end": shift_info.actual_end,
-                    }
-                )
-                doc.flags.is_shift_fetch_required = False
-                doc.insert()
+                    doc = frappe.get_doc(
+                        {
+                            "doctype": "Employee Checkin",
+                            "employee": emp,
+                            "time": get_datetime(log.punch_datetime),
+                            "shift": first_checkin_shift,
+                            "log_type": "IN",
+                            "custom_bio_log_id": log.name,
+                            "device_id": log.terminal_id,
+                            "shift_start": shift_info.start_datetime,
+                            "shift_end": shift_info.end_datetime,
+                            "shift_actual_start": shift_info.actual_start,
+                            "shift_actual_end": shift_info.actual_end,
+                        }
+                    )
+                    doc.flags.is_shift_fetch_required = False
+                    doc.insert()
 
-            else:
-                for_date = getdate(log.punch_date)
-                allowed_shifts = get_employee_allowed_shifts(emp, for_date)
-                closest_shift = find_closest_shift_from_punch_time(allowed_shifts, log.punch_time)
+                else:
+                    for_date = getdate(log.punch_date)
+                    allowed_shifts = get_employee_allowed_shifts(emp, for_date)
+                    closest_shift = find_closest_shift_from_punch_time(allowed_shifts, log.punch_time)
 
-                shift_info = fetch_shift_details(closest_shift, get_datetime(log.punch_datetime), grade)
-                doc = frappe.get_doc(
-                    {
-                        "doctype": "Employee Checkin",
-                        "employee": emp,
-                        "time": get_datetime(log.punch_datetime),
-                        "shift": closest_shift,
-                        "log_type": "IN",
-                        "custom_bio_log_id": log.name,
-                        "device_id": log.terminal_id,
-                        "shift_start": shift_info.start_datetime,
-                        "shift_end": shift_info.end_datetime,
-                        "shift_actual_start": shift_info.actual_start,
-                        "shift_actual_end": shift_info.actual_end,
-                    }
-                )
-                doc.flags.is_shift_fetch_required = False
-                doc.insert()
+                    shift_info = fetch_shift_details(closest_shift, get_datetime(log.punch_datetime), grade)
+                    doc = frappe.get_doc(
+                        {
+                            "doctype": "Employee Checkin",
+                            "employee": emp,
+                            "time": get_datetime(log.punch_datetime),
+                            "shift": closest_shift,
+                            "log_type": "IN",
+                            "custom_bio_log_id": log.name,
+                            "device_id": log.terminal_id,
+                            "shift_start": shift_info.start_datetime,
+                            "shift_end": shift_info.end_datetime,
+                            "shift_actual_start": shift_info.actual_start,
+                            "shift_actual_end": shift_info.actual_end,
+                        }
+                    )
+                    doc.flags.is_shift_fetch_required = False
+                    doc.insert()
 
-            log_doc = frappe.get_doc("Bio Attendance Log", log.name)
-            log_doc.is_processed = "Y"
-            log_doc.message = f"Checkin created for employee {emp}"
-            log_doc.save()
-            frappe.db.commit()
+                log_doc = frappe.get_doc("Bio Attendance Log", log.name)
+                log_doc.is_processed = "Y"
+                log_doc.message = f"Checkin created for employee {emp}"
+                log_doc.save()
+                frappe.db.commit()
+            except Exception as e:
+                log_doc = frappe.get_doc("Bio Attendance Log", log.name)
+                log_doc.is_processed = "E"
+                log_doc.message = f"Error processing checkin for employee {emp}: {e!s}"
+                log_doc.save()
+                frappe.db.commit()
+                continue
 
 
 def process_employee_checkout(logs):
@@ -126,72 +134,84 @@ def process_employee_checkout(logs):
         grade = employee.grade
 
         for log in emp_logs:
-            first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime, for_checkout=True)
+            try:
+                first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime, for_checkout=True)
 
-            if first_checkin_shift:
-                shift_info = fetch_shift_details(
-                    first_checkin_shift, get_datetime(log.punch_datetime), grade, is_checkout=True
-                )
-                doc = frappe.get_doc(
-                    {
-                        "doctype": "Employee Checkin",
-                        "employee": emp,
-                        "time": get_datetime(log.punch_datetime),
-                        "shift": first_checkin_shift,
-                        "log_type": "OUT",
-                        "custom_bio_log_id": log.name,
-                        "device_id": log.terminal_id,
-                        "shift_start": shift_info.start_datetime,
-                        "shift_end": shift_info.end_datetime,
-                        "shift_actual_start": shift_info.actual_start,
-                        "shift_actual_end": shift_info.actual_end,
-                    }
-                )
-                doc.flags.is_shift_fetch_required = False
-                doc.insert()
-                frappe.db.commit()
-            else:
-                for_date = getdate(log.punch_date)
-                allowed_shifts = get_employee_allowed_shifts(emp, for_date)
-                closest_shift = find_closest_shift_from_punch_time(allowed_shifts, log.punch_time)
+                if first_checkin_shift:
+                    shift_info = fetch_shift_details(
+                        first_checkin_shift, get_datetime(log.punch_datetime), grade, is_checkout=True
+                    )
+                    doc = frappe.get_doc(
+                        {
+                            "doctype": "Employee Checkin",
+                            "employee": emp,
+                            "time": get_datetime(log.punch_datetime),
+                            "shift": first_checkin_shift,
+                            "log_type": "OUT",
+                            "custom_bio_log_id": log.name,
+                            "device_id": log.terminal_id,
+                            "shift_start": shift_info.start_datetime,
+                            "shift_end": shift_info.end_datetime,
+                            "shift_actual_start": shift_info.actual_start,
+                            "shift_actual_end": shift_info.actual_end,
+                        }
+                    )
+                    doc.flags.is_shift_fetch_required = False
+                    doc.insert()
+                    frappe.db.commit()
+                else:
+                    for_date = getdate(log.punch_date)
+                    allowed_shifts = get_employee_allowed_shifts(emp, for_date)
+                    closest_shift = find_closest_shift_from_punch_time(allowed_shifts, log.punch_time)
 
-                shift_info = fetch_shift_details(
-                    closest_shift, get_datetime(log.punch_datetime), grade, is_checkout=True
-                )
-                doc = frappe.get_doc(
-                    {
-                        "doctype": "Employee Checkin",
-                        "employee": emp,
-                        "time": get_datetime(log.punch_datetime),
-                        "shift": closest_shift,
-                        "log_type": "OUT",
-                        "custom_bio_log_id": log.name,
-                        "device_id": log.terminal_id,
-                        "shift_start": shift_info.start_datetime,
-                        "shift_end": shift_info.end_datetime,
-                        "shift_actual_start": shift_info.actual_start,
-                        "shift_actual_end": shift_info.actual_end,
-                    }
-                )
-                doc.flags.is_shift_fetch_required = False
-                doc.insert()
+                    shift_info = fetch_shift_details(
+                        closest_shift, get_datetime(log.punch_datetime), grade, is_checkout=True
+                    )
+                    doc = frappe.get_doc(
+                        {
+                            "doctype": "Employee Checkin",
+                            "employee": emp,
+                            "time": get_datetime(log.punch_datetime),
+                            "shift": closest_shift,
+                            "log_type": "OUT",
+                            "custom_bio_log_id": log.name,
+                            "device_id": log.terminal_id,
+                            "shift_start": shift_info.start_datetime,
+                            "shift_end": shift_info.end_datetime,
+                            "shift_actual_start": shift_info.actual_start,
+                            "shift_actual_end": shift_info.actual_end,
+                        }
+                    )
+                    doc.flags.is_shift_fetch_required = False
+                    doc.insert()
+                    frappe.db.commit()
+                log_doc = frappe.get_doc("Bio Attendance Log", log.name)
+                log_doc.is_processed = "Y"
+                log_doc.message = f"Checkout created for employee {emp}"
+                log_doc.save()
+            except Exception as e:
+                log_doc = frappe.get_doc("Bio Attendance Log", log.name)
+                log_doc.is_processed = "E"
+                log_doc.message = f"Error processing checkout for employee {emp}: {e!s}"
+                log_doc.save()
                 frappe.db.commit()
-            log_doc = frappe.get_doc("Bio Attendance Log", log.name)
-            log_doc.is_processed = "Y"
-            log_doc.message = f"Checkout created for employee {emp}"
-            log_doc.save()
+                continue
 
 
 def find_closest_shift_from_punch_time(allowed_shifts: list[str], punch_time: str | timedelta):
-    punch_time = get_datetime(punch_time)
+    # Use a fixed reference date to convert time-only values to datetime for accurate comparison
+    reference_date = getdate(frappe.utils.now_datetime())
+    punch_time_dt = datetime.combine(reference_date, get_time(punch_time))
 
     shifts = frappe.db.get_all("Shift Type", filters={"name": ["in", allowed_shifts]}, fields=["name", "start_time"])
 
     shift_timings = [
-        {"name": s["name"], "start_time": get_datetime(s["start_time"])} for s in shifts if s["start_time"]
+        {"name": s["name"], "start_time": datetime.combine(reference_date, get_time(s["start_time"]))}
+        for s in shifts
+        if s["start_time"]
     ]
 
-    closest_shift = min(shift_timings, key=lambda s: abs((punch_time - s["start_time"]).total_seconds()))
+    closest_shift = min(shift_timings, key=lambda s: abs((punch_time_dt - s["start_time"]).total_seconds()))
 
     return closest_shift["name"]
 
