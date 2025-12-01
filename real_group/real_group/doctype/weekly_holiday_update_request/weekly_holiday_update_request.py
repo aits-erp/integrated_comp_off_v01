@@ -35,11 +35,7 @@ class WeeklyHolidayUpdateRequest(Document):
 
     # end: auto-generated types
     def on_submit(self):
-        if (
-            (hasattr(self, "flags") and self.flags.ignore_update_employee)
-            or getdate(self.valid_from) < getdate()
-            or getdate() < getdate(self.valid_from)
-        ):
+        if hasattr(self, "flags") and self.flags.ignore_update_employee:
             return
         self.update_weekly_off_in_employee()
 
@@ -52,6 +48,7 @@ class WeeklyHolidayUpdateRequest(Document):
         employee.save()
 
     def validate(self):
+        self.validate_payroll_date()
         self.validate_date()
         self.validate_back_dated()
         get_weekly_off.clear_cache()
@@ -93,3 +90,15 @@ class WeeklyHolidayUpdateRequest(Document):
                     back_date, get_link_to_form("Weekly Holiday Update Request", name, "request")
                 )
             )
+
+    def validate_payroll_date(self):
+        if frappe.db.exists(
+            "Salary Slip",
+            {
+                "employee": self.employee,
+                "start_date": ["<=", self.valid_from],
+                "end_date": [">=", self.valid_from],
+                "docstatus": 1,
+            },
+        ):
+            frappe.throw(frappe._("Cannot process: Salary for this period has already been submitted."))
