@@ -1,10 +1,11 @@
 import frappe
-from frappe.utils import add_days, getdate
+from frappe.utils import add_days, date_diff, getdate
 
 from real_group.utils import is_holiday_for_employee
 
 
 def validate(doc, method=None):
+    validate_change_request_day(doc)
     validate_cl(doc)
     validate_el_and_cl(doc)
     validate_compensation_leave(doc)
@@ -265,3 +266,17 @@ def validate_el_and_cl(doc):
         # ---- 2️⃣ ADJACENT (Continuation) ----
         if doc_from == add_days(other_to, 1) or doc_to == add_days(other_from, -1):
             frappe.throw("EL and CL cannot be applied in continuation. One Present day is mandatory between EL and CL.")
+
+
+def validate_change_request_day(doc):
+    roles = frappe.get_roles()
+    if "HR Manager" in roles or "HR User" in roles or any("Payroll" in r for r in roles):
+        return
+    branch = frappe.get_value("Employee", doc.employee, "branch")
+    allowed_days = frappe.get_value("Branch", branch, "custom_change_request")
+    if not allowed_days:
+        return
+
+    diff = date_diff(getdate(), doc.from_date)
+    if diff > allowed_days:
+        frappe.throw(frappe._("You can only change attendance request within {0} days.").format(allowed_days))

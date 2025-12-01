@@ -16,7 +16,9 @@ frappe.ui.form.on("Employee", {
         },
       };
     });
-
+    if (frm.doc.holiday_list && !frm.doc.__islocal) {
+      frm.set_df_property("holiday_list", "read_only", 1);
+    }
     if (frm.doc.custom_off_days && !frm.doc.__islocal) {
       frm.set_df_property("custom_off_days", "read_only", 1);
     }
@@ -83,6 +85,13 @@ frappe.ui.form.on("Employee", {
 
     if (!frm.doc.__islocal && frm.doc.custom_weekly_holiday_list) {
       frm.set_df_property("custom_weekly_holiday_list", "read_only", 1);
+    }
+  },
+  branch: function (frm) {
+    if (frm.doc.branch) {
+      frappe.db.get_value("Branch", frm.doc.branch, "custom_holiday_list").then((res) => {
+        frm.set_value("holiday_list", res.message.custom_holiday_list);
+      });
     }
   },
   custom_weekly_holiday_list: function (frm) {
