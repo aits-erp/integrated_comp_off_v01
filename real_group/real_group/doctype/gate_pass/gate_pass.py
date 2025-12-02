@@ -32,7 +32,9 @@ class GatePass(Document):
 
     def validate_date(self):
         if getdate(self.date) < getdate():
-            frappe.throw(frappe._("Gate Pass date cannot be created for {}.").format(self.date))
+            frappe.throw(frappe._("Gate Pass date cannot be created for past dates"))
+        if getdate(self.date) > getdate():
+            frappe.throw(frappe._("Gate Pass date cannot be created for future dates"))
 
     def validate_checkin(self):
         has_checkin = get_first_checkin_for_the_day(self.employee, get_datetime())
