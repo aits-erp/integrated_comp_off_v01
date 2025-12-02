@@ -15,6 +15,14 @@ frappe.ui.form.on("Employee Grade", {
       };
     });
   },
+  validate(frm) {
+    if (!frm.doc.custom_late_entry_grace_period) {
+      frm.set_value("custom_late_entry_grace_period", "");
+    }
+    if (!frm.doc.custom_hours_per_leave) {
+      frm.set_value("custom_hours_per_leave", "");
+    }
+  },
 
   custom_present_on_holiday: function (frm) {
     if (frm.doc.custom_present_on_holida != frm.doc.custom_extra_work_hour) {
