@@ -8,6 +8,7 @@ def validate(doc, method=None):
     validate_change_request_day(doc)
     validate_cl(doc)
     validate_el_and_cl(doc)
+    validate_el_cl_gap_non_working_day(doc)
     validate_compensation_leave(doc)
     validate_workflow_state(doc)
     validate_attendance(doc)
@@ -280,3 +281,78 @@ def validate_change_request_day(doc):
     diff = date_diff(getdate(), doc.from_date)
     if diff > allowed_days:
         frappe.throw(frappe._("You can only change attendance request within {0} days.").format(allowed_days))
+
+
+def validate_el_cl_gap_non_working_day(doc):
+    leave_type = (doc.leave_type or "").lower()
+    is_el = "earned" in leave_type
+    is_cl = "casual" in leave_type
+
+    if not (is_el or is_cl):
+        return
+
+    opposite_leaves = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": doc.employee,
+            "docstatus": ["!=", 2],
+            "name": ["!=", doc.name],
+        },
+        fields=["name", "leave_type", "from_date", "to_date"],
+    )
+
+    doc_from = getdate(doc.from_date)
+    doc_to = getdate(doc.to_date)
+
+    for leave in opposite_leaves:
+        other_type = (leave.leave_type or "").lower()
+        other_is_el = "earned" in other_type
+        other_is_cl = "casual" in other_type
+
+        if is_el and not other_is_cl:
+            continue
+        if is_cl and not other_is_el:
+            continue
+
+        other_from = getdate(leave.from_date)
+        other_to = getdate(leave.to_date)
+
+        gap_date = None
+        if doc_from > other_to:
+            gap_days = date_diff(doc_from, other_to) - 1
+            if gap_days == 1:
+                gap_date = add_days(other_to, 1)
+        elif other_from > doc_to:
+            gap_days = date_diff(other_from, doc_to) - 1
+            if gap_days == 1:
+                gap_date = add_days(doc_to, 1)
+
+        if not gap_date:
+            continue
+
+        reason = get_non_working_gap_reason(doc.employee, gap_date)
+        if reason:
+            frappe.throw(frappe._("EL and CL must be separated by a Present working day. {0}").format(reason))
+
+
+def get_non_working_gap_reason(employee, gap_date):
+    attendance_status = frappe.db.get_value(
+        "Attendance",
+        {
+            "employee": employee,
+            "attendance_date": gap_date,
+            "docstatus": ["!=", 2],
+        },
+        "status",
+    )
+
+    if attendance_status in ("Absent", "Half Day"):
+        return frappe._("Attendance on {0} is marked {1}.").format(gap_date, attendance_status)
+
+    holiday = is_holiday_for_employee(employee, gap_date)
+    if holiday:
+        if holiday.get("is_weekly_off"):
+            return frappe._("{0} is a Weekly Off.").format(gap_date)
+        return frappe._("{0} is a Holiday.").format(gap_date)
+
+    return None
