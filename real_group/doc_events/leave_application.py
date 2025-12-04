@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import add_days, date_diff, getdate
+from frappe.utils import add_days, date_diff, formatdate, getdate
 
 from real_group.utils import is_holiday_for_employee
 
@@ -75,7 +75,9 @@ def validate_attendance(doc):
         )
         if att_exist:
             frappe.throw(
-                frappe._("Attendance is already marked for the Employee {0} on {1}").format(doc.employee, doc.from_date)
+                frappe._("Attendance is already marked for the Employee {0} on {1}").format(
+                    doc.employee, format_display_date(doc.from_date)
+                )
             )
     else:
         att_dates = []
@@ -95,7 +97,9 @@ def validate_attendance(doc):
             )
             if att_exist:
                 frappe.throw(
-                    frappe._("Attendance is already marked for the Employee {0} on {1}").format(doc.employee, date)
+                    frappe._("Attendance is already marked for the Employee {0} on {1}").format(
+                        doc.employee, format_display_date(date)
+                    )
                 )
 
 
@@ -335,6 +339,12 @@ def validate_el_cl_gap_non_working_day(doc):
             frappe.throw(frappe._("EL and CL must be separated by a Present working day. {0}").format(reason))
 
 
+def format_display_date(value):
+    if not value:
+        return ""
+    return formatdate(value, "dd-MM-yyyy")
+
+
 def get_non_working_gap_reason(employee, gap_date):
     attendance_status = frappe.db.get_value(
         "Attendance",
@@ -347,12 +357,12 @@ def get_non_working_gap_reason(employee, gap_date):
     )
 
     if attendance_status in ("Absent", "Half Day"):
-        return frappe._("Attendance on {0} is marked {1}.").format(gap_date, attendance_status)
+        return frappe._("Attendance on {0} is marked {1}.").format(format_display_date(gap_date), attendance_status)
 
     holiday = is_holiday_for_employee(employee, gap_date)
     if holiday:
         if holiday.get("is_weekly_off"):
-            return frappe._("{0} is a Weekly Off.").format(gap_date)
-        return frappe._("{0} is a Holiday.").format(gap_date)
+            return frappe._("{0} is a Weekly Off.").format(format_display_date(gap_date))
+        return frappe._("{0} is a Holiday.").format(format_display_date(gap_date))
 
     return None
