@@ -68,6 +68,8 @@ def on_update(doc, method=None):
 def update_user_details(doc):
     if not doc.has_value_changed("user_id"):
         return
+    if not doc.user_id:
+        return
     if str(doc.user_id).strip() != str(doc.name).strip():
         frappe.throw(frappe._("Employee ID and User ID must be same"))
     user = frappe.get_doc("User", doc.user_id)

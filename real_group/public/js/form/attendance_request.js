@@ -17,10 +17,10 @@ frappe.templates["existing_leave.html"] = `
   <tbody>
     {% for(var i=0; i < leaves.length; i++) { %} <tr>
       <td class="small"><a href="{{ frappe.utils.get_form_link("Leave Application",leaves[i].name) }}">{{ leaves[i].name }}</a></td>
-      <td class="small"> {{ __(leaves[i].from_date) }} </td>
-      <td class="small"> {{ __(leaves[i].to_date) }} </td>
+      <td class="small"> {{ frappe.datetime.str_to_user(__(leaves[i].from_date)) }} </td>
+      <td class="small"> {{ frappe.datetime.str_to_user(__(leaves[i].to_date)) }} </td>
       <td class="small"> {{ __(leaves[i].half_day ? "Yes" : "No") }} </td>
-      <td class="small"> {{ __(leaves[i].half_day_date) }} </td>
+      <td class="small"> {{ frappe.datetime.str_to_user(__(leaves[i].half_day_date)) }} </td>
       <td class="small"> {{ __(leaves[i].status) }} </td>
       </tr>
       {% } %}

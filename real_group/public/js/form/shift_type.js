@@ -9,9 +9,34 @@ frappe.ui.form.on("Shift Type", {
       if (end < start) {
         frm.set_value("custom_is_cross_day", 1);
       }
+      normalizeGracePeriods(frm);
     }
   },
 });
+
+function normalizeGracePeriods(frm) {
+  if (!frm.doc.custom_actual_start_time) {
+    frm.set_value("custom_actual_start_time", "");
+  }
+  if (!frm.doc.custom_early_entry_grace_period) {
+    frm.set_value("custom_early_entry_grace_period", "");
+  }
+  if (!frm.doc.custom_late_entry_grace_period) {
+    frm.set_value("custom_late_entry_grace_period", "");
+  }
+  if (!frm.doc.custom_early_exit_grace_period) {
+    frm.set_value("custom_early_exit_grace_period", "");
+  }
+  if (!frm.doc.custom_late_exit_grace_period) {
+    frm.set_value("custom_late_exit_grace_period", "");
+  }
+  if (!frm.doc.custom_lunch_start_time) {
+    frm.set_value("custom_lunch_start_time", "");
+  }
+  if (!frm.doc.custom_lunch_end_time) {
+    frm.set_value("custom_lunch_end_time", "");
+  }
+}
 
 function toFloat(str) {
   const [h, m, s] = str.split(":").map(Number);

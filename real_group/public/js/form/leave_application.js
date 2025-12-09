@@ -1,4 +1,11 @@
 frappe.ui.form.on("Leave Application", {
+  from_date: function (frm) {
+    validate_dates(frm);
+  },
+
+  to_date: function (frm) {
+    validate_dates(frm);
+  },
   half_day: function (frm) {
     if (frm.doc.half_day === 0) {
       frm.set_value("custom_half_type", "");
@@ -71,3 +78,18 @@ frappe.ui.form.on("Leave Application", {
     }
   },
 });
+
+function validate_dates(frm) {
+  if (frm.doc.from_date || frm.doc.to_date) {
+    if (!frm.doc.employee) {
+      frm.set_value("from_date", "");
+      frm.set_value("to_date", "");
+      frappe.throw(__("Please select Employee before setting dates"));
+    }
+    if (!frm.doc.leave_type) {
+      frm.set_value("from_date", "");
+      frm.set_value("to_date", "");
+      frappe.throw(__("Please select Leave Type before setting dates"));
+    }
+  }
+}

@@ -17,11 +17,8 @@ class EmployeeTransferOverride(EmployeeTransfer):
                 new_employee.internal_work_history = []
                 new_employee.date_of_joining = self.transfer_date
                 new_employee.company = self.new_company
-            # move user_id to new employee before insert
-            if employee.user_id and not self.validate_user_in_details():
-                new_employee.user_id = employee.user_id
-                employee.db_set("user_id", "")
 
+            new_employee.user_id = None
             new_employee.update({"attendance_device_id": ""})
             new_employee.flags.ignore_aadhar_validation = True
             new_employee.insert()
