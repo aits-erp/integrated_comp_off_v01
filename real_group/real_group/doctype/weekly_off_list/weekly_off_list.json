@@ -10,7 +10,6 @@
   "to_date",
   "column_break_lysz",
   "total_holidays",
-  "add_weekly_holidays_section",
   "weekly_off",
   "get_weekly_off_dates",
   "holidays_section",
@@ -22,7 +21,7 @@
    "fieldname": "holiday_list_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Holiday List Name",
+   "label": "Weekly off List Name",
    "reqd": 1,
    "unique": 1
   },
@@ -50,14 +49,8 @@
    "fieldname": "total_holidays",
    "fieldtype": "Int",
    "in_list_view": 1,
-   "label": "Total Holidays",
+   "label": "Total Weekly offs",
    "read_only": 1
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "add_weekly_holidays_section",
-   "fieldtype": "Section Break",
-   "label": "Add Annual Holidays"
   },
   {
    "fieldname": "weekly_off",
@@ -72,18 +65,18 @@
   {
    "fieldname": "get_weekly_off_dates",
    "fieldtype": "Button",
-   "label": "Add to Holidays",
+   "label": "Add to Weekly offs",
    "options": "get_weekly_off_dates"
   },
   {
    "fieldname": "holidays_section",
    "fieldtype": "Section Break",
-   "label": "Holidays"
+   "label": "Weekly offs"
   },
   {
    "fieldname": "holidays",
    "fieldtype": "Table",
-   "label": "Holidays",
+   "label": "Weekly off",
    "options": "Weekly Off Holiday"
   },
   {
@@ -96,7 +89,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-25 21:22:59.081219",
+ "modified": "2025-12-09 20:34:37.924247",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Weekly Off List",
