@@ -3,9 +3,13 @@ import json
 import frappe
 from frappe import _
 from frappe.integrations.utils import make_get_request
-from frappe.utils import get_datetime, get_timedelta, getdate
+from frappe.utils import get_datetime, get_time, get_timedelta, getdate
 
-from real_group.tasks.process_employee_checkin import fetch_shift_details
+from real_group.tasks.process_employee_checkin import (
+    fetch_shift_details,
+    find_closest_shift_from_punch_time,
+    get_employee_allowed_shifts,
+)
 
 
 def validate(doc, method=None):
@@ -15,6 +19,7 @@ def validate(doc, method=None):
 
 
 def before_insert(doc, method=None):
+    assign_closest_shift_on_insert(doc, method)
     apply_short_leave_attendance_on_late_checkin(doc)
 
 
@@ -172,4 +177,29 @@ def validate_remote_checkin(doc):
         if not (doc.custom_latitude and doc.custom_longitude):
             frappe.throw(
                 _("For employees with 'Remote Office' posting location, latitude and longitude are mandatory.")
+            )
+
+
+def assign_closest_shift_on_insert(doc, method=None):
+    if not doc.shift and doc.employee and doc.time:
+        punch_time_str = get_time(doc.time)
+        punch_date_str = getdate(doc.time)
+        employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
+        doc_time_dt = get_datetime(doc.time)
+        try:
+            allowed_shifts = get_employee_allowed_shifts(doc.employee, punch_date_str)
+            if allowed_shifts:
+                closest_shift_name = find_closest_shift_from_punch_time(allowed_shifts, punch_time_str)
+                if closest_shift_name:
+                    doc.shift = closest_shift_name
+                    shift_info = fetch_shift_details(
+                        shift_type=doc.shift, for_timestamp=doc_time_dt, grade=employee.grade
+                    )
+                    doc.shift_start = shift_info.start_datetime
+                    doc.shift_end = shift_info.end_datetime
+                    doc.shift_actual_start = shift_info.actual_start
+                    doc.shift_actual_end = shift_info.actual_end
+        except Exception as e:
+            frappe.log_error(
+                frappe.get_traceback(), f"Failed to auto-assign shift for {doc.employee} on {punch_date_str}: {e}"
             )

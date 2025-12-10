@@ -8,6 +8,8 @@ frappe.ui.form.on("Shift Type", {
       const end = toFloat(frm.doc.end_time);
       if (end < start) {
         frm.set_value("custom_is_cross_day", 1);
+      } else {
+        frm.set_value("custom_is_cross_day", 0);
       }
       normalizeGracePeriods(frm);
     }
