@@ -66,6 +66,7 @@ def cancel_incentive_or_c_off(doc):
         filters={
             "employee": doc.employee,
             "work_from_date": doc.attendance_date,
+            "work_end_date": doc.attendance_date,
             "docstatus": 1,
         },
     )
@@ -365,6 +366,19 @@ def allocate_c_off(doc):
     credit = matched_c_matrix.c_off_credit
     if not credit:
         return
+
+    existing_c_off = frappe.db.exists(
+        "Compensatory Leave Request",
+        {
+            "employee": employee.name,
+            "work_from_date": getdate(doc.attendance_date),
+            "work_end_date": getdate(doc.attendance_date),
+            "docstatus": 1,
+        },
+    )
+    if existing_c_off:
+        existing_c_off_doc = frappe.get_doc("Compensatory Leave Request", existing_c_off)
+        existing_c_off_doc.cancel()
 
     comp_off = frappe.get_doc(
         {
