@@ -12,8 +12,14 @@ frappe.ui.form.on("Employee Checkin", {
       show_location_fields(frm);
     }
   },
-  onload: (frm) => {
-    hide_location_fields(frm);
+  refresh: async (frm) => {
+    const r = await frappe.db.get_value("Employee", frm.doc.employee, "custom_is_remote_office");
+    frm.trigger("hide_location_fields");
+    if (r.message && r.message.custom_is_remote_office) {
+      if (frm.doc.custom_latitude && frm.doc.custom_longitude) {
+        show_location_fields(frm);
+      }
+    }
   },
   before_save: async (frm) => {
     const r = await frappe.db.get_value("Employee", frm.doc.employee, "custom_is_remote_office");
