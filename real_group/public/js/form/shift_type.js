@@ -3,6 +3,15 @@ frappe.ui.form.on("Shift Type", {
     frm.remove_custom_button("Mark Attendance");
   },
   validate(frm) {
+    normalizeGracePeriods(frm);
+  },
+  start_time(frm) {
+    frm.events.update_cross_day(frm);
+  },
+  end_time(frm) {
+    frm.events.update_cross_day(frm);
+  },
+  update_cross_day(frm) {
     if (frm.doc.start_time && frm.doc.end_time) {
       const start = toFloat(frm.doc.start_time);
       const end = toFloat(frm.doc.end_time);
@@ -11,8 +20,11 @@ frappe.ui.form.on("Shift Type", {
       } else {
         frm.set_value("custom_is_cross_day", 0);
       }
-      normalizeGracePeriods(frm);
     }
+  },
+  custom_lunch_applicable(frm) {
+    frm.set_df_property("custom_lunch_start_time", "reqd", 1);
+    frm.set_df_property("custom_lunch_end_time", "reqd", 1);
   },
 });
 
