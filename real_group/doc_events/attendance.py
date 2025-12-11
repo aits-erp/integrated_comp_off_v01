@@ -367,7 +367,7 @@ def allocate_c_off(doc):
     if not credit:
         return
 
-    existing_c_off = frappe.db.exists(
+    existing_c_offs = frappe.get_all(
         "Compensatory Leave Request",
         {
             "employee": employee.name,
@@ -376,9 +376,10 @@ def allocate_c_off(doc):
             "docstatus": 1,
         },
     )
-    if existing_c_off:
-        existing_c_off_doc = frappe.get_doc("Compensatory Leave Request", existing_c_off)
-        existing_c_off_doc.cancel()
+    if existing_c_offs:
+        for existing_c_off in existing_c_offs:
+            existing_c_off_doc = frappe.get_doc("Compensatory Leave Request", existing_c_off)
+            existing_c_off_doc.cancel()
 
     comp_off = frappe.get_doc(
         {

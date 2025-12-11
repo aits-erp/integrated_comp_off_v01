@@ -335,7 +335,7 @@ class ReprocessAttendance(Document):
                 sandwich_attendance(doc)
             else:
                 revert_sandwich_attendance(doc)
-        frappe.db.commit()  # nosemgrep
+            frappe.db.commit()  # nosemgrep
 
         self.apply_leave_applications()
         self.apply_attendance_requests()
