@@ -379,6 +379,7 @@ def get_shift_type(shift_type_name: str) -> dict:
     )
 
 
+@frappe.whitelist()
 def get_employee_allowed_shifts(employee: str, for_date) -> list[str]:
     employee = frappe.get_cached_doc("Employee", employee, for_update=False)
 

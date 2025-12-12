@@ -28,6 +28,31 @@ frappe.templates["existing_leave.html"] = `
 </table>`;
 
 frappe.ui.form.on("Attendance Request", {
+  shift: (frm) => {
+    if (!frm.docm.employee || !frm.doc.from_date) {
+      frappe.throw(__("Please select Employee and From Date first"));
+    }
+  },
+  from_date: (frm) => {
+    frappe.call({
+      method: "real_group.tasks.process_employee_checkin.get_employee_allowed_shifts",
+      args: {
+        for_date: frm.doc.from_date,
+        employee: frm.doc.employee,
+      },
+      callback: function (r) {
+        if (r.message) {
+          frm.set_query("shift", function () {
+            return {
+              filters: {
+                name: ["in", r.message],
+              },
+            };
+          });
+        }
+      },
+    });
+  },
   custom_from_time: (frm) => {
     if (!frm.doc.from_date || !frm.doc.employee || !frm.doc.custom_from_time) return;
     frappe.call({

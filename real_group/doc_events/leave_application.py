@@ -1,5 +1,6 @@
 import frappe
-from frappe.utils import add_days, date_diff, formatdate, getdate
+from frappe import _
+from frappe.utils import add_days, date_diff, formatdate, get_link_to_form, getdate
 
 from real_group.utils import is_holiday_for_employee
 
@@ -13,6 +14,7 @@ def validate(doc, method=None):
     validate_workflow_state(doc)
     validate_attendance(doc)
     validate_cross_month_leave(doc)
+    validate_attendance_request(doc)
 
 
 def before_cancel(doc, method=None):
@@ -274,3 +276,51 @@ def get_non_working_gap_reason(employee, gap_date):
         return frappe._("{0} is a Holiday.").format(format_display_date(gap_date))
 
     return None
+
+
+def validate_attendance_request(doc):
+    requests = frappe.get_all(
+        "Attendance Request",
+        filters={
+            "employee": doc.employee,
+            "from_date": ["<=", doc.to_date],
+            "to_date": [">=", doc.from_date],
+            "docstatus": ["!=", 2],
+            "workflow_state": ["not in", ["Rejected", "Cancelled", "Reject by HOD", "Reject by HR", "Reject at Gate"]],
+        },
+        fields=["name", "from_date", "to_date", "half_day_date", "custom_half_type", "half_day"],
+    )
+
+    if requests:
+        for r in requests:
+            # Full-day attendance exists
+            if not r.half_day:
+                frappe.throw(
+                    _("Attendance Request {0} exists for the selected date range. Cannot apply leave.").format(
+                        get_link_to_form("Attendance Request", r.name)
+                    )
+                )
+
+            # Half-day attendance exists
+            if r.half_day:
+                # Half-day conflict
+                if (
+                    r.half_day_date
+                    and doc.half_day_date
+                    and getdate(r.half_day_date) == getdate(doc.half_day_date)
+                    and r.custom_half_type == doc.custom_half_type
+                ):
+                    frappe.throw(
+                        _("Attendance Request {0} exists for the selected half day. Cannot apply leave.").format(
+                            get_link_to_form("Attendance Request", r.name)
+                        )
+                    )
+
+                # Full-day leave conflicts with existing half-day attendance
+                if not getattr(doc, "half_day", False) and r.half_day_date:
+                    if getdate(doc.from_date) <= getdate(r.half_day_date) <= getdate(doc.to_date):
+                        frappe.throw(
+                            _(
+                                "Attendance Request {0} already exists for a half day within this range. Full-day leave cannot be applied."
+                            ).format(get_link_to_form("Attendance Request", r.name))
+                        )
