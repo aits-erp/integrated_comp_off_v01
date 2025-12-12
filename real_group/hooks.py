@@ -224,7 +224,6 @@ doc_events = {
     },
     "Leave Application": {
         "validate": "real_group.doc_events.leave_application.validate",
-        "on_update": "real_group.doc_events.leave_application.on_update",
         "before_cancel": "real_group.doc_events.leave_application.before_cancel",
         "before_delete": "real_group.doc_events.leave_application.before_delete",
     },

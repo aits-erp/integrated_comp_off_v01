@@ -15,10 +15,6 @@ def validate(doc, method=None):
     validate_cross_month_leave(doc)
 
 
-def on_update(doc, method=None):
-    assign_leave(doc)
-
-
 def before_cancel(doc, method=None):
     if frappe.db.exists(
         "Salary Slip",
@@ -109,94 +105,6 @@ def validate_cross_month_leave(doc):
 
     if from_date.month != to_date.month or from_date.year != to_date.year:
         frappe.throw(frappe._("Leave application cannot span across multiple months."))
-
-
-def assign_leave(doc):
-    if doc.workflow_state in ("Pending at HOD"):
-        approver = frappe.db.get_value("Employee", doc.employee, "reports_to")
-
-        if not approver:
-            frappe.throw(frappe._("No approver found for this employee."))
-
-        assignment_exist = frappe.db.exists(
-            "ToDo",
-            {
-                "status": "Open",
-                "description": "Gate Pass Assignment",
-                "reference_type": "Leave Application",
-                "reference_name": doc.name,
-                "allocated_to": approver,
-            },
-        )
-        if not assignment_exist:
-            assignment = frappe.get_doc(
-                dict(
-                    doctype="ToDo",
-                    status="Open",
-                    description="Gate Pass Assignment",
-                    reference_type="Leave Application",
-                    reference_name=doc.name,
-                    allocated_to=approver,
-                )
-            )
-            assignment.insert()
-
-    elif doc.workflow_state in ("Pending at HR"):
-        approver = frappe.db.get_value("Employee", doc.employee, "leave_approver")
-
-        if not approver:
-            frappe.throw(frappe._("No approver found for this employee."))
-
-        assignment_exist = frappe.db.exists(
-            "ToDo",
-            {
-                "status": "Open",
-                "description": "Gate Pass Assignment",
-                "reference_type": "Leave Application",
-                "reference_name": doc.name,
-                "allocated_to": approver,
-            },
-        )
-        if not assignment_exist:
-            assignment = frappe.get_doc(
-                dict(
-                    doctype="ToDo",
-                    status="Open",
-                    description="Gate Pass Assignment",
-                    reference_type="Leave Application",
-                    reference_name=doc.name,
-                    allocated_to=approver,
-                )
-            )
-            assignment.insert()
-
-    if doc.workflow_state == "Gate Pass":
-        approver = frappe.db.get_value("Employee", doc.employee, "custom_gate_pass_approver")
-        if not approver:
-            frappe.throw(frappe._("No gate pass approver found for this employee."))
-
-        assignment_exist = frappe.db.exists(
-            "ToDo",
-            {
-                "status": "Open",
-                "description": "Gate Pass Assignment",
-                "reference_type": "Leave Application",
-                "reference_name": doc.name,
-                "allocated_to": approver,
-            },
-        )
-        if not assignment_exist:
-            assignment = frappe.get_doc(
-                dict(
-                    doctype="ToDo",
-                    status="Open",
-                    description="Gate Pass Assignment",
-                    reference_type="Leave Application",
-                    reference_name=doc.name,
-                    allocated_to=approver,
-                )
-            )
-            assignment.insert()
 
 
 def validate_cl(doc):

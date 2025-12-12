@@ -1,6 +1,13 @@
 frappe.ui.form.on("Shift Type", {
   refresh(frm) {
     frm.remove_custom_button("Mark Attendance");
+    if (frm.doc.custom_lunch_applicable) {
+      frm.set_df_property("custom_lunch_start_time", "reqd", 1);
+      frm.set_df_property("custom_lunch_end_time", "reqd", 1);
+    } else {
+      frm.set_df_property("custom_lunch_start_time", "reqd", 0);
+      frm.set_df_property("custom_lunch_end_time", "reqd", 0);
+    }
   },
   validate(frm) {
     normalizeGracePeriods(frm);
@@ -23,8 +30,7 @@ frappe.ui.form.on("Shift Type", {
     }
   },
   custom_lunch_applicable(frm) {
-    frm.set_df_property("custom_lunch_start_time", "reqd", 1);
-    frm.set_df_property("custom_lunch_end_time", "reqd", 1);
+    frm.trigger("refresh");
   },
 });
 
