@@ -1,6 +1,6 @@
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, formatdate, get_link_to_form, getdate
+from frappe.utils import add_days, cint, date_diff, formatdate, get_link_to_form, getdate
 
 from real_group.utils import is_holiday_for_employee
 
@@ -15,6 +15,7 @@ def validate(doc, method=None):
     validate_attendance(doc)
     validate_cross_month_leave(doc)
     validate_attendance_request(doc)
+    validate_leave_overlap(doc)
 
 
 def before_cancel(doc, method=None):
@@ -324,3 +325,54 @@ def validate_attendance_request(doc):
                                 "Attendance Request {0} already exists for a half day within this range. Full-day leave cannot be applied."
                             ).format(get_link_to_form("Attendance Request", r.name))
                         )
+
+
+def validate_leave_overlap(self):
+    # 1. Prepare to fetch overlapping requests
+    if not self.name:
+        self.name = "New Leave Application"
+
+    requests = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": self.employee,
+            "from_date": ["<=", self.to_date],
+            "to_date": [">=", self.from_date],
+            "docstatus": ["!=", 2],
+            "name": ["!=", self.name],
+        },
+        fields=["name", "from_date", "to_date", "half_day_date", "custom_half_type", "half_day", "leave_type"],
+    )
+
+    if requests:
+        for r in requests:
+            if not cint(r.half_day):
+                self.throw_overlap_error(r)
+
+            elif cint(r.half_day):
+                is_same_date = (
+                    r.half_day_date and self.half_day_date and getdate(r.half_day_date) == getdate(self.half_day_date)
+                )
+
+                if is_same_date and r.custom_half_type == self.custom_half_type:
+                    self.throw_overlap_error(r)
+
+                elif is_same_date and r.custom_half_type != self.custom_half_type:
+                    continue
+
+                if not cint(self.half_day) and r.half_day_date:
+                    if getdate(self.from_date) <= getdate(r.half_day_date) <= getdate(self.to_date):
+                        self.throw_overlap_error(r)
+
+
+def throw_overlap_error(self, d):
+    # Use the existing error function from Leave Application Doctype
+    form_link = get_link_to_form("Leave Application", d.name)
+    msg = _("Employee {0} has already applied for {1} between {2} and {3} : {4}").format(
+        self.employee, d["leave_type"], formatdate(d["from_date"]), formatdate(d["to_date"]), form_link
+    )
+    frappe.throw(msg, OverlapError)
+
+
+class OverlapError(frappe.ValidationError):
+    pass
