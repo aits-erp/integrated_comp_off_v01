@@ -92,9 +92,11 @@ def execute(filters=None):
                     else:
                         dt1 = datetime.combine(date.today(), shift_time)
                         dt2 = datetime.combine(date.today(), worked_time)
-                        extra_worked[date_str] = get_time(dt2 - dt1)
+                        delta = dt2 - dt1
+                        if delta.total_seconds() > 0:
+                            extra_worked[date_str] = get_time(delta)
 
-            processed_status[date_str] = get_processed_status(_date, emp_date_data, day_status)
+            processed_status[date_str] = get_processed_status(employee.name, _date, emp_date_data, day_status)
         summary_dates = []
         temp_date = dates[0]
         for _ in range(8):
@@ -232,54 +234,339 @@ def get_shifts():
     return frappe.get_all("Shift Type", fields=["*"])
 
 
-def get_processed_status(date, data_on_date, day_status):
+def get_processed_status(employee, date, data_on_date, day_status):
     status = day_status
     date = getdate(date)
     attendance = data_on_date.get("attendance", [])
     if attendance:
         attendance = attendance[0]
     checkins = data_on_date.get("checkins", [])
+    leave_application_doc = None
+    leave_type_doc = None
 
     if attendance:
         if attendance.leave_application and attendance.leave_type:
-            leave_type = frappe.get_cached_doc("Leave Type", attendance.leave_type)
-            leave_application = frappe.get_cached_doc("Leave Application", attendance.leave_application)
+            leave_type_doc = frappe.get_cached_doc("Leave Type", attendance.leave_type)
+            leave_application_doc = frappe.get_cached_doc("Leave Application", attendance.leave_application)
 
-            leave_from_date = getdate(leave_application.from_date)
-            leave_to_date = getdate(leave_application.to_date)
+            leave_from_date = getdate(leave_application_doc.from_date)
+            leave_to_date = getdate(leave_application_doc.to_date)
 
-            is_lwp = leave_type.is_lwp
-            is_earned = leave_type.is_earned_leave
-            is_compensatory = leave_type.is_compensatory
+            is_lwp = leave_type_doc.is_lwp
+            is_earned = leave_type_doc.is_earned_leave
+            is_compensatory = leave_type_doc.is_compensatory
 
             if leave_from_date <= date <= leave_to_date:
                 if is_lwp:
                     status = "LW"
-                    if leave_application.half_day_date == date and len(checkins) > 0:
+                    if leave_application_doc.half_day_date == date and len(checkins) > 0:
                         status = "HLW"
 
                 if is_compensatory:
                     status = "CO"
-                    if leave_application.half_day_date == date:
+                    if leave_application_doc.half_day_date == date:
                         status = "HCO"
 
                 if is_earned:
                     status = "EL"
-                    if leave_application.half_day_date == date:
+                    if leave_application_doc.half_day_date == date:
                         status = "HEL"
 
-                if "casual leave" in leave_type.name.lower():
+                if "casual leave" in leave_type_doc.name.lower():
                     status = "CL"
-                    if leave_application.half_day_date == date:
+                    if leave_application_doc.half_day_date == date:
                         status = "HCL"
+
+                combo_status = get_half_day_combo_status(employee, date, leave_application_doc, leave_type_doc)
+                if combo_status:
+                    status = combo_status
 
         if attendance.attendance_request:
             status = "OD"
             attendance_request = frappe.get_cached_doc("Attendance Request", attendance.attendance_request)
             if attendance_request.half_day_date == date:
                 status = "HOD"
+                if attendance.leave_application:
+                    if attendance.custom_attendance_tag == "EL":
+                        status = "ODEL"
+                    elif attendance.custom_attendance_tag == "CL":
+                        status = "ODCL"
+                    elif attendance.custom_attendance_tag == "CO":
+                        status = "ODCO"
 
             if attendance_request.reason == "Mis Punch":
                 status = "MIS"
 
+        optional_status = get_optional_half_day_status(
+            employee,
+            date,
+            attendance,
+            leave_application_doc,
+            leave_type_doc,
+            checkins,
+            status,
+        )
+        if optional_status:
+            status = optional_status
+
+    day_off_status = get_employee_day_off_status(employee, date, checkins)
+    if day_off_status:
+        return day_off_status
+
     return status
+
+
+def get_employee_day_off_status(employee: str, target_date, checkins=None):
+    day_off_data = is_holiday_for_employee(employee, target_date)
+    if not day_off_data or not day_off_data.get("is_holiday"):
+        return None
+
+    sandwich_status = get_sandwich_absent_status(employee, target_date)
+    if sandwich_status:
+        return sandwich_status
+
+    od_status = get_day_off_attendance_request_status(employee, target_date)
+    if od_status:
+        return od_status
+
+    has_checkins = bool(checkins)
+    if day_off_data.get("is_weekly_off"):
+        return "POW" if has_checkins else "WO"
+
+    return "POH" if has_checkins else "HO"
+
+
+def get_day_off_attendance_request_status(employee: str, target_date):
+    requests = frappe.get_all(
+        "Attendance Request",
+        filters={
+            "employee": employee,
+            "docstatus": 1,
+            "from_date": ["<=", target_date],
+            "to_date": [">=", target_date],
+        },
+        fields=["half_day", "half_day_date", "reason"],
+    )
+
+    for request in requests:
+        reason = (request.get("reason") or "").strip().lower()
+        if reason not in {"official", "tour"}:
+            continue
+
+        if request.get("half_day"):
+            half_day_date = request.get("half_day_date")
+            if half_day_date and getdate(half_day_date) == target_date:
+                return "OD"
+            continue
+
+        return "OD"
+
+    return None
+
+
+def get_sandwich_absent_status(employee: str, target_date):
+    attendance = get_attendance_record(employee, target_date)
+    if not attendance or not is_absent_attendance(attendance):
+        return None
+
+    previous_attendance = get_attendance_record(employee, add_days(target_date, -1))
+    next_attendance = get_attendance_record(employee, add_days(target_date, 1))
+
+    if is_leave_attendance(previous_attendance) and is_leave_attendance(next_attendance):
+        return "A1"
+
+    return None
+
+
+def get_attendance_record(employee: str, target_date):
+    records = frappe.get_all(
+        "Attendance",
+        filters={
+            "employee": employee,
+            "attendance_date": target_date,
+            "docstatus": ["!=", 2],
+        },
+        fields=["name", "status", "leave_type", "leave_application"],
+        limit=1,
+    )
+    return records[0] if records else None
+
+
+def is_absent_attendance(attendance_doc):
+    if not attendance_doc:
+        return False
+    status = (attendance_doc.get("status") or "").strip().upper()
+    return status in {"A", "ABSENT"}
+
+
+def is_leave_attendance(attendance_doc):
+    if not attendance_doc:
+        return False
+    if attendance_doc.get("leave_type") or attendance_doc.get("leave_application"):
+        return True
+
+    status = (attendance_doc.get("status") or "").strip().upper()
+    return "leave" in status.lower()
+
+
+def get_leave_code(leave_type_doc):
+    if not leave_type_doc:
+        return None
+    if leave_type_doc.is_earned_leave:
+        return "EL"
+    if leave_type_doc.is_compensatory:
+        return "CO"
+    if leave_type_doc.is_lwp:
+        return "LW"
+    if "casual leave" in leave_type_doc.name.lower():
+        return "CL"
+    return None
+
+
+def get_half_day_combo_status(employee, target_date, primary_application, primary_leave_type):
+    if not primary_application or not primary_leave_type:
+        return None
+    if not primary_application.half_day_date:
+        return None
+    if getdate(primary_application.half_day_date) != target_date:
+        return None
+
+    primary_code = get_leave_code(primary_leave_type)
+    if primary_code not in {"EL", "CO", "CL"}:
+        return None
+
+    other_half_leaves = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": employee,
+            "docstatus": 1,
+            "from_date": ["<=", target_date],
+            "to_date": [">=", target_date],
+            "half_day_date": target_date,
+            "name": ["!=", primary_application.name],
+        },
+        fields=["name", "leave_type"],
+    )
+
+    for other in other_half_leaves:
+        other_leave_type = frappe.get_cached_doc("Leave Type", other.leave_type)
+        other_code = get_leave_code(other_leave_type)
+        if not other_code:
+            continue
+        codes = {primary_code, other_code}
+        if codes == {"EL", "CO"}:
+            return "ELCO"
+        if codes == {"CL", "CO"}:
+            return "CLCO"
+
+    return None
+
+
+def is_optional_leave_type(leave_type_doc_or_name):
+    if not leave_type_doc_or_name:
+        return False
+    if isinstance(leave_type_doc_or_name, str):
+        return bool(frappe.get_cached_value("Leave Type", leave_type_doc_or_name, "is_optional_leave"))
+    return bool(getattr(leave_type_doc_or_name, "is_optional_leave", False))
+
+
+def get_optional_half_day_status(
+    employee,
+    target_date,
+    attendance_doc,
+    leave_application_doc,
+    leave_type_doc,
+    checkins,
+    current_status,
+):
+    if not attendance_doc or not leave_application_doc or not leave_type_doc:
+        return None
+    if not is_optional_leave_type(leave_type_doc):
+        return None
+    if not getattr(leave_application_doc, "half_day", False):
+        return None
+    half_day_date = getattr(leave_application_doc, "half_day_date", None)
+    if not half_day_date or getdate(half_day_date) != target_date:
+        return None
+    attendance_status = (getattr(attendance_doc, "status", "") or "").lower()
+    if attendance_status != "half day":
+        return None
+
+    other_combo = get_optional_combo_from_other_leave(employee, target_date, leave_application_doc.name)
+    if other_combo:
+        return other_combo
+
+    request_combo = get_optional_combo_from_attendance_request(attendance_doc, target_date)
+    if request_combo:
+        return request_combo
+
+    status_combo = get_optional_combo_from_status(current_status)
+    if status_combo:
+        return status_combo
+
+    if checkins:
+        return "PHO"
+
+    return "HHO"
+
+
+def get_optional_combo_from_other_leave(employee, target_date, primary_application_name):
+    if not primary_application_name:
+        return None
+
+    other_half_leaves = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": employee,
+            "docstatus": 1,
+            "from_date": ["<=", target_date],
+            "to_date": [">=", target_date],
+            "half_day": 1,
+            "half_day_date": target_date,
+            "name": ["!=", primary_application_name],
+        },
+        fields=["name", "leave_type"],
+    )
+
+    mapping = {"EL": "ELHO", "CL": "CLHO", "CO": "COHO", "LW": "LWHO"}
+    for other in other_half_leaves:
+        other_leave_type = frappe.get_cached_doc("Leave Type", other.leave_type)
+        if is_optional_leave_type(other_leave_type):
+            continue
+        other_code = get_leave_code(other_leave_type)
+        if other_code in mapping:
+            return mapping[other_code]
+
+    return None
+
+
+def get_optional_combo_from_attendance_request(attendance_doc, target_date):
+    if not attendance_doc or not attendance_doc.attendance_request:
+        return None
+
+    attendance_request = frappe.get_cached_doc("Attendance Request", attendance_doc.attendance_request)
+    if not getattr(attendance_request, "half_day", False):
+        return None
+    half_day_date = getattr(attendance_request, "half_day_date", None)
+    if not half_day_date or getdate(half_day_date) != target_date:
+        return None
+
+    if attendance_request.reason == "Mis Punch":
+        return "PHO"
+
+    return "ODHO"
+
+
+def get_optional_combo_from_status(current_status):
+    if not current_status:
+        return None
+
+    status_map = {
+        "HEL": "ELHO",
+        "HCL": "CLHO",
+        "HCO": "COHO",
+        "HLW": "LWHO",
+        "HOD": "ODHO",
+        "MIS": "MHO",
+    }
+    return status_map.get(current_status)
