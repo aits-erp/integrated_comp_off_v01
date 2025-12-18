@@ -5,10 +5,10 @@ import calendar
 from datetime import date, datetime, timedelta
 
 import frappe
-from frappe.utils import add_days, format_date, get_time, getdate
+from frappe.utils import add_days, format_date, get_datetime, get_time, getdate
 from frappe.utils.caching import redis_cache
 
-from real_group.utils import is_holiday_for_employee
+from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -27,6 +27,7 @@ def execute(filters=None):
     employee_names = [emp.name for emp in employees]
     attendance_map = get_attendance(employee_names, dates[0], dates[-1], month, year)
     shifts = get_shifts()
+    shift_map = {shift.name: shift for shift in shifts}
     for employee in employees:
         info = {"sr": "PAYCODE, CARD NO. & NAME"}
 
@@ -78,16 +79,22 @@ def execute(filters=None):
             else:
                 total_absent += 1
             total_hours += worked_hours
-            hours_worked[date_str] = timedelta(seconds=round(worked_hours * 3600 / 60) * 60) if worked_hours else ""
-            status[date_str] = day_status
+            worked_hours_value = worked_hours
+            hours_worked[date_str] = (
+                timedelta(seconds=round(worked_hours_value * 3600 / 60) * 60) if worked_hours_value else ""
+            )
+            day_shift_name = attendance_on_date[0].get("shift", "") if attendance_on_date else ""
+            if not day_shift_name and emp_checkins:
+                day_shift_name = emp_checkins[0].get("shift") or ""
 
-            shift[date_str] = attendance_on_date[0].get("shift", "") if attendance_on_date else ""
-            if attendance_on_date and attendance_on_date[0].get("shift", None):
-                shift_type = next((s for s in shifts if s.name == attendance_on_date[0].get("shift")), None)
-                if shift_type and shift_type.custom_shift_time and worked_hours:
+            holiday_info = is_holiday_for_employee(employee.name, _date)
+            shift[date_str] = day_shift_name
+            if day_shift_name:
+                shift_type = shift_map.get(day_shift_name)
+                if shift_type and shift_type.custom_shift_time and worked_hours_value:
                     shift_time = get_time(shift_type.custom_shift_time)
-                    worked_time = get_time(timedelta(hours=worked_hours))
-                    if is_holiday_for_employee(employee.name, _date):
+                    worked_time = get_time(timedelta(hours=worked_hours_value))
+                    if holiday_info and holiday_info.get("is_holiday"):
                         extra_worked[date_str] = get_time(worked_time)
                     else:
                         dt1 = datetime.combine(date.today(), shift_time)
@@ -95,8 +102,18 @@ def execute(filters=None):
                         delta = dt2 - dt1
                         if delta.total_seconds() > 0:
                             extra_worked[date_str] = get_time(delta)
-
-            processed_status[date_str] = get_processed_status(employee.name, _date, emp_date_data, day_status)
+            processed_value = get_processed_status(employee.name, _date, emp_date_data, day_status)
+            status_value = adjust_status_with_checkins(processed_value, emp_checkins, day_shift_name, shift_map)
+            status[date_str] = status_value
+            attendance_doc = attendance_on_date[0] if attendance_on_date else None
+            processed_status[date_str] = derive_processed_status(
+                status_value,
+                processed_value,
+                attendance_doc,
+                emp_checkins,
+                worked_hours_value,
+                holiday_info,
+            )
         summary_dates = []
         temp_date = dates[0]
         for _ in range(8):
@@ -117,8 +134,8 @@ def execute(filters=None):
         data.extend(row_keys)
         data.append(hours_worked)
         data.append(extra_worked)
-        data.append(processed_status)
         data.append(status)
+        data.append(processed_status)
         data.append(shift)
 
     return columns, data
@@ -311,7 +328,7 @@ def get_processed_status(employee, date, data_on_date, day_status):
 
     day_off_status = get_employee_day_off_status(employee, date, checkins)
     if day_off_status:
-        return day_off_status
+        status = day_off_status
 
     return status
 
@@ -396,7 +413,7 @@ def is_absent_attendance(attendance_doc):
     if not attendance_doc:
         return False
     status = (attendance_doc.get("status") or "").strip().upper()
-    return status in {"A", "ABSENT"}
+    return status == "ABSENT"
 
 
 def is_leave_attendance(attendance_doc):
@@ -570,3 +587,186 @@ def get_optional_combo_from_status(current_status):
         "MIS": "MHO",
     }
     return status_map.get(current_status)
+
+
+def derive_processed_status(status_code, processed_code, attendance_doc, checkins, worked_hours, holiday_info):
+    status_code = (status_code or "").strip()
+    processed_code = (processed_code or status_code or "").strip()
+    presence = _has_physical_presence(worked_hours, checkins)
+    holiday_info = holiday_info if isinstance(holiday_info, dict) else {}
+    is_day_off = bool(holiday_info.get("is_holiday"))
+
+    direct_map = {
+        "LW": "A",
+        "HLW": "PLW",
+        "POH": "HO",
+        "POW": "WO",
+        "A1": "A",
+    }
+    if status_code in direct_map:
+        return direct_map[status_code]
+
+    if status_code == "OD":
+        return "WO" if is_day_off else "OD"
+
+    if status_code == "HOD":
+        if is_day_off:
+            return "WO"
+        return "POD" if presence else "HOD"
+
+    if status_code in {"HCL", "HEL", "HCO"}:
+        return _map_half_day_leave_presence(status_code, presence)
+
+    if status_code == "MIS":
+        return _derive_mis_processed_status(attendance_doc, presence)
+
+    return processed_code or status_code
+
+
+def _map_half_day_leave_presence(status_code, presence):
+    mapping = {"HCL": "PCL", "HEL": "PEL", "HCO": "PCO"}
+    if presence and status_code in mapping:
+        return mapping[status_code]
+    return status_code
+
+
+def _has_physical_presence(worked_hours, checkins):
+    if worked_hours and worked_hours > 0:
+        return True
+    return bool(checkins)
+
+
+def _derive_mis_processed_status(attendance_doc, presence):
+    if not attendance_doc:
+        return "MIS"
+    request_doc = _get_attendance_request_doc(attendance_doc.get("attendance_request"))
+    leave_code = _get_leave_code_from_attendance(attendance_doc)
+    request_reason = (request_doc.reason or "").strip().lower() if request_doc else ""
+    request_half_day = bool(getattr(request_doc, "half_day", False) or attendance_doc.get("half_day"))
+
+    if request_doc and request_reason == "mis punch":
+        if request_half_day:
+            combo = _map_leave_code_combo(leave_code)
+            return combo or "HD"
+        return "P"
+
+    if request_doc and request_half_day and request_reason in {"official", "tour"}:
+        return "POD"
+
+    if leave_code and presence:
+        combo = _map_leave_code_combo(leave_code)
+        if combo:
+            return combo
+
+    return "MIS"
+
+
+def _map_leave_code_combo(leave_code):
+    mapping = {"EL": "PEL", "CL": "PCL", "CO": "PCO", "LW": "PLW"}
+    return mapping.get(leave_code)
+
+
+def _get_attendance_request_doc(request_name):
+    if not request_name:
+        return None
+    try:
+        return frappe.get_cached_doc("Attendance Request", request_name)
+    except frappe.DoesNotExistError:
+        return None
+
+
+def _get_leave_code_from_attendance(attendance_doc):
+    if not attendance_doc or not attendance_doc.get("leave_type"):
+        return None
+    try:
+        leave_type_doc = frappe.get_cached_doc("Leave Type", attendance_doc.get("leave_type"))
+    except frappe.DoesNotExistError:
+        return None
+    return get_leave_code(leave_type_doc)
+
+
+GENERIC_STATUS_CODES = {"", "A", "P", "HD", "MIS"}
+
+
+def adjust_status_with_checkins(processed_status, checkins, shift_name, shift_map):
+    base_status = processed_status or ""
+    if not checkins:
+        if base_status and base_status not in GENERIC_STATUS_CODES:
+            return base_status
+        return "A"
+
+    if len(checkins) == 1:
+        if base_status and base_status not in GENERIC_STATUS_CODES:
+            return base_status
+        return "MIS"
+
+    shift_doc = _resolve_shift_document(shift_name, checkins, shift_map)
+    if not shift_doc:
+        return base_status
+
+    if base_status and base_status not in GENERIC_STATUS_CODES:
+        return base_status
+
+    worked_hours = _calculate_hours_from_checkins(checkins)
+    if worked_hours == 0:
+        return base_status or "A"
+
+    derived_status = _determine_status_from_hours(worked_hours, shift_doc)
+    return derived_status or base_status
+
+
+def _resolve_shift_document(explicit_shift_name, checkins, shift_map):
+    candidates = [explicit_shift_name]
+    if checkins:
+        first_checkin = checkins[0]
+        candidates.append(first_checkin.get("shift"))
+
+    for candidate in candidates:
+        if candidate and candidate in shift_map:
+            return shift_map[candidate]
+    return None
+
+
+def _calculate_hours_from_checkins(checkins):
+    logs = get_logs(checkins)
+    in_logs = logs.get("IN") or []
+    out_logs = logs.get("OUT") or []
+    total_seconds = 0.0
+
+    pairable_entries = min(len(in_logs), len(out_logs))
+    for idx in range(pairable_entries):
+        in_time = get_datetime(in_logs[idx].get("time")) if in_logs[idx].get("time") else None
+        out_time = get_datetime(out_logs[idx].get("time")) if out_logs[idx].get("time") else None
+        if not in_time or not out_time:
+            continue
+
+        delta = out_time - in_time
+        if delta.total_seconds() > 0:
+            total_seconds += delta.total_seconds()
+
+    return total_seconds / 3600 if total_seconds else 0.0
+
+
+def _determine_status_from_hours(worked_hours, shift_doc):
+    present_threshold = convert_time_to_hours(
+        shift_doc.get("custom_working_hours_threshold_for_present")
+        or shift_doc.get("custom_shift_time")
+        or shift_doc.get("shift_hours")
+    )
+    half_day_threshold = convert_time_to_hours(shift_doc.get("custom_working_hours_threshold_for_half_day"))
+    absent_threshold = convert_time_to_hours(shift_doc.get("custom_working_hours_threshold_for_absent"))
+
+    if not half_day_threshold and present_threshold:
+        half_day_threshold = present_threshold / 2
+    if not absent_threshold and half_day_threshold:
+        absent_threshold = half_day_threshold / 2
+
+    if present_threshold and worked_hours >= present_threshold:
+        return "P"
+    if half_day_threshold and worked_hours >= half_day_threshold:
+        return "HD"
+    if absent_threshold and worked_hours < absent_threshold:
+        return "A"
+    if present_threshold or half_day_threshold or absent_threshold:
+        return "A"
+    return None
