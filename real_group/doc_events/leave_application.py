@@ -112,9 +112,9 @@ def validate_cross_month_leave(doc):
 
 def validate_cl(doc):
     leave_type = doc.leave_type
-    is_based_on_working_days = frappe.db.get_value("Leave Type", leave_type, "custom_calculate_based_on_working_days")
+    is_based_on_working_days = frappe.db.get_value("Leave Type", leave_type, "custom_restrict_cl_adjacent_to_holidays")
     is_cl = "casual" in leave_type.lower()
-    if not is_based_on_working_days and is_cl:
+    if is_based_on_working_days and is_cl:
         prev_day = add_days(doc.from_date, -1)
         next_day = add_days(doc.to_date, 1)
 
