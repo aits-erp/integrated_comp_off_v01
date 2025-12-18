@@ -350,6 +350,7 @@ class ReprocessAttendance(Document):
                 half_day_date = getdate(doc.half_day_date) if doc.half_day_date else None
                 while start_date <= end_date:
                     try:
+                        frappe.flags.in_install = "frappe"
                         new_request = frappe.copy_doc(doc)
                         new_request.from_date = start_date
                         new_request.to_date = start_date
