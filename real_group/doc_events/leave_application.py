@@ -166,7 +166,7 @@ def validate_el_and_cl(doc):
         if doc.half_day and leave.half_day:
             if doc.half_day_date == leave.half_day_date:
                 frappe.throw(
-                    "EL and CL cannot be applied on the same date for different halves. "
+                    "EL and CL cannot be applied on the same date for different half. "
                     "One Present day is mandatory between EL and CL."
                 )
 
@@ -180,8 +180,11 @@ def validate_el_and_cl(doc):
                 )
 
         # ---- 2️⃣ ADJACENT (Continuation) ----
-        if doc_from == add_days(other_to, 1) or doc_to == add_days(other_from, -1):
-            frappe.throw("EL and CL cannot be applied in continuation. One Present day is mandatory between EL and CL.")
+        earlier_end = min(doc_to, other_to)
+        later_start = max(doc_from, other_from)
+
+        if not has_present_day_between(doc.employee, earlier_end, later_start):
+            frappe.throw("EL and CL cannot be applied. One Present day is mandatory between EL and CL.")
 
 
 def validate_change_request_day(doc):
@@ -213,7 +216,7 @@ def validate_el_cl_gap_non_working_day(doc):
             "docstatus": ["!=", 2],
             "name": ["!=", doc.name],
         },
-        fields=["name", "leave_type", "from_date", "to_date"],
+        fields=["leave_type", "from_date", "to_date"],
     )
 
     doc_from = getdate(doc.from_date)
@@ -224,6 +227,7 @@ def validate_el_cl_gap_non_working_day(doc):
         other_is_el = "earned" in other_type
         other_is_cl = "casual" in other_type
 
+        # Only EL ↔ CL comparison
         if is_el and not other_is_cl:
             continue
         if is_cl and not other_is_el:
@@ -233,15 +237,18 @@ def validate_el_cl_gap_non_working_day(doc):
         other_to = getdate(leave.to_date)
 
         gap_date = None
+
+        # Doc AFTER other
         if doc_from > other_to:
-            gap_days = date_diff(doc_from, other_to) - 1
-            if gap_days == 1:
+            if date_diff(doc_from, other_to) == 2:
                 gap_date = add_days(other_to, 1)
+
+        # Doc BEFORE other
         elif other_from > doc_to:
-            gap_days = date_diff(other_from, doc_to) - 1
-            if gap_days == 1:
+            if date_diff(other_from, doc_to) == 2:
                 gap_date = add_days(doc_to, 1)
 
+        # Only validate EXACT one-day gap
         if not gap_date:
             continue
 
@@ -372,6 +379,34 @@ def throw_overlap_error(self, d):
         self.employee, d["leave_type"], formatdate(d["from_date"]), formatdate(d["to_date"]), form_link
     )
     frappe.throw(msg, OverlapError)
+
+
+def has_present_day_between(employee, start_date, end_date):
+    """
+    Returns True if employee has at least one Attendance
+    with status = 'Present' between start_date and end_date (exclusive).
+    """
+    start_date = getdate(start_date)
+    end_date = getdate(end_date)
+    _filter_dates = []
+    while start_date <= end_date:
+        if is_holiday_for_employee(employee, start_date):
+            start_date = add_days(start_date, 1)
+            continue
+        _filter_dates.append(start_date)
+        start_date = add_days(start_date, 1)
+
+    return bool(
+        frappe.db.exists(
+            "Attendance",
+            {
+                "employee": employee,
+                "attendance_date": ["in", _filter_dates],
+                "status": "Present",
+                "docstatus": 1,
+            },
+        )
+    )
 
 
 class OverlapError(frappe.ValidationError):

@@ -136,10 +136,12 @@ def update_leave_approvers_on_save(doc):
         new_approver = doc.leave_approver
         new_approver_name = frappe.db.get_value("User", new_approver, "full_name")
         employee_id = doc.name
+        filters = {"employee": employee_id, "docstatus": 0}
 
-        draft_applications = frappe.get_all(
-            "Leave Application", filters={"employee": employee_id, "docstatus": 0}, pluck="name"
-        )
+        if doc.meta.has_field("workflow_state"):
+            filters["workflow_state"] = "Draft"
+
+        draft_applications = frappe.get_all("Leave Application", filters=filters, pluck="name")
 
         for app_name in draft_applications:
             try:
