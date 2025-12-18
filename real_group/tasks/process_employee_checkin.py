@@ -414,7 +414,7 @@ def get_shift_type(shift_type_name: str) -> dict:
 
 
 @frappe.whitelist()
-def get_employee_allowed_shifts(employee: str, for_date) -> list[str]:
+def get_employee_allowed_shifts(employee: str, for_date=None) -> list[str]:
     employee = frappe.get_cached_doc("Employee", employee, for_update=False)
 
     shift_from_grade = frappe.db.get_values("Multiple Shifts", {"parent": employee.grade}, "shift", pluck="shift")
