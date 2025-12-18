@@ -33,7 +33,7 @@ frappe.ui.form.on("Attendance Request", {
       frappe.throw(__("Please select Employee and From Date first"));
     }
   },
-  from_date: (frm) => {
+  employee: (frm) => {
     frappe.call({
       method: "real_group.tasks.process_employee_checkin.get_employee_allowed_shifts",
       args: {
