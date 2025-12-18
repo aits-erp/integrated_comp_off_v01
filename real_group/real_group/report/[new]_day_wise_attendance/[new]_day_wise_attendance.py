@@ -26,6 +26,7 @@ def execute(filters=None):
     dates = get_dates(month, year)
     employee_names = [emp.name for emp in employees]
     attendance_map = get_attendance(employee_names, dates[0], dates[-1], month, year)
+    attendance_requests_map = get_attendance_requests(employee_names, dates[0], dates[-1])
     shifts = get_shifts()
     shift_map = {shift.name: shift for shift in shifts}
     for employee in employees:
@@ -104,6 +105,8 @@ def execute(filters=None):
                             extra_worked[date_str] = get_time(delta)
             processed_value = get_processed_status(employee.name, _date, emp_date_data, day_status)
             status_value = adjust_status_with_checkins(processed_value, emp_checkins, day_shift_name, shift_map)
+            if has_mis_punch_request(attendance_requests_map, employee.name, _date):
+                status_value = "MIS"
             status[date_str] = status_value
             attendance_doc = attendance_on_date[0] if attendance_on_date else None
             processed_status[date_str] = derive_processed_status(
@@ -184,6 +187,8 @@ def get_employees(company, branch, division=None, department=None, employee=None
 
 def get_attendance(employees: list, start_date: date, end_date: date, month: str, year: int):
     dates = get_dates(month, year)
+    if not employees:
+        return {}
     data = frappe.get_all(
         "Attendance",
         filters={
@@ -193,9 +198,23 @@ def get_attendance(employees: list, start_date: date, end_date: date, month: str
         },
         fields=["*"],
     )
+    attendance_names = [d.name for d in data]
+    datetime_range = (
+        datetime.combine(start_date, datetime.min.time()),
+        datetime.combine(end_date, datetime.max.time().replace(microsecond=0)),
+    )
+    checkin_or_filters = [
+        ["shift_start", "between", datetime_range],
+        ["time", "between", datetime_range],
+    ]
+    if attendance_names:
+        checkin_or_filters.append(["attendance", "in", attendance_names])
+
+    checkin_filters = {"employee": ["in", employees]}
     employee_checkins = frappe.get_all(
         "Employee Checkin",
-        or_filters={"attendance": ["in", [d.name for d in data]], "shift_start": ["between", (start_date, end_date)]},
+        filters=checkin_filters,
+        or_filters=checkin_or_filters,
         fields=["*"],
     )
     attendance_map = {}
@@ -207,7 +226,11 @@ def get_attendance(employees: list, start_date: date, end_date: date, month: str
             attendance_map[employee][format_date(_date)] = {}
             date = getdate(_date)
             attendance_on_date = [d for d in attendance if getdate(d.attendance_date) == date]
-            checkins_on_date = [d for d in checkins if getdate(d.shift_start) == date]
+            checkins_on_date = []
+            for d in checkins:
+                reference_datetime = d.get("shift_start") or d.get("time")
+                if reference_datetime and getdate(reference_datetime) == date:
+                    checkins_on_date.append(d)
             length = len(checkins_on_date)
             if length > attendance_map[employee]["max_checkins"]:
                 attendance_map[employee]["max_checkins"] = length
@@ -215,6 +238,59 @@ def get_attendance(employees: list, start_date: date, end_date: date, month: str
             attendance_map[employee][format_date(date)]["checkins"] = checkins_on_date
 
     return attendance_map
+
+
+def get_attendance_requests(employees: list, start_date: date, end_date: date):
+    if not employees:
+        return {}
+
+    requests = frappe.get_all(
+        "Attendance Request",
+        filters={
+            "employee": ["in", employees],
+            "docstatus": ["!=", 2],
+            "from_date": ["<=", end_date],
+            "to_date": [">=", start_date],
+        },
+        fields=["name", "employee", "reason", "from_date", "to_date", "half_day", "half_day_date"],
+    )
+
+    request_map = {emp: {} for emp in employees}
+
+    for request in requests:
+        employee = request.employee
+        if employee not in request_map:
+            request_map[employee] = {}
+
+        if request.get("half_day") and request.get("half_day_date"):
+            target_date = getdate(request.half_day_date)
+            if start_date <= target_date <= end_date:
+                date_key = format_date(target_date)
+                request_map[employee].setdefault(date_key, []).append(request)
+            continue
+
+        current = max(getdate(request.from_date), start_date)
+        to_date = min(getdate(request.to_date), end_date)
+        while current <= to_date:
+            date_key = format_date(current)
+            request_map[employee].setdefault(date_key, []).append(request)
+            current = add_days(current, 1)
+
+    return request_map
+
+
+def has_mis_punch_request(request_map: dict, employee: str, target_date: date):
+    employee_requests = request_map.get(employee)
+    if not employee_requests:
+        return False
+
+    requests_on_date = employee_requests.get(format_date(target_date), [])
+    for request in requests_on_date:
+        reason = (request.get("reason") or "").strip().lower()
+        if reason == "mis punch":
+            return True
+
+    return False
 
 
 def get_rows(pairs, dates):
@@ -358,7 +434,7 @@ def get_day_off_attendance_request_status(employee: str, target_date):
         "Attendance Request",
         filters={
             "employee": employee,
-            "docstatus": 1,
+            "docstatus": ["!=", 2],
             "from_date": ["<=", target_date],
             "to_date": [">=", target_date],
         },
@@ -456,7 +532,7 @@ def get_half_day_combo_status(employee, target_date, primary_application, primar
         "Leave Application",
         filters={
             "employee": employee,
-            "docstatus": 1,
+            "docstatus": ["!=", 2],
             "from_date": ["<=", target_date],
             "to_date": [">=", target_date],
             "half_day_date": target_date,
@@ -535,7 +611,7 @@ def get_optional_combo_from_other_leave(employee, target_date, primary_applicati
         "Leave Application",
         filters={
             "employee": employee,
-            "docstatus": 1,
+            "docstatus": ["!=", 2],
             "from_date": ["<=", target_date],
             "to_date": [">=", target_date],
             "half_day": 1,
@@ -590,8 +666,9 @@ def get_optional_combo_from_status(current_status):
 
 
 def derive_processed_status(status_code, processed_code, attendance_doc, checkins, worked_hours, holiday_info):
-    status_code = (status_code or "").strip()
-    processed_code = (processed_code or status_code or "").strip()
+    display_status = (status_code or "").strip()
+    business_status = (processed_code or "").strip()
+    primary_status = business_status or display_status
     presence = _has_physical_presence(worked_hours, checkins)
     holiday_info = holiday_info if isinstance(holiday_info, dict) else {}
     is_day_off = bool(holiday_info.get("is_holiday"))
@@ -603,24 +680,24 @@ def derive_processed_status(status_code, processed_code, attendance_doc, checkin
         "POW": "WO",
         "A1": "A",
     }
-    if status_code in direct_map:
-        return direct_map[status_code]
+    if primary_status in direct_map:
+        return direct_map[primary_status]
 
-    if status_code == "OD":
+    if primary_status == "OD":
         return "WO" if is_day_off else "OD"
 
-    if status_code == "HOD":
+    if primary_status == "HOD":
         if is_day_off:
             return "WO"
         return "POD" if presence else "HOD"
 
-    if status_code in {"HCL", "HEL", "HCO"}:
-        return _map_half_day_leave_presence(status_code, presence)
+    if primary_status in {"HCL", "HEL", "HCO"}:
+        return _map_half_day_leave_presence(primary_status, presence)
 
-    if status_code == "MIS":
+    if primary_status == "MIS":
         return _derive_mis_processed_status(attendance_doc, presence)
 
-    return processed_code or status_code
+    return business_status or display_status
 
 
 def _map_half_day_leave_presence(status_code, presence):
@@ -690,6 +767,8 @@ GENERIC_STATUS_CODES = {"", "A", "P", "HD", "MIS"}
 
 def adjust_status_with_checkins(processed_status, checkins, shift_name, shift_map):
     base_status = processed_status or ""
+    if base_status == "MIS":
+        return "MIS"
     if not checkins:
         if base_status and base_status not in GENERIC_STATUS_CODES:
             return base_status
