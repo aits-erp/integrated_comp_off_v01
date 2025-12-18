@@ -428,10 +428,7 @@ def sandwich_attendance(doc):
         if attendance_name:
             existing = frappe.get_doc("Attendance", attendance_name)
             # Only override if not already marked by sandwich
-            if not existing.custom_marked_absent_by_sandwich and existing.status != "Absent":
-                existing.cancel()
-            elif existing.custom_marked_absent_by_sandwich and existing.status == "Absent":
-                continue  # already correctly marked
+            existing.cancel()
         # Create fresh Absent
         new_attendance = frappe.get_doc(
             {

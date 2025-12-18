@@ -307,6 +307,7 @@ class ReprocessAttendance(Document):
 
         while start_date <= add_days(end_date, 1):
             try:
+                frappe.flags.in_reprocess_attendance = True
                 _process_attendance(from_date=start_date, employee_names=[self.employee], reprocess_ref=self.name)
             except Exception:
                 frappe.log_error(
@@ -468,7 +469,8 @@ class ReprocessAttendance(Document):
             )
             workflow_name = doc.meta.get_workflow()
             field_name = get_workflow_state_field(workflow_name)
-            doc.db_set(field_name, "Cancelled")
+            if field_name:
+                doc.db_set(field_name, "Cancelled")
             leave_names.append(leave)
 
         frappe.cache.hset("reprocess-attendance-cancelled-leaves", self.name, leave_names)
@@ -483,6 +485,10 @@ class ReprocessAttendance(Document):
                 comment_type="Comment",
                 text=frappe._("Cancelled by Reprocess Attendance {0}".format(self.get_link_to_self())),
             )
+            workflow_name = doc.meta.get_workflow()
+            field_name = get_workflow_state_field(workflow_name)
+            if field_name:
+                doc.db_set(field_name, "Cancelled")
             request_names.append(request)
 
         frappe.cache.hset("reprocess-attendance-cancelled-requests", self.name, request_names)
