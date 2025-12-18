@@ -63,6 +63,7 @@ def after_insert(doc, method=None):
 
 def on_update(doc, method=None):
     update_user_details(doc)
+    update_leave_approvers_on_save(doc)
 
 
 def update_user_details(doc):
@@ -128,3 +129,27 @@ def validate_employee_data(doc):
 
     if not doc.custom_aadhar_number.isdigit():
         frappe.throw(frappe._("Aadhar Number should have only digits"))
+
+
+def update_leave_approvers_on_save(doc):
+    if doc.has_value_changed("leave_approver"):
+        new_approver = doc.leave_approver
+        new_approver_name = frappe.db.get_value("User", new_approver, "full_name")
+        employee_id = doc.name
+
+        draft_applications = frappe.get_all(
+            "Leave Application", filters={"employee": employee_id, "docstatus": 0}, pluck="name"
+        )
+
+        for app_name in draft_applications:
+            try:
+                frappe.db.set_value(
+                    "Leave Application",
+                    app_name,
+                    {"leave_approver": new_approver, "leave_approver_name": new_approver_name},
+                )
+
+            except Exception as e:
+                frappe.log_error(f"Failed to update Leave App {app_name}: {e}", "LEAVE_APPROVER_UPDATE_ERROR")
+
+        frappe.db.commit()
