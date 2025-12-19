@@ -103,7 +103,7 @@ def execute(filters=None):
                         delta = dt2 - dt1
                         if delta.total_seconds() > 0:
                             extra_worked[date_str] = get_time(delta)
-            processed_value = get_processed_status(employee.name, _date, emp_date_data, day_status)
+            processed_value = get_status(employee.name, _date, emp_date_data, day_status)
             status_value = adjust_status_with_checkins(processed_value, emp_checkins, day_shift_name, shift_map)
             if has_mis_punch_request(
                 attendance_requests_map, employee.name, _date
@@ -329,7 +329,7 @@ def get_shifts():
     return frappe.get_all("Shift Type", fields=["*"])
 
 
-def get_processed_status(employee, date, data_on_date, day_status):
+def get_status(employee, date, data_on_date, day_status):
     status = day_status
     date = getdate(date)
     attendance = data_on_date.get("attendance", [])
