@@ -105,7 +105,9 @@ def execute(filters=None):
                             extra_worked[date_str] = get_time(delta)
             processed_value = get_processed_status(employee.name, _date, emp_date_data, day_status)
             status_value = adjust_status_with_checkins(processed_value, emp_checkins, day_shift_name, shift_map)
-            if has_mis_punch_request(attendance_requests_map, employee.name, _date):
+            if has_mis_punch_request(
+                attendance_requests_map, employee.name, _date
+            ):  # if theres mispunch status should be mispunch
                 status_value = "MIS"
             status[date_str] = status_value
             attendance_doc = attendance_on_date[0] if attendance_on_date else None
@@ -689,7 +691,11 @@ def derive_processed_status(status_code, processed_code, attendance_doc, checkin
     if primary_status == "HOD":
         if is_day_off:
             return "WO"
-        return "POD" if presence else "HOD"
+        if checkins:
+            return "POD"
+        if display_status == "MIS":
+            return "POD"
+        return "HOD"
 
     if primary_status in {"HCL", "HEL", "HCO"}:
         return _map_half_day_leave_presence(primary_status, presence)
@@ -708,8 +714,8 @@ def _map_half_day_leave_presence(status_code, presence):
 
 
 def _has_physical_presence(worked_hours, checkins):
-    if worked_hours and worked_hours > 0:
-        return True
+    # if worked_hours and worked_hours > 0:
+    #     return True
     return bool(checkins)
 
 
@@ -762,10 +768,8 @@ def _get_leave_code_from_attendance(attendance_doc):
     return get_leave_code(leave_type_doc)
 
 
-GENERIC_STATUS_CODES = {"", "A", "P", "HD", "MIS"}
-
-
 def adjust_status_with_checkins(processed_status, checkins, shift_name, shift_map):
+    GENERIC_STATUS_CODES = {"", "A", "P", "HD", "MIS"}
     base_status = processed_status or ""
     if base_status == "MIS":
         return "MIS"
