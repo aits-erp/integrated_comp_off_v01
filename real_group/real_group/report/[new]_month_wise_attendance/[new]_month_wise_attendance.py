@@ -31,12 +31,12 @@ leave_split = {
     "P": {"present": 1},
     "POW": {"present": 1},
     "POH": {"present": 1},
-    "PEL": {"present": 0.5, "el": 0.5, "half_day": 0.5},
-    "PCL": {"present": 0.5, "cl": 0.5, "half_day": 0.5},
-    "PCO": {"present": 0.5, "co": 0.5, "half_day": 0.5},
-    "POD": {"present": 0.5, "od": 0.5, "half_day": 0.5},
-    "PLW": {"present": 0.5, "absent": 0.5, "half_day": 0.5},
-    "PHO": {"present": 0.5, "holiday": 0.5, "half_day": 0.5},
+    "PEL": {"present": 0.5, "el": 0.5, "half_day": 1.0},
+    "PCL": {"present": 0.5, "cl": 0.5, "half_day": 1.0},
+    "PCO": {"present": 0.5, "co": 0.5, "half_day": 1.0},
+    "POD": {"present": 0.5, "od": 0.5, "half_day": 1.0},
+    "PLW": {"present": 0.5, "absent": 0.5, "half_day": 1.0},
+    "PHO": {"present": 0.5, "holiday": 0.5, "half_day": 1.0},
     "A": {"absent": 1},
     "A1": {"absent": 1},
     "MIS": {"absent": 1},
@@ -45,26 +45,26 @@ leave_split = {
     "HLW": {"absent": 0.5, "half_day": 0.5},
     "WO": {"weekly_off": 1},
     "HO": {"holiday": 1},
-    "HHO": {"holiday": 0.5, "half_day": 0.5},
-    "MHO": {"absent": 0.5, "holiday": 0.5, "half_day": 0.5},
+    "HHO": {"holiday": 0.5, "half_day": 1.0},
+    "MHO": {"absent": 0.5, "holiday": 0.5, "half_day": 1.0},
     "EL": {"el": 1},
-    "HEL": {"el": 0.5, "half_day": 0.5},
-    "ELHO": {"el": 0.5, "holiday": 0.5, "half_day": 0.5},
+    "HEL": {"el": 0.5, "half_day": 1.0},
+    "ELHO": {"el": 0.5, "holiday": 0.5, "half_day": 1.0},
     "ELCO": {"el": 0.5, "co": 0.5, "half_day": 1.0},
     "CL": {"cl": 1},
-    "HCL": {"cl": 0.5, "half_day": 0.5},
-    "CLHO": {"cl": 0.5, "holiday": 0.5, "half_day": 0.5},
+    "HCL": {"cl": 0.5, "half_day": 1.0},
+    "CLHO": {"cl": 0.5, "holiday": 0.5, "half_day": 1.0},
     "CLCO": {"cl": 0.5, "co": 0.5, "half_day": 1.0},
     "CO": {"co": 1},
-    "HCO": {"co": 0.5, "half_day": 0.5},
-    "COHO": {"co": 0.5, "holiday": 0.5, "half_day": 0.5},
-    "LWHO": {"absent": 0.5, "holiday": 0.5, "half_day": 0.5},
+    "HCO": {"co": 0.5, "half_day": 1.0},
+    "COHO": {"co": 0.5, "holiday": 0.5, "half_day": 1.0},
+    "LWHO": {"absent": 0.5, "holiday": 0.5, "half_day": 1.0},
     "OD": {"od": 1},
-    "HOD": {"od": 0.5, "half_day": 0.5},
+    "HOD": {"od": 0.5, "half_day": 1.0},
     "ODEL": {"od": 0.5, "el": 0.5, "half_day": 1.0},
     "ODCL": {"od": 0.5, "cl": 0.5, "half_day": 1.0},
     "ODCO": {"od": 0.5, "co": 0.5, "half_day": 1.0},
-    "ODHO": {"od": 0.5, "holiday": 0.5, "half_day": 0.5},
+    "ODHO": {"od": 0.5, "holiday": 0.5, "half_day": 1.0},
 }
 
 
@@ -100,6 +100,7 @@ def execute(filters=None):
         (row_keys, hours_worked, extra_worked, processed_status, status, shift) = day_wise_attendance.get_rows(
             max_pairs, dates
         )
+        hours_worked = {"sr": "N Work"}
         rows_requiring_summary = [info, *row_keys, hours_worked, extra_worked, status, shift]
         if include_processed_status:
             rows_requiring_summary.append(processed_status)
@@ -167,6 +168,12 @@ def execute(filters=None):
                         delta = dt2 - dt1
                         if delta.total_seconds() > 0:
                             extra_worked[date_str] = get_time(delta)
+                if shift_type and shift_type.custom_shift_time and not worked_hours_value:
+                    if holiday_info and holiday_info.get("is_holiday"):
+                        in_time = emp_checkins[0].get("time")
+                        out_time = emp_checkins[-1].get("time")
+                        delta = out_time - in_time
+                        extra_worked[date_str] = get_time(delta)
             processed_value = day_wise_attendance.get_status(employee.name, _date, emp_date_data, day_status)
             status_value = day_wise_attendance.adjust_status_with_checkins(
                 processed_value, emp_checkins, day_shift_name, shift_map
