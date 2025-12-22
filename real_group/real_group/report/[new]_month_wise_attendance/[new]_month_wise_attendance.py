@@ -3,6 +3,7 @@
 from datetime import date, datetime, timedelta
 from importlib import import_module
 
+import frappe
 from frappe.utils import add_days, cint, format_date, get_time
 
 from real_group.utils import is_holiday_for_employee
@@ -227,12 +228,16 @@ def calculate_summary_metrics(status_row, emp_data, dates):
     metrics = {column["metric"]: 0.0 for column in column_config}
     for _date in dates:
         date_key = format_date(_date)
+        attendance_documents = (emp_data.get(date_key) or {}).get("attendance") or []
         status_code = (status_row.get(date_key) or "").strip().upper()
         contributions = leave_split.get(status_code, {})
         for metric_key, value in contributions.items():
             metrics[metric_key] = metrics.get(metric_key, 0.0) + value
-        if _has_late_entry((emp_data.get(date_key) or {}).get("attendance") or []):
+        if _has_late_entry(attendance_documents):
             metrics["late"] = metrics.get("late", 0.0) + 1
+        tour_entries = _count_tour_attendance_requests(attendance_documents)
+        if tour_entries:
+            metrics["tour"] = metrics.get("tour", 0.0) + tour_entries
 
     metrics["paid_days"] = (
         metrics.get("present", 0.0)
@@ -254,19 +259,35 @@ def _has_late_entry(attendance_documents):
         return False
 
     for document in attendance_documents:
-        late_value = getattr(document, "late_entry", None)
-        if late_value is None and hasattr(document, "get"):
-            late_value = document.get("late_entry")
-        if isinstance(late_value, str):
-            normalized = late_value.strip().lower()
-            if normalized in {"yes", "y", "true", "1"}:
-                return True
+        late_value = document.get("late_entry")
         try:
-            if cint(late_value):
+            if cint(late_value) == 1:
                 return True
         except Exception:
             continue
     return False
+
+
+def _count_tour_attendance_requests(attendance_documents):
+    if not attendance_documents:
+        return 0
+
+    tour_count = 0
+    for document in attendance_documents:
+        attendance_request = document.get("attendance_request")
+        if not attendance_request:
+            continue
+        try:
+            reason = frappe.get_cached_value("Attendance Request", attendance_request, "reason")
+        except Exception:
+            continue
+        if (reason or "").strip().lower() == "tour":
+            half_day = frappe.get_cached_value("Attendance Request", attendance_request, "half_day")
+            if half_day:
+                tour_count += 0.5
+            else:
+                tour_count += 1
+    return tour_count
 
 
 def apply_summary_metrics(target_row, metrics):
