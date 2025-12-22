@@ -102,8 +102,7 @@ def execute(filters=None):
         )
         hours_worked = {"sr": "N Work"}
         rows_requiring_summary = [info, *row_keys, hours_worked, extra_worked, status, shift]
-        if include_processed_status:
-            rows_requiring_summary.append(processed_status)
+        rows_requiring_summary.append(processed_status)
 
         total_present = 0
         total_absent = 0
@@ -184,10 +183,9 @@ def execute(filters=None):
                 status_value = "MIS"
             status[date_str] = status_value
             attendance_doc = attendance_on_date[0] if attendance_on_date else None
-            if include_processed_status:
-                processed_status[date_str] = day_wise_attendance.derive_processed_status(
-                    status_value, processed_value, attendance_doc, emp_checkins, worked_hours_value, holiday_info
-                )
+            processed_status[date_str] = day_wise_attendance.derive_processed_status(
+                status_value, processed_value, attendance_doc, emp_checkins, worked_hours_value, holiday_info
+            )
         summary_dates = []
         temp_date = dates[0]
         for _ in range(8):
@@ -204,7 +202,7 @@ def execute(filters=None):
             info[summary_dates[5]] = f"Absent: {total_absent}"
             info[summary_dates[6]] = f"Hours: {total_time}"
 
-        summary_metrics = calculate_summary_metrics(status, emp_data, dates)
+        summary_metrics = calculate_summary_metrics(processed_status, emp_data, dates)
         apply_summary_metrics(shift, summary_metrics)
 
         data.append(info)
