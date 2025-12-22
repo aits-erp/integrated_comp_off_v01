@@ -40,27 +40,27 @@ leave_split = {
     "A": {"absent": 1},
     "A1": {"absent": 1},
     "MIS": {"absent": 1},
-    "HD": {"present": 0.5, "half_day": 0.5},
+    "HD": {"present": 0.5, "absent": 0.5, "half_day": 1.0},
     "LW": {"absent": 1},
     "HLW": {"absent": 0.5, "half_day": 0.5},
     "WO": {"weekly_off": 1},
     "HO": {"holiday": 1},
-    "HHO": {"holiday": 0.5, "half_day": 1.0},
+    "HHO": {"holiday": 0.5, "absent": 0.5, "half_day": 1.0},
     "MHO": {"absent": 0.5, "holiday": 0.5, "half_day": 1.0},
     "EL": {"el": 1},
-    "HEL": {"el": 0.5, "half_day": 1.0},
+    "HEL": {"el": 0.5, "absent": 0.5, "half_day": 1.0},
     "ELHO": {"el": 0.5, "holiday": 0.5, "half_day": 1.0},
     "ELCO": {"el": 0.5, "co": 0.5, "half_day": 1.0},
     "CL": {"cl": 1},
-    "HCL": {"cl": 0.5, "half_day": 1.0},
+    "HCL": {"cl": 0.5, "absent": 0.5, "half_day": 1.0},
     "CLHO": {"cl": 0.5, "holiday": 0.5, "half_day": 1.0},
     "CLCO": {"cl": 0.5, "co": 0.5, "half_day": 1.0},
     "CO": {"co": 1},
-    "HCO": {"co": 0.5, "half_day": 1.0},
+    "HCO": {"co": 0.5, "absent": 0.5, "half_day": 1.0},
     "COHO": {"co": 0.5, "holiday": 0.5, "half_day": 1.0},
     "LWHO": {"absent": 0.5, "holiday": 0.5, "half_day": 1.0},
     "OD": {"od": 1},
-    "HOD": {"od": 0.5, "half_day": 1.0},
+    "HOD": {"od": 0.5, "absent": 0.5, "half_day": 1.0},
     "ODEL": {"od": 0.5, "el": 0.5, "half_day": 1.0},
     "ODCL": {"od": 0.5, "cl": 0.5, "half_day": 1.0},
     "ODCO": {"od": 0.5, "co": 0.5, "half_day": 1.0},
@@ -231,10 +231,13 @@ def append_summary_columns(columns):
 
 def calculate_summary_metrics(status_row, emp_data, dates):
     metrics = {column["metric"]: 0.0 for column in column_config}
+    considered_days = 0.0
     for _date in dates:
         date_key = format_date(_date)
         attendance_documents = (emp_data.get(date_key) or {}).get("attendance") or []
         status_code = (status_row.get(date_key) or "").strip().upper()
+        if status_code or attendance_documents:
+            considered_days += 1
         contributions = leave_split.get(status_code, {})
         for metric_key, value in contributions.items():
             metrics[metric_key] = metrics.get(metric_key, 0.0) + value
@@ -244,17 +247,7 @@ def calculate_summary_metrics(status_row, emp_data, dates):
         if tour_entries:
             metrics["tour"] = metrics.get("tour", 0.0) + tour_entries
 
-    metrics["paid_days"] = (
-        metrics.get("present", 0.0)
-        + metrics.get("weekly_off", 0.0)
-        + metrics.get("holiday", 0.0)
-        + metrics.get("half_day", 0.0)
-        + metrics.get("od", 0.0)
-        + metrics.get("tour", 0.0)
-        + metrics.get("cl", 0.0)
-        + metrics.get("el", 0.0)
-        + metrics.get("co", 0.0)
-    )
+    metrics["paid_days"] = max(0, considered_days - metrics.get("absent", 0.0))
 
     return metrics
 
