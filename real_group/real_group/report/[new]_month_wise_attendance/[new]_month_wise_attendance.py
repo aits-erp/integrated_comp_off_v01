@@ -42,7 +42,6 @@ leave_split = {
     "MIS": {"absent": 1},
     "HD": {"present": 0.5, "absent": 0.5, "half_day": 1.0},
     "LW": {"absent": 1},
-    "HLW": {"absent": 0.5, "half_day": 0.5},
     "WO": {"weekly_off": 1},
     "HO": {"holiday": 1},
     "HHO": {"holiday": 0.5, "absent": 0.5, "half_day": 1.0},
@@ -230,24 +229,53 @@ def append_summary_columns(columns):
 
 
 def calculate_summary_metrics(status_row, emp_data, dates):
+    FULL_PAID_STATUSES = {
+        "P",
+        "POH",
+        "POW",
+        "CL",
+        "EL",
+        "CO",
+        "PEL",
+        "PCL",
+        "PCO",
+        "PHO",
+        "POD",
+        "OD",
+        "HO",
+        "WO",
+        "ELCO",
+        "CLCO",
+        "ODCL",
+        "ODEL",
+        "ODCO",
+        "ELHO",
+        "CLHO",
+        "COHO",
+        "ODHO",
+        "MHO",
+    }
+    HALF_PAID_STATUSES = {"HD", "HCL", "HEL", "HCO", "HOD", "PLW", "HHO", "LWHO", "PHO"}
     metrics = {column["metric"]: 0.0 for column in column_config}
-    considered_days = 0.0
+    paid_days = 0.0
     for _date in dates:
         date_key = format_date(_date)
         attendance_documents = (emp_data.get(date_key) or {}).get("attendance") or []
         status_code = (status_row.get(date_key) or "").strip().upper()
-        if status_code or attendance_documents:
-            considered_days += 1
         contributions = leave_split.get(status_code, {})
         for metric_key, value in contributions.items():
             metrics[metric_key] = metrics.get(metric_key, 0.0) + value
+        if status_code in FULL_PAID_STATUSES:
+            paid_days += 1
+        elif status_code in HALF_PAID_STATUSES:
+            paid_days += 0.5
         if _has_late_entry(attendance_documents):
             metrics["late"] = metrics.get("late", 0.0) + 1
         tour_entries = _count_tour_attendance_requests(attendance_documents)
         if tour_entries:
             metrics["tour"] = metrics.get("tour", 0.0) + tour_entries
 
-    metrics["paid_days"] = max(0, considered_days - metrics.get("absent", 0.0))
+    metrics["paid_days"] = paid_days
 
     return metrics
 
