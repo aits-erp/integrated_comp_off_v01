@@ -317,21 +317,35 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
         "ODCO": ("OD", "CO"),
     }
 
+    # Explicit half-day ordering when OD is only for one half (attendance request) and leave is for the other.
+    if half_type_code and code in {"ODEL", "ODCL", "ODCO", "HOD"}:
+        leave_half = {
+            "ODEL": "EL",
+            "ODCL": "CL",
+            "ODCO": "CO",
+            "HOD": "OD",
+        }.get(code, "A")
+        if code == "HOD":
+            base_pair = ("OD", "A") if half_type_code == "FIRST" else ("A", "OD")
+        else:
+            base_pair = (leave_half, "OD") if half_type_code == "FIRST" else ("OD", leave_half)
+        return rebalance_presence_halves(base_pair, presence_first_half, force_order=True)
+
     if code in direct_map:
-        return rebalance_presence_halves(direct_map[code], presence_first_half)
+        return rebalance_presence_halves(direct_map[code], presence_first_half, force_order=bool(half_type_code))
 
     if code.startswith("H") and len(code) > 1:
         tail = code[1:]
         if presence:
             base_pair = ("P", tail)
-            return rebalance_presence_halves(base_pair, presence_first_half)
+            return rebalance_presence_halves(base_pair, presence_first_half, force_order=bool(half_type_code))
         return (tail, "A")
 
     if is_day_off and code == "OD":
-        return rebalance_presence_halves(("OD", "OD"), presence_first_half)
+        return rebalance_presence_halves(("OD", "OD"), presence_first_half, force_order=bool(half_type_code))
 
     if code:
-        return rebalance_presence_halves((code, code), presence_first_half)
+        return rebalance_presence_halves((code, code), presence_first_half, force_order=bool(half_type_code))
 
     return "", ""
 
