@@ -15,7 +15,7 @@ column_config = [
     {"fieldname": "absent", "label": "A", "metric": "absent"},
     {"fieldname": "weekly_off", "label": "WO", "metric": "weekly_off"},
     {"fieldname": "holiday", "label": "HO", "metric": "holiday"},
-    {"fieldname": "half_day", "label": "HLD", "metric": "half_day"},
+    {"fieldname": "half_day", "label": "Half", "metric": "half_day"},
     {"fieldname": "od", "label": "OD", "metric": "od"},
     {"fieldname": "tour", "label": "Tour", "metric": "tour"},
     {"fieldname": "cl", "label": "CL", "metric": "cl"},
