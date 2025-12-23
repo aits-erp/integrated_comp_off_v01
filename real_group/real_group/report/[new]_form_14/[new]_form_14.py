@@ -49,43 +49,11 @@ def execute(filters=None):
                 first_half_row[date_key] = ""
                 second_half_row[date_key] = ""
                 continue
-            emp_date_data = emp_data.get(date_key, {})
-            attendance_on_date = emp_date_data.get("attendance", [])
-            checkins_on_date = sorted(emp_date_data.get("checkins", []), key=lambda x: x.time)
+            day_snapshot = build_day_snapshot(employee, _date, emp_data, attendance_requests_map, shift_map)
 
-            worked_hours = sum((att.get("working_hours", 0.0) or 0.0) for att in attendance_on_date)
-            day_status = "A"
-            if attendance_on_date:
-                primary_attendance = attendance_on_date[0]
-                day_status = primary_attendance.get("custom_attendance_tag") or primary_attendance.get("status") or "A"
-
-            shift_name = attendance_on_date[0].get("shift", "") if attendance_on_date else ""
-            if not shift_name and checkins_on_date:
-                shift_name = checkins_on_date[0].get("shift") or ""
-
-            processed_value = dw.get_status(employee.name, _date, emp_date_data, day_status)
-            status_value = dw.adjust_status_with_checkins(processed_value, checkins_on_date, shift_name, shift_map)
-            if dw.has_mis_punch_request(attendance_requests_map, employee.name, _date):
-                status_value = "MIS"
-
-            attendance_doc = attendance_on_date[0] if attendance_on_date else None
-            holiday_info = is_holiday_for_employee(employee.name, _date)
-            processed_status = dw.derive_processed_status(
-                status_value, processed_value, attendance_doc, checkins_on_date, worked_hours, holiday_info
-            )
-
-            first_code, second_code = map_status_to_halves(
-                processed_status, status_value, checkins_on_date, worked_hours, holiday_info
-            )
-            first_half_row[date_key] = first_code
-            second_half_row[date_key] = second_code
-
-            if not processed_report:
-                add_half_day_to_counters(counters, first_code)
-                add_half_day_to_counters(counters, second_code)
-
-        if processed_report:
-            counters = compute_counters_from_rows(first_half_row, second_half_row, dates)
+            first_half_row[date_key] = day_snapshot["first_half"]
+            second_half_row[date_key] = day_snapshot["second_half"]
+        counters = compute_counters_from_rows(first_half_row, second_half_row, dates)
 
         ttl = (
             counters["ho"]
@@ -113,6 +81,102 @@ def execute(filters=None):
         data.append(second_half_row)
 
     return columns, data
+
+
+def build_day_snapshot(employee, target_date, emp_data, attendance_requests_map, shift_map):
+    """Compute raw and processed statuses and split them into half-day codes."""
+
+    date_key = format_date(target_date)
+    emp_date_data = emp_data.get(date_key, {})
+    attendance_on_date = emp_date_data.get("attendance", [])
+    checkins_on_date = sorted(emp_date_data.get("checkins", []), key=_get_time_from_log)
+
+    worked_hours = sum((att.get("working_hours", 0.0) or 0.0) for att in attendance_on_date)
+    day_status = "A"
+    if attendance_on_date:
+        primary_attendance = attendance_on_date[0]
+        day_status = primary_attendance.get("custom_attendance_tag") or primary_attendance.get("status") or "A"
+
+    shift_name = attendance_on_date[0].get("shift", "") if attendance_on_date else ""
+    if not shift_name and checkins_on_date:
+        shift_name = checkins_on_date[0].get("shift") or ""
+
+    processed_value = dw.get_status(employee.name, target_date, emp_date_data, day_status)
+    status_value = dw.adjust_status_with_checkins(processed_value, checkins_on_date, shift_name, shift_map)
+    if dw.has_mis_punch_request(attendance_requests_map, employee.name, target_date):
+        status_value = "MIS"
+
+    attendance_doc = attendance_on_date[0] if attendance_on_date else None
+    holiday_info = is_holiday_for_employee(employee.name, target_date)
+    processed_status = dw.derive_processed_status(
+        status_value, processed_value, attendance_doc, checkins_on_date, worked_hours, holiday_info
+    )
+
+    half_type = resolve_half_type(attendance_on_date, attendance_requests_map, employee.name, target_date)
+
+    first_half, second_half = map_status_to_halves(
+        processed_status, status_value, checkins_on_date, worked_hours, holiday_info, half_type
+    )
+
+    return {
+        "first_half": first_half,
+        "second_half": second_half,
+        "processed_status": processed_status,
+        "status": status_value,
+        "worked_hours": worked_hours,
+    }
+
+
+def resolve_half_type(attendance_on_date, attendance_requests_map, employee_name, target_date):
+    """Pick the explicit half-day type, preferring attendance, then requests."""
+
+    attendance_doc = attendance_on_date[0] if attendance_on_date else None
+    half_type = _extract_half_type(attendance_doc)
+
+    if not half_type and attendance_doc and attendance_doc.leave_application:
+        half_type = frappe.get_cached_value("Leave Application", attendance_doc.leave_application, "custom_half_type")
+
+    if half_type:
+        return half_type
+
+    requests = (
+        attendance_requests_map.get(employee_name, {}).get(format_date(target_date), [])
+        if attendance_requests_map
+        else []
+    )
+    for request in requests:
+        half_type = _extract_half_type(request)
+        if half_type:
+            return half_type
+
+    return None
+
+
+def _extract_half_type(source):
+    if not source:
+        return None
+    try:
+        return source.custom_half_type
+    except AttributeError:
+        return None
+
+
+def _normalize_half_type(raw_value):
+    text = (raw_value or "").strip().lower()
+    if not text:
+        return None
+    if "first" in text:
+        return "FIRST"
+    if "second" in text:
+        return "SECOND"
+    return None
+
+
+def _get_time_from_log(log):
+    try:
+        return log.time
+    except AttributeError:
+        return None
 
 
 def build_columns(dates):
@@ -149,14 +213,15 @@ def get_employee_row(idx, employee):
     designation = employee.designation
     return {
         "sr": str(idx),
-        "token_no": token or employee.name,
+        "token_no": token,
         "employee_name": employee.employee_name,
         "father_name": father_name,
         "designation": designation,
     }
 
 
-def map_status_to_halves(processed_status, normal_status, checkins, worked_hours, holiday_info):
+def map_status_to_halves(processed_status, normal_status, checkins, worked_hours, holiday_info, half_type=None):
+    half_type_code = _normalize_half_type(half_type)
     processed_code = (processed_status or "").upper()
     normal_code = (normal_status or "").upper()
 
@@ -171,7 +236,7 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
         elif processed_code == "HO":
             if normal_code == "OD":
                 code = "OD"
-            elif normal_code in {"POH", "PHO"}:
+            elif normal_code == "POH":
                 code = "POH"
         elif processed_code == "A":
             if normal_code in {"LW", "A"}:
@@ -183,39 +248,44 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
     is_day_off = bool(holiday_info.get("is_holiday")) if isinstance(holiday_info, dict) else False
 
     # Presence-aware handling for half-day leave combos where order depends on which half had presence.
-    leave_half_map = {"HEL": "EL", "HCL": "CL", "HCO": "CO", "HLW": "A"}
-    processed_leave_half_map = {"PEL": "EL", "PCL": "CL", "PCO": "CO", "PLW": "A"}
+    leave_half_map = {"HEL": "EL", "HCL": "CL", "HCO": "CO"}
+    processed_leave_half_map = {"PEL": "EL", "PCL": "CL", "PCO": "CO"}
 
     if code in leave_half_map:
         leave_code = leave_half_map[code]
         return rebalance_presence_halves(
-            map_half_day_leave(leave_code, presence_first_half, presence_second_half, default_present_first=False),
+            map_half_day_leave(
+                leave_code,
+                presence_first_half,
+                presence_second_half,
+                default_present_first=False,
+                half_type=half_type_code,
+            ),
             presence_first_half,
+            force_order=bool(half_type_code),
         )
 
     if code in processed_leave_half_map:
         leave_code = processed_leave_half_map[code]
         return rebalance_presence_halves(
-            map_half_day_leave(leave_code, presence_first_half, presence_second_half, default_present_first=True),
+            map_half_day_leave(
+                leave_code,
+                presence_first_half,
+                presence_second_half,
+                default_present_first=True,
+                half_type=half_type_code,
+            ),
             presence_first_half,
+            force_order=bool(half_type_code),
         )
-
-    # HOD: place P on the half where presence is detected; if none, fall back to OD|A.
-    if code == "HOD":
-        if presence_first_half and not presence_second_half:
-            return "P", "OD"
-        if presence_second_half and not presence_first_half:
-            return "OD", "P"
-        if presence_first_half and presence_second_half:
-            return "P", "OD"
-        return rebalance_presence_halves(("OD", "A"), presence_first_half)
-
     # Optional leave + holiday (HO) combos: keep HO on the half without presence.
     optional_leave_map = {"ELHO": "EL", "CLHO": "CL", "COHO": "CO"}
     if code in optional_leave_map:
         leave_code = optional_leave_map[code]
         return rebalance_presence_halves(
-            map_optional_leave_half(leave_code, presence_first_half, presence_second_half), presence_first_half
+            map_optional_leave_half(leave_code, presence_first_half, presence_second_half, half_type=half_type_code),
+            presence_first_half,
+            force_order=bool(half_type_code),
         )
 
     if code in {"LWHO", "MHO", "PHO", "HHO", "ODHO"}:
@@ -226,8 +296,6 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
         "HD": ("P", "A"),
         "MIS": ("P", "P"),
         "A": ("A", "A"),
-        "A1": ("A1", "A1"),
-        "LW": ("A", "A"),
         "PLW": ("P", "A"),
         "CO": ("CO", "CO"),
         "HCO": ("CO", "A"),
@@ -241,8 +309,12 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
         "HO": ("HO", "HO"),
         "POH": ("POH", "POH"),
         "POD": ("P", "OD"),
+        "HOD": ("OD", "A"),
         "ELCO": ("EL", "CO"),
         "CLCO": ("CL", "CO"),
+        "ODEL": ("OD", "EL"),
+        "ODCL": ("OD", "CL"),
+        "ODCO": ("OD", "CO"),
     }
 
     if code in direct_map:
@@ -270,11 +342,17 @@ def infer_presence_halves(checkins):
     has_first = False
     has_second = False
     try:
-        for log in sorted(checkins, key=lambda x: x.time):
-            ts = getattr(log, "time", None)
+        for log in sorted(checkins, key=_get_time_from_log):
+            ts = _get_time_from_log(log)
             if not ts:
                 continue
-            hour_val = ts.time().hour if hasattr(ts, "time") else getattr(ts, "hour", None)
+            try:
+                hour_val = ts.time().hour
+            except AttributeError:
+                try:
+                    hour_val = ts.hour
+                except AttributeError:
+                    hour_val = None
             if hour_val is None:
                 continue
             if hour_val < 13:
@@ -284,14 +362,13 @@ def infer_presence_halves(checkins):
     except Exception:
         return True, False
 
-    # If we saw presence but could not place it, default to first half.
-    if not has_first and not has_second:
-        return True, False
     return has_first, has_second
 
 
-def rebalance_presence_halves(pair, presence_first_half):
-    presence_codes = {"P", "POH", "POW", "POD", "PHO", "PEL", "PCL", "PCO"}
+def rebalance_presence_halves(pair, presence_first_half, force_order=False):
+    if force_order:
+        return pair
+    presence_codes = {"P", "POH", "POW", "POD", "PHO", "PEL", "PCL", "PCO", "OD"}
     first, second = pair
     if presence_first_half:
         if second in presence_codes and first not in presence_codes:
@@ -303,24 +380,22 @@ def rebalance_presence_halves(pair, presence_first_half):
     return pair
 
 
-def map_half_day_leave(leave_code, presence_first_half, presence_second_half, default_present_first):
-    if presence_first_half and not presence_second_half:
-        return "P", leave_code
-    if presence_second_half and not presence_first_half:
-        return leave_code, "P"
-    if presence_first_half and presence_second_half:
-        return "P", leave_code
-    return ("P", leave_code) if default_present_first else (leave_code, "A")
+def map_half_day_leave(leave_code, presence_first_half, presence_second_half, default_present_first, half_type=None):
+    half_type_code = _normalize_half_type(half_type)
+    default_other_half = "P" if default_present_first else "A"
+
+    if half_type_code == "FIRST":
+        return leave_code, ("P" if presence_second_half else default_other_half)
+    if half_type_code == "SECOND":
+        return ("P" if presence_first_half else default_other_half), leave_code
 
 
-def map_optional_leave_half(leave_code, presence_first_half, presence_second_half):
-    if presence_first_half and not presence_second_half:
-        return "P", "HO"
-    if presence_second_half and not presence_first_half:
-        return "HO", "P"
-    if presence_first_half and presence_second_half:
-        return "P", "HO"
-    return leave_code, "HO"
+def map_optional_leave_half(leave_code, presence_first_half, presence_second_half, half_type=None):
+    half_type_code = _normalize_half_type(half_type)
+    if half_type_code == "FIRST":
+        return leave_code, ("P" if presence_second_half else "HO")
+    if half_type_code == "SECOND":
+        return ("P" if presence_first_half else "HO"), leave_code
 
 
 def map_optional_special(code, presence_first_half, presence_second_half):
