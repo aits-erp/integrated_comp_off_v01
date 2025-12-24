@@ -38,11 +38,11 @@ def update_user_password(
                 """
                 UPDATE RIPLRR.USER_MAST
                 SET PASSWORD = (SELECT RIPLRR.LHS_UTILITY.GET_ENCRYPT(:new_password) FROM DUAL),
-                    LASTUPDATE = TIMESTAMP :now
+                    LASTUPDATE = TO_TIMESTAMP(:modified, 'YYYY-MM-DD HH24:MI:SS')
                 WHERE USER_CODE = :user
                 """,
                 new_password=new_password,
-                now=frappe.utils.now(),
+                modified=frappe.utils.now(),
                 user=user,
             )
 
