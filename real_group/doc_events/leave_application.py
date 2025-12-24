@@ -144,6 +144,7 @@ def validate_el_and_cl(doc):
             "employee": doc.employee,
             "docstatus": ["!=", 2],
             "name": ["!=", doc.name],
+            "from_date": ["<=", doc.from_date],
         },
         fields=["name", "leave_type", "from_date", "to_date", "half_day", "half_day_date"],
     )
@@ -167,8 +168,10 @@ def validate_el_and_cl(doc):
         if doc.half_day and leave.half_day:
             if doc.half_day_date == leave.half_day_date:
                 frappe.throw(
-                    "EL and CL cannot be applied on the same date for different half. "
-                    "One Present day is mandatory between EL and CL."
+                    _(
+                        "EL and CL cannot be applied on the same date for different half. "
+                        "One Present day is mandatory between EL and CL."
+                    )
                 )
 
         # Case: full-day overlap or same single date
@@ -177,15 +180,21 @@ def validate_el_and_cl(doc):
             # means one of the dates is exactly same
             if doc_from == other_from or doc_from == other_to or doc_to == other_from or doc_to == other_to:
                 frappe.throw(
-                    "EL and CL cannot be applied on the same date. One Present day is mandatory between EL and CL."
+                    _("EL and CL cannot be applied on the same date. One Present day is mandatory between EL and CL.")
                 )
 
         # ---- 2️⃣ ADJACENT (Continuation) ----
         earlier_end = min(doc_to, other_to)
         later_start = max(doc_from, other_from)
 
-        if not has_present_day_between(doc.employee, earlier_end, later_start):
-            frappe.throw("EL and CL cannot be applied. One Present day is mandatory between EL and CL.")
+        if (other_is_cl or other_is_el) and not has_present_day_between(doc.employee, earlier_end, later_start):
+            frappe.throw(
+                _(
+                    "EL and CL cannot be applied. One Present day is mandatory between EL and CL from {0} to {1}.".format(
+                        format_display_date(earlier_end), format_display_date(later_start)
+                    )
+                )
+            )
 
 
 def validate_change_request_day(doc):
