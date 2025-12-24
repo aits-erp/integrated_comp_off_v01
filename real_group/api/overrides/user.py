@@ -30,20 +30,14 @@ def update_user_password(
 
     try:
         with con.cursor() as cur:
-            cur.execute("SELECT USER_CODE FROM RIPLRR.USER_MAST WHERE USER_CODE = :user", user=user)
+            cur.execute(
+                """SELECT USER_CODE FROM RIPLRR.USER_MAST WHERE USER_CODE = '{current_user}'""",
+            )
             if not cur.fetchall():
                 frappe.throw(frappe._("User not found in Oracle DB!! Kindly Create User"))
 
             cur.execute(
-                """
-                UPDATE RIPLRR.USER_MAST
-                SET PASSWORD = (SELECT RIPLRR.LHS_UTILITY.GET_ENCRYPT(:new_password) FROM DUAL),
-                    LASTUPDATE = TO_TIMESTAMP(:modified, 'YYYY-MM-DD HH24:MI:SS')
-                WHERE USER_CODE = :user
-                """,
-                new_password=new_password,
-                modified=frappe.utils.now(),
-                user=user,
+                "UPDATE RIPLRR.USER_MAST SET  PASSWORD = (SELECT RIPLRR.LHS_UTILITY.GET_ENCRYPT('{new_password}') FROM DUAL), LASTUPDATE = TIMESTAMP '{str(frappe.utils.now())}' WHERE USER_CODE = '{current_user}'"
             )
 
         try:
@@ -57,7 +51,7 @@ def update_user_password(
 
     except cx_Oracle.DatabaseError as er:
         con.rollback()
-        frappe.log_error(title="Oracle Query Error", message=str(er))
+        frappe.log_error(frappe.get_traceback())
         frappe.throw(f"Oracle Query Error: {er!s}")
 
     except Exception as er:
