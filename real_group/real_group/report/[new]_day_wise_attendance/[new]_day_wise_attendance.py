@@ -5,7 +5,7 @@ import calendar
 from datetime import date, datetime, timedelta
 
 import frappe
-from frappe.utils import add_days, format_date, get_datetime, get_time, getdate
+from frappe.utils import add_days, cint, format_date, get_datetime, get_time, getdate
 from frappe.utils.caching import redis_cache
 
 from real_group.utils import convert_time_to_hours, is_holiday_for_employee
@@ -16,6 +16,7 @@ month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "O
 def execute(filters=None):
     month = filters.get("month")
     year = int(filters.get("year"))
+    include_processed_status = bool(cint(filters.get("processed_attendance")))
     columns, data = get_columns(month, year), []
     company = filters.get("company")
     branch = filters.get("branch")
@@ -103,6 +104,12 @@ def execute(filters=None):
                         delta = dt2 - dt1
                         if delta.total_seconds() > 0:
                             extra_worked[date_str] = get_time(delta)
+                if shift_type and shift_type.custom_shift_time and not worked_hours_value:
+                    if holiday_info and holiday_info.get("is_holiday"):
+                        in_time = emp_checkins[0].get("time")
+                        out_time = emp_checkins[-1].get("time")
+                        delta = out_time - in_time
+                        extra_worked[date_str] = get_time(delta)
             processed_value = get_status(employee.name, _date, emp_date_data, day_status)
             status_value = adjust_status_with_checkins(processed_value, emp_checkins, day_shift_name, shift_map)
             if has_mis_punch_request(
@@ -111,14 +118,15 @@ def execute(filters=None):
                 status_value = "MIS"
             status[date_str] = status_value
             attendance_doc = attendance_on_date[0] if attendance_on_date else None
-            processed_status[date_str] = derive_processed_status(
-                status_value,
-                processed_value,
-                attendance_doc,
-                emp_checkins,
-                worked_hours_value,
-                holiday_info,
-            )
+            if include_processed_status:
+                processed_status[date_str] = derive_processed_status(
+                    status_value,
+                    processed_value,
+                    attendance_doc,
+                    emp_checkins,
+                    worked_hours_value,
+                    holiday_info,
+                )
         summary_dates = []
         temp_date = dates[0]
         for _ in range(8):
@@ -140,7 +148,8 @@ def execute(filters=None):
         data.append(hours_worked)
         data.append(extra_worked)
         data.append(status)
-        data.append(processed_status)
+        if include_processed_status:
+            data.append(processed_status)
         data.append(shift)
 
     return columns, data

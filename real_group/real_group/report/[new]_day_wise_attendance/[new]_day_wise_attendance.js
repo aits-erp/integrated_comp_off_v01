@@ -83,6 +83,11 @@ frappe.query_reports["[New] Day Wise Attendance"] = {
       options: years,
       reqd: 1,
     },
+    {
+      fieldname: "processed_attendance",
+      fieldtype: "Check",
+      label: "Processed Attendance",
+    },
   ],
   formatter: function (value, row, column, data, default_formatter) {
     value = default_formatter(value, row, column, data);
