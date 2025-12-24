@@ -430,6 +430,8 @@ def validate_leave_balance(doc):
         date=doc.from_date,
     )
     if leave_details and "leave_allocation" in leave_details:
+        if doc.workflow_state != "Draft":
+            return
         leave_allocation = leave_details["leave_allocation"]
         if doc.leave_type in ["Leave Without Pay", "Auto Leave Without Pay"]:
             return
