@@ -254,7 +254,16 @@ def get_attendance_requests(employees: list, start_date: date, end_date: date):
             "from_date": ["<=", end_date],
             "to_date": [">=", start_date],
         },
-        fields=["name", "employee", "reason", "from_date", "to_date", "half_day", "half_day_date"],
+        fields=[
+            "name",
+            "employee",
+            "reason",
+            "from_date",
+            "to_date",
+            "half_day",
+            "half_day_date",
+            "custom_half_type",
+        ],
     )
 
     request_map = {emp: {} for emp in employees}
@@ -320,7 +329,10 @@ def get_rows(pairs, dates):
 def get_logs(employee_checkins):
     data = {"IN": [], "OUT": []}
     for checkin in employee_checkins:
-        data[checkin.log_type].append(checkin)
+        log_type = getattr(checkin, "log_type", "") or ""
+        if log_type not in data:
+            continue
+        data[log_type].append(checkin)
     return data
 
 
