@@ -16,6 +16,7 @@ def validate(doc, method=None):
     validate_cross_month_leave(doc)
     validate_attendance_request(doc)
     validate_leave_overlap(doc)
+    validate_leave_balance(doc)
 
 
 def before_cancel(doc, method=None):
@@ -143,6 +144,7 @@ def validate_el_and_cl(doc):
         filters={
             "employee": doc.employee,
             "docstatus": ["!=", 2],
+            "workflow_state": ["not in", ["Cancelled", "Rejected by HOD", "Rejected by HR"]],
             "name": ["!=", doc.name],
             "from_date": ["<=", doc.from_date],
         },
@@ -224,6 +226,7 @@ def validate_el_cl_gap_non_working_day(doc):
         filters={
             "employee": doc.employee,
             "docstatus": ["!=", 2],
+            "workflow_state": ["not in", ["Cancelled", "Rejected by HOD", "Rejected by HR"]],
             "name": ["!=", doc.name],
         },
         fields=["leave_type", "from_date", "to_date"],
@@ -356,6 +359,7 @@ def validate_leave_overlap(self):
             "from_date": ["<=", self.to_date],
             "to_date": [">=", self.from_date],
             "docstatus": ["!=", 2],
+            "workflow_state": ["not in", ["Cancelled", "Rejected by HOD", "Rejected by HR"]],
             "name": ["!=", self.name],
         },
         fields=["name", "from_date", "to_date", "half_day_date", "custom_half_type", "half_day", "leave_type"],
@@ -417,6 +421,25 @@ def has_present_day_between(employee, start_date, end_date):
             },
         )
     )
+
+
+def validate_leave_balance(doc):
+    leave_details = frappe.call(
+        "hrms.hr.doctype.leave_application.leave_application.get_leave_details",
+        employee=doc.employee,
+        date=doc.from_date,
+    )
+    if leave_details and "leave_allocation" in leave_details:
+        leave_allocation = leave_details["leave_allocation"]
+        if doc.leave_type in ["Leave Without Pay", "Auto Leave Without Pay"]:
+            return
+        if doc.leave_type not in leave_allocation:
+            return
+        pending = leave_allocation[doc.leave_type]["leaves_pending_approval"]
+        remaining = leave_allocation[doc.leave_type]["remaining_leaves"]
+        total_available = remaining - pending
+        if doc.total_leave_days > total_available:
+            frappe.throw(_("Insufficient leave balance for {0}").format(doc.leave_type))
 
 
 class OverlapError(frappe.ValidationError):
