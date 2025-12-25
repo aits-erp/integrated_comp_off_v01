@@ -13,7 +13,6 @@ form = import_module("real_group.real_group.report.[new]_form_14.[new]_form_14")
 
 
 def execute(filters=None):
-    filters = filters or {}
     month = filters.get("month")
     year = int(filters.get("year"))
     dates = dw.get_dates(month, year)
@@ -56,7 +55,7 @@ def execute(filters=None):
 
 def build_columns():
     columns = [
-        {"fieldname": "employee", "fieldtype": "Link", "options": "Employee", "label": "Employee UID"},
+        {"fieldname": "employee", "fieldtype": "Data", "label": "Employee UID"},
         {"fieldname": "employee_name", "fieldtype": "Data", "label": "Employee Name"},
         {"fieldname": "total_present", "fieldtype": "Float", "default": 0, "label": "P"},
         {"fieldname": "total_absent", "fieldtype": "Float", "default": 0, "label": "A"},
