@@ -287,7 +287,7 @@ def get_non_working_gap_reason(employee, gap_date):
         "status",
     )
 
-    if attendance_status in ("Absent", "Half Day"):
+    if attendance_status in ("Absent"):
         return frappe._("Attendance on {0} is marked {1}.").format(format_display_date(gap_date), attendance_status)
 
     holiday = is_holiday_for_employee(employee, gap_date)
@@ -416,7 +416,7 @@ def has_present_day_between(employee, start_date, end_date):
             {
                 "employee": employee,
                 "attendance_date": ["in", _filter_dates],
-                "status": "Present",
+                "status": ["in", ["Present", "Half Day"]],
                 "docstatus": 1,
             },
         )
