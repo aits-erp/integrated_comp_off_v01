@@ -69,7 +69,7 @@ leave_split = {
 
 def execute(filters=None):
     month = filters.get("month")
-    year = int(filters.get("year"))
+    year = cint(filters.get("year"))
     include_processed_status = bool(cint(filters.get("processed_attendance")))
     columns = day_wise_attendance.get_columns(month, year)
     append_summary_columns(columns)
