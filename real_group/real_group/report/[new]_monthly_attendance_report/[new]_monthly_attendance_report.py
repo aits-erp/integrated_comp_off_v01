@@ -4,7 +4,7 @@
 from datetime import date
 from importlib import import_module
 
-from frappe.utils import getdate
+from frappe.utils import cint, getdate
 
 from real_group.utils import is_holiday_for_employee
 
@@ -14,7 +14,7 @@ form = import_module("real_group.real_group.report.[new]_form_14.[new]_form_14")
 
 def execute(filters=None):
     month = filters.get("month")
-    year = int(filters.get("year"))
+    year = cint(filters.get("year"))
     dates = dw.get_dates(month, year)
     start_date, end_date = getdate(dates[0]), getdate(dates[-1])
     columns = build_columns()
