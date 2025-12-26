@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 import frappe
-from frappe.utils import format_time, get_datetime, get_time, get_timedelta, getdate
+from frappe.utils import add_days, format_time, get_datetime, get_time, get_timedelta, getdate
 
 from real_group.utils import convert_time_to_minutes
 
@@ -198,43 +198,23 @@ def process_employee_checkout(logs):
                 continue
 
 
-def find_closest_shift_from_punch_time(
-    allowed_shifts: list[str],
-    punch_time: str | timedelta,
-    date=None,
-):
-    reference_date = getdate(date or frappe.utils.now_datetime())
+def find_closest_shift_from_punch_time(allowed_shifts: list[str], punch_time: str | timedelta, date=None):
+    # Use a fixed reference date to convert time-only values to datetime for accurate comparison
+    reference_date = getdate(frappe.utils.now_datetime())
+
     punch_time_dt = datetime.combine(reference_date, get_time(punch_time))
 
-    shifts = frappe.db.get_all(
-        "Shift Type",
-        filters={"name": ["in", allowed_shifts]},
-        fields=["name", "start_time"],
-    )
+    shifts = frappe.db.get_all("Shift Type", filters={"name": ["in", allowed_shifts]}, fields=["name", "start_time"])
 
-    candidates = []
+    shift_timings = [
+        {"name": s["name"], "start_time": datetime.combine(reference_date, get_time(s["start_time"]))}
+        for s in shifts
+        if s["start_time"]
+    ]
 
-    for s in shifts:
-        if not s["start_time"]:
-            continue
+    closest_shift = min(shift_timings, key=lambda s: abs((punch_time_dt - s["start_time"]).total_seconds()))
 
-        start_time = get_time(s["start_time"])
-
-        # Same-day start
-        same_day_dt = datetime.combine(reference_date, start_time)
-
-        # Previous-day start (for cross-day / night shifts)
-        prev_day_dt = same_day_dt - timedelta(days=1)
-
-        candidates.append({"name": s["name"], "start": same_day_dt})
-        candidates.append({"name": s["name"], "start": prev_day_dt})
-
-    closest = min(
-        candidates,
-        key=lambda c: abs((punch_time_dt - c["start"]).total_seconds()),
-    )
-
-    return closest["name"]
+    return closest_shift["name"]
 
 
 def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
@@ -242,7 +222,8 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
     Stable shift resolver.
 
     Rules:
-    - Shift is resolved ONLY on IN
+    - Shift is resolved ONLY once per work date (first IN)
+    - Subsequent INs reuse the same shift
     - OUT always reuses the owning IN's shift
     - Cross-day handled by shift definition
     """
@@ -254,21 +235,40 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
     # CHECKOUT → reuse latest IN shift
     # ----------------------------------
     if for_checkout:
-        last_in = frappe.db.get_value(
+        return frappe.db.get_value(
             "Employee Checkin",
             filters={
                 "employee": employee,
                 "log_type": "IN",
                 "time": ["<=", punch_dt],
             },
-            fieldname=["shift"],
+            fieldname="shift",
             order_by="time desc",
-            as_dict=True,
         )
-        return last_in.shift if last_in else None
 
     # ----------------------------------
-    # CHECKIN → resolve shift
+    # CHECKIN → reuse same-day shift if exists
+    # ----------------------------------
+    day_start = get_datetime(punch_date)
+    day_end = get_datetime(add_days(punch_date, 1))
+
+    existing_shift = frappe.db.get_value(
+        "Employee Checkin",
+        filters=[
+            ["employee", "=", employee],
+            ["log_type", "=", "IN"],
+            ["time", ">=", day_start],
+            ["time", "<", day_end],
+        ],
+        fieldname="shift",
+        order_by="time asc",
+    )
+
+    if existing_shift:
+        return existing_shift
+
+    # ----------------------------------
+    # FIRST IN OF THE DAY → resolve shift
     # ----------------------------------
     allowed_shifts = get_employee_allowed_shifts(employee, punch_date)
     if not allowed_shifts:
@@ -287,9 +287,8 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
 
     punch_delta = get_timedelta(format_time(get_time(punch_dt)))
 
-    # Cross-day early morning → belongs to previous work date
+    # Cross-day early morning → belongs to same shift
     if shift.custom_is_cross_day and punch_delta <= shift.end_time:
-        # shift ownership is still SAME shift
         return shift.name
 
     return shift.name
