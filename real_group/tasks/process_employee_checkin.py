@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 import frappe
-from frappe.utils import add_days, format_time, get_datetime, get_time, get_timedelta, getdate
+from frappe.utils import format_time, get_datetime, get_time, get_timedelta, getdate
 
 from real_group.utils import convert_time_to_minutes
 
@@ -247,25 +247,19 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
         )
 
     # ----------------------------------
-    # CHECKIN → reuse same-day shift if exists
+    # CHECKIN → reuse last shift if punch is within its window
     # ----------------------------------
-    day_start = get_datetime(punch_date)
-    day_end = get_datetime(add_days(punch_date, 1))
-
-    existing_shift = frappe.db.get_value(
+    existing_shift_data = frappe.db.get_value(
         "Employee Checkin",
-        filters=[
-            ["employee", "=", employee],
-            ["log_type", "=", "IN"],
-            ["time", ">=", day_start],
-            ["time", "<", day_end],
-        ],
-        fieldname="shift",
-        order_by="time asc",
+        filters={"employee": employee},
+        fieldname=["shift", "shift_end"],
+        order_by="time desc",
     )
 
-    if existing_shift:
-        return existing_shift
+    if existing_shift_data:
+        existing_shift, shift_end = existing_shift_data
+        if shift_end and punch_dt < get_datetime(shift_end):
+            return existing_shift
 
     # ----------------------------------
     # FIRST IN OF THE DAY → resolve shift
