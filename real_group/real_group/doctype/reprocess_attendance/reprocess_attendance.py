@@ -111,7 +111,7 @@ class ReprocessAttendance(Document):
     def validate_allowed_days(self):
         _, to_date = self.get_dates()
         day_diff = date_diff(getdate(), to_date)
-        if day_diff < 2:
+        if day_diff < 3:
             frappe.throw(frappe._("To Date must be at least 2 days before today's date"))
 
     def validate_leave_application(self):

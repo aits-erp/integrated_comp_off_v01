@@ -118,7 +118,7 @@ class ReprocessAttendanceBulk(Document):
     def validate_allowed_days(self):
         _, to_date = self.get_dates()
         day_diff = date_diff(getdate(), to_date)
-        if day_diff < 2:
+        if day_diff < 3:
             frappe.throw(frappe._("To Date must be at least 2 days before today's date"))
 
     def after_insert(self):
@@ -173,6 +173,6 @@ class ReprocessAttendanceBulk(Document):
         if self.department:
             filters["department"] = self.department
         return frappe.get_all("Employee", filters=filters, pluck="name")
-    
+
     def get_dates(self):
         return getdate(self.from_date), getdate(self.to_date)
