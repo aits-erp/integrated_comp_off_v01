@@ -37,7 +37,7 @@ def before_delete(doc, method=None):
 def on_submit(doc, method=None):
     update_attendance_status(doc)
     update_attendance_tag(doc)
-    if not frappe.flags.in_reprocess_attendance:
+    if frappe.flags.in_reprocess_attendance:
         return
     frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
