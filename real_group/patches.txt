@@ -22,3 +22,4 @@ real_group.patches.remove_scripts_v1
 real_group.patches.remove_scripts_v2
 real_group.patches.remove_scripts_v3
 real_group.patches.remove_fields
+real_group.patches.remove_custom_state
