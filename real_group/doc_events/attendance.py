@@ -178,6 +178,7 @@ def allocate_incentive(doc):
                 amount=amount,
                 custom_incentive_reference=incentive_log_name,
                 custom_reprocess_reference=doc.custom_reprocess_reference,
+                overwrite_salary_structure_amount=0,
             )
         )
         new_additional_salary.insert(ignore_permissions=True)
@@ -288,7 +289,7 @@ def allocate_incentive(doc):
         "Additional Salary",
         {
             "employee": employee.name,
-            "salary_component": "Incentive",
+            "salary_component": "Incentives",
             "payroll_date": ("between", (month_start, month_end)),
             "docstatus": 1,
         },
