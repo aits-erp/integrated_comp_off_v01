@@ -1,6 +1,7 @@
 # Copyright (c) 2025, rtCamp and contributors
 # For license information, please see license.txt
 from datetime import date, datetime, timedelta
+from datetime import time as dt_time
 from importlib import import_module
 
 import frappe
@@ -120,12 +121,12 @@ def execute(filters=None):
                 in_row = row_keys[i]
 
                 if in_out_logs and pair_index < len(in_out_logs.get("IN", [])):
-                    in_row[date_str] = get_time(in_out_logs["IN"][pair_index]["time"])
+                    in_row[date_str] = format_time_hhmm(in_out_logs["IN"][pair_index]["time"])
 
                 if i + 1 < len(row_keys):
                     out_row = row_keys[i + 1]
                     if in_out_logs and pair_index < len(in_out_logs.get("OUT", [])):
-                        out_row[date_str] = get_time(in_out_logs["OUT"][pair_index]["time"])
+                        out_row[date_str] = format_time_hhmm(in_out_logs["OUT"][pair_index]["time"])
             worked_hours = 0.0
             day_status = "A"
             if attendance_on_date:
@@ -145,7 +146,9 @@ def execute(filters=None):
             total_hours += worked_hours
             worked_hours_value = worked_hours
             hours_worked[date_str] = (
-                timedelta(seconds=round(worked_hours_value * 3600 / 60) * 60) if worked_hours_value else ""
+                format_time_hhmm(timedelta(seconds=round(worked_hours_value * 3600 / 60) * 60))
+                if worked_hours_value
+                else ""
             )
             day_shift_name = attendance_on_date[0].get("shift", "") if attendance_on_date else ""
             if not day_shift_name and emp_checkins:
@@ -159,19 +162,19 @@ def execute(filters=None):
                     shift_time = get_time(shift_type.custom_shift_time)
                     worked_time = get_time(timedelta(hours=worked_hours_value))
                     if holiday_info and holiday_info.get("is_holiday"):
-                        extra_worked[date_str] = get_time(worked_time)
+                        extra_worked[date_str] = format_time_hhmm(worked_time)
                     else:
                         dt1 = datetime.combine(date.today(), shift_time)
                         dt2 = datetime.combine(date.today(), worked_time)
                         delta = dt2 - dt1
                         if delta.total_seconds() > 0:
-                            extra_worked[date_str] = get_time(delta)
+                            extra_worked[date_str] = format_time_hhmm(delta)
                 if shift_type and shift_type.custom_shift_time and not worked_hours_value:
                     if holiday_info and holiday_info.get("is_holiday"):
                         in_time = emp_checkins[0].get("time")
                         out_time = emp_checkins[-1].get("time")
                         delta = out_time - in_time
-                        extra_worked[date_str] = get_time(delta)
+                        extra_worked[date_str] = format_time_hhmm(delta)
             processed_value = day_wise_attendance.get_status(employee.name, _date, emp_date_data, day_status)
             status_value = day_wise_attendance.adjust_status_with_checkins(
                 processed_value, emp_checkins, day_shift_name, shift_map
@@ -199,15 +202,15 @@ def execute(filters=None):
             info[summary_dates[3]] = employee.get("department", "")
             info[summary_dates[4]] = f"Present: {total_present}"
             info[summary_dates[5]] = f"Absent: {total_absent}"
-            info[summary_dates[6]] = f"Hours: {total_time}"
+            info[summary_dates[6]] = f"Hours: {format_time_hhmm(total_time)}"
 
         summary_metrics = calculate_summary_metrics(processed_status, emp_data, dates)
         apply_summary_metrics(shift, summary_metrics)
-
+        extra_worked_sub = {"sr": "E Work"}  ## client wants extra work to be empty
         data.append(info)
         data.extend(row_keys)
         data.append(hours_worked)
-        data.append(extra_worked)
+        data.append(extra_worked_sub)
         data.append(status)
         if include_processed_status:
             data.append(processed_status)
@@ -337,3 +340,24 @@ def format_summary_value(value):
     if rounded_value.is_integer():
         return int(rounded_value)
     return rounded_value
+
+
+def format_time_hhmm(value):
+    if not value:
+        return ""
+    if isinstance(value, timedelta):
+        total_seconds = int(value.total_seconds())
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes = remainder // 60
+        return f"{hours:02d}:{minutes:02d}"
+    if isinstance(value, datetime):
+        value = value.time()
+    if isinstance(value, dt_time):
+        return value.strftime("%H:%M")
+    try:
+        parsed = get_time(value)
+        if isinstance(parsed, dt_time):
+            return parsed.strftime("%H:%M")
+    except Exception:
+        pass
+    return str(value)
