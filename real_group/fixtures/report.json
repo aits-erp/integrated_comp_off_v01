@@ -8,13 +8,193 @@
   "doctype": "Report",
   "filters": [],
   "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-12-25 19:10:10.121427",
+  "module": "Real Group",
+  "name": "[New] Month Wise Attendance",
+  "prepared_report": 1,
+  "query": null,
+  "ref_doctype": "Attendance",
+  "reference_report": null,
+  "report_name": "[New] Month Wise Attendance",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "[New] Month Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "[New] Month Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
+   },
+   {
+    "parent": "[New] Month Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "[New] Month Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Employee Self Service"
+   },
+   {
+    "parent": "[New] Month Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Payroll-R"
+   },
+   {
+    "parent": "[New] Month Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Payroll-CREASX"
+   },
+   {
+    "parent": "[New] Month Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Employee"
+   }
+  ],
+  "timeout": 3000
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-12-25 11:07:22.736106",
+  "module": "Real Group",
+  "name": "[New] Form 14",
+  "prepared_report": 1,
+  "query": null,
+  "ref_doctype": "Employee",
+  "reference_report": null,
+  "report_name": "[New] Form 14",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "[New] Form 14",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "[New] Form 14",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "[New] Form 14",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
+   },
+   {
+    "parent": "[New] Form 14",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Payroll-CREASX"
+   }
+  ],
+  "timeout": 3000
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-12-25 19:10:05.514731",
+  "module": "Real Group",
+  "name": "[New] Monthly Attendance Report",
+  "prepared_report": 1,
+  "query": null,
+  "ref_doctype": "Attendance",
+  "reference_report": null,
+  "report_name": "[New] Monthly Attendance Report",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
+   },
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Employee Self Service"
+   },
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Payroll-CREASX"
+   },
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "ITAdmin-CREX"
+   }
+  ],
+  "timeout": 3000
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
   "javascript": "",
   "json": null,
   "letter_head": null,
   "modified": "2025-10-31 19:03:54.361030",
   "module": "Real Group",
   "name": "[New] Day Wise Attendance",
-  "prepared_report": 0,
+  "prepared_report": 1,
   "query": null,
   "ref_doctype": "Attendance",
   "reference_report": null,
@@ -1066,7 +1246,7 @@
   "modified": "2025-12-15 15:17:15.246623",
   "module": "Real Group",
   "name": "Day Wise Attendance",
-  "prepared_report": 1,
+  "prepared_report": 0,
   "query": null,
   "ref_doctype": "Attendance",
   "reference_report": null,
@@ -1134,7 +1314,7 @@
   "modified": "2025-12-15 15:18:46.342400",
   "module": "Real Group",
   "name": "Form 14",
-  "prepared_report": 1,
+  "prepared_report": 0,
   "query": null,
   "ref_doctype": "Employee",
   "reference_report": null,

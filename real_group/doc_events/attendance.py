@@ -37,7 +37,7 @@ def before_delete(doc, method=None):
 def on_submit(doc, method=None):
     update_attendance_status(doc)
     update_attendance_tag(doc)
-    if not frappe.flags.in_reprocess_attendance:
+    if frappe.flags.in_reprocess_attendance:
         return
     frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
@@ -178,6 +178,7 @@ def allocate_incentive(doc):
                 amount=amount,
                 custom_incentive_reference=incentive_log_name,
                 custom_reprocess_reference=doc.custom_reprocess_reference,
+                overwrite_salary_structure_amount=0,
             )
         )
         new_additional_salary.insert(ignore_permissions=True)
@@ -288,7 +289,7 @@ def allocate_incentive(doc):
         "Additional Salary",
         {
             "employee": employee.name,
-            "salary_component": "Incentive",
+            "salary_component": "Incentives",
             "payroll_date": ("between", (month_start, month_end)),
             "docstatus": 1,
         },

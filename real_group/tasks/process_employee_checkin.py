@@ -44,7 +44,7 @@ def process_employee_checkin(logs):
             # No need to trigger events for error logs
             frappe.db.bulk_update(error_logs)
             continue
-        employee = frappe.get_cached_doc("Employee", emp, for_update=False)
+        employee = frappe.get_doc("Employee", emp, for_update=False)
         grade = employee.grade
 
         for log in emp_logs:
@@ -130,7 +130,7 @@ def process_employee_checkout(logs):
             # No need to trigger events for error logs
             frappe.db.bulk_update(error_logs)
             continue
-        employee = frappe.get_cached_doc("Employee", emp, for_update=False)
+        employee = frappe.get_doc("Employee", emp, for_update=False)
         grade = employee.grade
 
         for log in emp_logs:
@@ -277,7 +277,7 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
     if not shift_name:
         return None
 
-    shift = frappe.get_cached_doc("Shift Type", shift_name)
+    shift = frappe.get_doc("Shift Type", shift_name)
 
     punch_delta = get_timedelta(format_time(get_time(punch_dt)))
 
@@ -388,7 +388,7 @@ def get_shift_timings(shift_type: dict, for_timestamp: datetime, grade, is_check
 
 
 def get_shift_type(shift_type_name: str) -> dict:
-    return frappe.get_cached_value(
+    return frappe.get_value(
         "Shift Type",
         shift_type_name,
         [
@@ -408,7 +408,7 @@ def get_shift_type(shift_type_name: str) -> dict:
 
 @frappe.whitelist()
 def get_employee_allowed_shifts(employee: str, for_date=None) -> list[str]:
-    employee = frappe.get_cached_doc("Employee", employee, for_update=False)
+    employee = frappe.get_doc("Employee", employee)
 
     shift_from_grade = frappe.db.get_values("Multiple Shifts", {"parent": employee.grade}, "shift", pluck="shift")
 
