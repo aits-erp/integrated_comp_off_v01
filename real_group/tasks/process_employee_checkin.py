@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 import frappe
-from frappe.utils import format_time, get_datetime, get_time, get_timedelta, getdate
+from frappe.utils import format_time, get_datetime, get_link_to_form, get_time, get_timedelta, getdate
 
 from real_group.utils import convert_time_to_minutes
 
@@ -38,7 +38,7 @@ def process_employee_checkin(logs):
             for log in emp_logs:
                 checkin_doc = frappe.get_doc("Bio Attendance Log", log.name)
                 checkin_doc.is_processed = "E"
-                checkin_doc.message = f"Employee {emp} does not exist"
+                checkin_doc.message = f"Employee {get_link_to_form('Employee', emp)} does not exist"
                 error_logs.append(checkin_doc)
 
             # No need to trigger events for error logs
@@ -99,13 +99,13 @@ def process_employee_checkin(logs):
 
                 log_doc = frappe.get_doc("Bio Attendance Log", log.name)
                 log_doc.is_processed = "Y"
-                log_doc.message = f"Checkin created for employee {emp}"
+                log_doc.message = f"Checkin created for employee {get_link_to_form('Employee', emp)}"
                 log_doc.save()
                 frappe.db.commit()
             except Exception as e:
                 log_doc = frappe.get_doc("Bio Attendance Log", log.name)
                 log_doc.is_processed = "E"
-                log_doc.message = f"Error processing checkin for employee {emp}: {e!s}"
+                log_doc.message = f"Error processing checkin for employee {get_link_to_form('Employee', emp)}: {e!s}"
                 log_doc.save()
                 frappe.db.commit()
                 continue
@@ -124,7 +124,7 @@ def process_employee_checkout(logs):
             for log in emp_logs:
                 checkout_doc = frappe.get_doc("Bio Attendance Log", log.name)
                 checkout_doc.is_processed = "E"
-                checkout_doc.message = f"Employee {emp} does not exist"
+                checkout_doc.message = f"Employee {get_link_to_form('Employee', emp)} does not exist"
                 error_logs.append(checkout_doc)
 
             # No need to trigger events for error logs
@@ -187,12 +187,12 @@ def process_employee_checkout(logs):
                     frappe.db.commit()
                 log_doc = frappe.get_doc("Bio Attendance Log", log.name)
                 log_doc.is_processed = "Y"
-                log_doc.message = f"Checkout created for employee {emp}"
+                log_doc.message = f"Checkout created for employee {get_link_to_form('Employee', emp)}"
                 log_doc.save()
             except Exception as e:
                 log_doc = frappe.get_doc("Bio Attendance Log", log.name)
                 log_doc.is_processed = "E"
-                log_doc.message = f"Error processing checkout for employee {emp}: {e!s}"
+                log_doc.message = f"Error processing checkout for employee {get_link_to_form('Employee', emp)}: {e!s}"
                 log_doc.save()
                 frappe.db.commit()
                 continue
@@ -251,7 +251,10 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
     # ----------------------------------
     existing_shift_data = frappe.db.get_value(
         "Employee Checkin",
-        filters={"employee": employee},
+        filters={
+            "employee": employee,
+            "time": ["<=", punch_dt],
+        },
         fieldname=["shift", "shift_end"],
         order_by="time desc",
     )
