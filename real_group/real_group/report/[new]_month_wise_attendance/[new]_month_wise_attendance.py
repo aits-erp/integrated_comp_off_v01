@@ -206,11 +206,10 @@ def execute(filters=None):
 
         summary_metrics = calculate_summary_metrics(processed_status, emp_data, dates)
         apply_summary_metrics(shift, summary_metrics)
-        extra_worked_sub = {"sr": "E Work"}  ## client wants extra work to be empty
         data.append(info)
         data.extend(row_keys)
         data.append(hours_worked)
-        data.append(extra_worked_sub)
+        data.append(extra_worked)
         data.append(status)
         if include_processed_status:
             data.append(processed_status)
