@@ -126,9 +126,9 @@ def update_attendance_tag(doc):
             status = "A"
         elif leave_type.is_lwp:
             status = "LWP"
-        elif leave_type.is_earned_leave:
+        elif "earned leave" in leave_type.name.lower():
             status = "EL"
-        elif "Casual Leave" in leave_type.name:
+        elif "casual leave" in leave_type.name.lower():
             status = "CL"
         elif leave_type.is_compensatory:
             status = "CO"
@@ -239,10 +239,10 @@ def allocate_incentive(doc):
 
     shift_duration = convert_time_to_hours(shift.custom_shift_time)
 
-    if holiday and holiday.get("is_half_day") and hours <= (shift_duration / 2):
-        return
-    if hours <= shift_duration:
-        return
+    # if holiday and holiday.get("is_half_day") and hours <= (shift_duration / 2):
+    #     return
+    # if hours <= shift_duration:
+    #     return
 
     c_matrix = frappe.db.exists(
         "Compensation Matrix", {"shift_duration": timedelta(hours=shift_duration), "branch": branch}, cache=True
@@ -252,7 +252,12 @@ def allocate_incentive(doc):
     c_matrix = frappe.get_cached_doc("Compensation Matrix", c_matrix)
 
     if holiday and holiday.get("is_holiday") and grade_doc.custom_present_on_holiday == "Incentive":
-        diff = hours
+        if holiday.get("is_half_day"):
+            if hours <= (shift_duration / 2):
+                return
+            diff = hours - (shift_duration / 2)
+        else:
+            diff = hours
 
     if not holiday and grade_doc.custom_extra_work_hour == "Incentive":
         diff = hours - shift_duration
@@ -341,10 +346,10 @@ def allocate_c_off(doc):
 
     shift_duration = convert_time_to_hours(shift.custom_shift_time)
 
-    if holiday and holiday.get("is_half_day") and hours <= (shift_duration / 2):
-        return
-    if hours <= shift_duration:
-        return
+    # if holiday and holiday.get("is_half_day") and hours <= (shift_duration / 2):
+    #     return
+    # if hours <= shift_duration:
+    #     return
     c_matrix = frappe.db.exists(
         "Compensation Matrix", {"shift_duration": timedelta(hours=shift_duration), "branch": branch}, cache=True
     )
@@ -353,7 +358,12 @@ def allocate_c_off(doc):
     c_matrix = frappe.get_cached_doc("Compensation Matrix", c_matrix)
 
     if holiday and holiday.get("is_holiday") and grade_doc.custom_present_on_holiday == "Comp Off":
-        diff = hours
+        if holiday.get("is_half_day"):
+            if hours <= (shift_duration / 2):
+                return
+            diff = hours - (shift_duration / 2)
+        else:
+            diff = hours
 
     if not holiday and grade_doc.custom_extra_work_hour == "Comp Off":
         diff = hours - shift_duration
