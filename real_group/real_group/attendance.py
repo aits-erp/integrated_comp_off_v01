@@ -11,7 +11,7 @@ def reset_attendance_log(bio_id):
     frappe.db.sql(
         f"""
 		UPDATE
-			bioattendancelog
+			tabBioAttendanceLog
 			set is_processed = 'N', message = null
 		WHERE
 			name = '{bio_id}'
@@ -19,7 +19,7 @@ def reset_attendance_log(bio_id):
         as_dict=True,
     )
 
-    bio = frappe.db.sql("SELECT * from bioattendancelog where name = %s", bio_id)
+    bio = frappe.db.sql("SELECT * from tabBioAttendanceLog where name = %s", bio_id)
     if bio:
         check_ins = frappe.db.get_all("Employee Checkin", filters={"custom_bio_log_id": bio_id})
         for check_in in check_ins:
