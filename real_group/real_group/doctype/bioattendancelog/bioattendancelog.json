@@ -111,7 +111,7 @@
  "modified": "2025-11-28 10:55:31.028334",
  "modified_by": "Administrator",
  "module": "Real Group",
- "name": "Bio Attendance Log",
+ "name": "BioAttendanceLog",
  "naming_rule": "Autoincrement",
  "owner": "Administrator",
  "permissions": [

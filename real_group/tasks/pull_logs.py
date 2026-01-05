@@ -7,13 +7,13 @@ def pull():
     end_date = getdate("2025-08-31")
 
     data = frappe.db.sql(
-        "SELECT * FROM `bio_attendance_log` WHERE `punch_date` BETWEEN %s AND %s", (start_date, end_date), as_dict=1
+        "SELECT * FROM `tabBioAttendanceLog` WHERE `punch_date` BETWEEN %s AND %s", (start_date, end_date), as_dict=1
     )
     for d in data:
         try:
             frappe.get_doc(
                 {
-                    "doctype": "Bio Attendance Log",
+                    "doctype": "BioAttendanceLog",
                     "employee_id": d.employee_id,
                     "punch_date": d.punch_date,
                     "punch_time": d.punch_time,
