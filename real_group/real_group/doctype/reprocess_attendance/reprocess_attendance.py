@@ -305,7 +305,7 @@ class ReprocessAttendance(Document):
         start_date = from_date
         end_date = to_date
 
-        while start_date <= end_date:
+        while start_date <= add_days(end_date, 1):
             try:
                 frappe.flags.in_reprocess_attendance = True
                 _process_attendance(from_date=start_date, employee_names=[self.employee], reprocess_ref=self.name)
