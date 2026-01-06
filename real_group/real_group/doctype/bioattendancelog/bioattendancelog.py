@@ -39,7 +39,7 @@ class BioAttendanceLog(Document):
             punch_date = getdate(self.punch_date)
             self.punch_datetime = datetime.combine(punch_date, time.min) + punch_time
 
-    def _block():
+    def _block(self):
         frappe.throw(
             "BioAttendanceLog is a system log and cannot be modified",
             frappe.PermissionError,
