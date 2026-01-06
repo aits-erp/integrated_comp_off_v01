@@ -3,6 +3,7 @@
 
 from datetime import datetime, time
 
+import frappe
 from frappe.model.document import Document
 from frappe.utils import get_timedelta, getdate
 
@@ -37,3 +38,18 @@ class BioAttendanceLog(Document):
             punch_time = get_timedelta(self.punch_time)
             punch_date = getdate(self.punch_date)
             self.punch_datetime = datetime.combine(punch_date, time.min) + punch_time
+
+    def _block():
+        frappe.throw(
+            "BioAttendanceLog is a system log and cannot be modified",
+            frappe.PermissionError,
+        )
+
+    def before_insert(self):
+        self._block()
+
+    def before_save(self):
+        self._block()
+
+    def on_trash(self):
+        self._block()

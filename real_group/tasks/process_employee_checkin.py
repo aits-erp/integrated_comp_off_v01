@@ -7,14 +7,46 @@ from frappe.utils import format_time, get_datetime, get_link_to_form, get_time, 
 from real_group.utils import convert_time_to_minutes
 
 
+def ensure_punch_datetime(log):
+    if getattr(log, "punch_datetime", None):
+        punch_dt = get_datetime(log.punch_datetime)
+    elif getattr(log, "punch_date", None) and getattr(log, "punch_time", None):
+        punch_dt = datetime.combine(getdate(log.punch_date), get_time(log.punch_time))
+    else:
+        punch_dt = None
+
+    if punch_dt:
+        log.punch_datetime = punch_dt
+
+    return punch_dt
+
+
+def mark_bio_log(log_name: str, status: str, message: str):
+    frappe.db.set_value(
+        "BioAttendanceLog",
+        log_name,
+        {
+            "is_processed": status,
+            "message": message,
+        },
+        update_modified=False,
+    )
+    frappe.db.commit()
+
+
 def process():
     logs = frappe.get_all(
         "BioAttendanceLog",
         filters={"is_processed": "N"},
         fields=["*", "employee_id as employee"],
         limit_page_length=1000,
-        order_by="punch_datetime asc",
+        order_by="punch_date asc, punch_time asc",
     )
+
+    for log in logs:
+        ensure_punch_datetime(log)
+
+    logs.sort(key=lambda log: log.get("punch_datetime") or datetime.min)
 
     in_logs = [log for log in logs if log.punch_direction == "I"]
     out_logs = [log for log in logs if log.punch_direction == "O"]
@@ -34,32 +66,38 @@ def process_employee_checkin(logs):
 
     for emp, emp_logs in checkins.items():
         if not frappe.db.exists("Employee", emp):
-            error_logs = []
             for log in emp_logs:
-                checkin_doc = frappe.get_doc("BioAttendanceLog", log.name)
-                checkin_doc.is_processed = "E"
-                checkin_doc.message = f"Employee {get_link_to_form('Employee', emp)} does not exist"
-                error_logs.append(checkin_doc)
-
-            # No need to trigger events for error logs
-            frappe.db.bulk_update(error_logs)
+                mark_bio_log(
+                    log.name,
+                    "E",
+                    f"Employee {get_link_to_form('Employee', emp)} does not exist",
+                )
             continue
         employee = frappe.get_doc("Employee", emp, for_update=False)
         grade = employee.grade
 
         for log in emp_logs:
             try:
-                first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime)
+                punch_dt = log.punch_datetime
+                if not punch_dt:
+                    mark_bio_log(
+                        log.name,
+                        "E",
+                        f"Missing punch date/time for employee {get_link_to_form('Employee', emp)}",
+                    )
+                    continue
+
+                first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=punch_dt)
                 # If we have a existing checkin, we don't need to calculate which shift to assign
                 # Just use shift from last checkin
                 if first_checkin_shift:
-                    shift_info = fetch_shift_details(first_checkin_shift, get_datetime(log.punch_datetime), grade)
+                    shift_info = fetch_shift_details(first_checkin_shift, punch_dt, grade)
 
                     doc = frappe.get_doc(
                         {
                             "doctype": "Employee Checkin",
                             "employee": emp,
-                            "time": get_datetime(log.punch_datetime),
+                            "time": punch_dt,
                             "shift": first_checkin_shift,
                             "log_type": "IN",
                             "custom_bio_log_id": log.name,
@@ -78,12 +116,12 @@ def process_employee_checkin(logs):
                     allowed_shifts = get_employee_allowed_shifts(emp, for_date)
                     closest_shift = find_closest_shift_from_punch_time(allowed_shifts, log.punch_time)
 
-                    shift_info = fetch_shift_details(closest_shift, get_datetime(log.punch_datetime), grade)
+                    shift_info = fetch_shift_details(closest_shift, punch_dt, grade)
                     doc = frappe.get_doc(
                         {
                             "doctype": "Employee Checkin",
                             "employee": emp,
-                            "time": get_datetime(log.punch_datetime),
+                            "time": punch_dt,
                             "shift": closest_shift,
                             "log_type": "IN",
                             "custom_bio_log_id": log.name,
@@ -97,17 +135,17 @@ def process_employee_checkin(logs):
                     doc.flags.is_shift_fetch_required = False
                     doc.insert()
 
-                log_doc = frappe.get_doc("BioAttendanceLog", log.name)
-                log_doc.is_processed = "Y"
-                log_doc.message = f"Checkin created for employee {get_link_to_form('Employee', emp)}"
-                log_doc.save()
-                frappe.db.commit()
+                mark_bio_log(
+                    log.name,
+                    "Y",
+                    f"Checkin created {get_link_to_form('Employee Checkin', doc.name)}",
+                )
             except Exception as e:
-                log_doc = frappe.get_doc("BioAttendanceLog", log.name)
-                log_doc.is_processed = "E"
-                log_doc.message = f"Error processing checkin for employee {get_link_to_form('Employee', emp)}: {e!s}"
-                log_doc.save()
-                frappe.db.commit()
+                mark_bio_log(
+                    log.name,
+                    "E",
+                    f"Error processing checkin for employee {get_link_to_form('Employee', emp)}: {e!s}",
+                )
                 continue
 
 
@@ -120,32 +158,36 @@ def process_employee_checkout(logs):
 
     for emp, emp_logs in checkouts.items():
         if not frappe.db.exists("Employee", emp):
-            error_logs = []
             for log in emp_logs:
-                checkout_doc = frappe.get_doc("BioAttendanceLog", log.name)
-                checkout_doc.is_processed = "E"
-                checkout_doc.message = f"Employee {get_link_to_form('Employee', emp)} does not exist"
-                error_logs.append(checkout_doc)
-
-            # No need to trigger events for error logs
-            frappe.db.bulk_update(error_logs)
+                mark_bio_log(
+                    log.name,
+                    "E",
+                    f"Employee {get_link_to_form('Employee', emp)} does not exist",
+                )
             continue
         employee = frappe.get_doc("Employee", emp, for_update=False)
         grade = employee.grade
 
         for log in emp_logs:
             try:
-                first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=log.punch_datetime, for_checkout=True)
+                punch_dt = log.punch_datetime
+                if not punch_dt:
+                    mark_bio_log(
+                        log.name,
+                        "E",
+                        f"Missing punch date/time for employee {get_link_to_form('Employee', emp)}",
+                    )
+                    continue
+
+                first_checkin_shift = get_first_checkin_for_the_day(emp, for_date=punch_dt, for_checkout=True)
 
                 if first_checkin_shift:
-                    shift_info = fetch_shift_details(
-                        first_checkin_shift, get_datetime(log.punch_datetime), grade, is_checkout=True
-                    )
+                    shift_info = fetch_shift_details(first_checkin_shift, punch_dt, grade, is_checkout=True)
                     doc = frappe.get_doc(
                         {
                             "doctype": "Employee Checkin",
                             "employee": emp,
-                            "time": get_datetime(log.punch_datetime),
+                            "time": punch_dt,
                             "shift": first_checkin_shift,
                             "log_type": "OUT",
                             "custom_bio_log_id": log.name,
@@ -164,14 +206,12 @@ def process_employee_checkout(logs):
                     allowed_shifts = get_employee_allowed_shifts(emp, for_date)
                     closest_shift = find_closest_shift_from_punch_time(allowed_shifts, log.punch_time)
 
-                    shift_info = fetch_shift_details(
-                        closest_shift, get_datetime(log.punch_datetime), grade, is_checkout=True
-                    )
+                    shift_info = fetch_shift_details(closest_shift, punch_dt, grade, is_checkout=True)
                     doc = frappe.get_doc(
                         {
                             "doctype": "Employee Checkin",
                             "employee": emp,
-                            "time": get_datetime(log.punch_datetime),
+                            "time": punch_dt,
                             "shift": closest_shift,
                             "log_type": "OUT",
                             "custom_bio_log_id": log.name,
@@ -185,16 +225,17 @@ def process_employee_checkout(logs):
                     doc.flags.is_shift_fetch_required = False
                     doc.insert()
                     frappe.db.commit()
-                log_doc = frappe.get_doc("BioAttendanceLog", log.name)
-                log_doc.is_processed = "Y"
-                log_doc.message = f"Checkout created for employee {get_link_to_form('Employee', emp)}"
-                log_doc.save()
+                mark_bio_log(
+                    log.name,
+                    "Y",
+                    f"Checkout created {get_link_to_form('Employee Checkin', doc.name)}",
+                )
             except Exception as e:
-                log_doc = frappe.get_doc("BioAttendanceLog", log.name)
-                log_doc.is_processed = "E"
-                log_doc.message = f"Error processing checkout for employee {get_link_to_form('Employee', emp)}: {e!s}"
-                log_doc.save()
-                frappe.db.commit()
+                mark_bio_log(
+                    log.name,
+                    "E",
+                    f"Error processing checkout for employee {get_link_to_form('Employee', emp)}: {e!s}",
+                )
                 continue
 
 
