@@ -1,5 +1,7 @@
 frappe.listview_settings["BioAttendanceLog"] = {
   onload(listview) {
+    if (listview.view_name === "Report") return;
+    listview.page.clear_primary_action();
     listview.page.clear_actions_menu();
 
     const allowedRoles = ["HR User", "HR Manager", "Payroll-CREASX", "Payroll-R"];
@@ -21,15 +23,12 @@ frappe.listview_settings["BioAttendanceLog"] = {
     };
 
     const toggleResetButton = () => {
+      listview.page.clear_primary_action();
       const hasSelection = listview.get_checked_items(true).length > 0;
-      if (hasSelection) {
-        addResetButton();
-      } else {
-        removeResetButton();
-      }
+      hasSelection ? addResetButton() : removeResetButton();
     };
 
-    listview.$page.on("click", () => setTimeout(toggleResetButton, 120));
+    listview.$page.on("click", () => setTimeout(toggleResetButton, 5));
 
     listview.before_refresh = () => {
       removeResetButton();
@@ -38,6 +37,7 @@ frappe.listview_settings["BioAttendanceLog"] = {
     toggleResetButton();
   },
   refresh(listview) {
+    listview.page.clear_primary_action();
     listview.page.clear_actions_menu();
   },
 };

@@ -116,7 +116,7 @@
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2026-01-07 11:23:25.903720",
+ "modified": "2026-01-07 22:01:10.072884",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "BioAttendanceLog",
@@ -126,7 +126,32 @@
   {
    "export": 1,
    "read": 1,
+   "report": 1,
    "role": "System Manager"
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager"
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR User"
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Payroll-CREASX"
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Payroll-R"
   }
  ],
  "row_format": "Dynamic",
