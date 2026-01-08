@@ -14,9 +14,10 @@ def validate(doc, method=None):
 
 
 def shift_actual_start(doc):
-    if not doc.custom_late_entry_grace_period:
+    grace_period = getattr(doc, "custom_late_entry_grace_period", None)
+    if not grace_period:
         return
-    grace = get_time(doc.custom_late_entry_grace_period)
+    grace = get_time(grace_period)
     if doc.start_time and grace:
         actual_start = get_timedelta(doc.start_time) + get_timedelta(format_time(grace))
         doc.custom_actual_start_time = format_time(actual_start)
