@@ -30,7 +30,10 @@ def execute():
             terminal_id,
             punch_direction,
             present_day,
-            is_processed
+            is_processed,
+            time_pro_reference_id,
+            message,
+            punch_date_backup
         )
         SELECT
             bal.employee_id,
@@ -41,7 +44,10 @@ def execute():
             bal.terminal_id,
             bal.punch_direction,
             bal.present_day,
-            bal.is_processed
+            bal.is_processed,
+            bal.time_pro_reference_id,
+            bal.message,
+            bal.punch_date_backup
         FROM bio_attendance_log bal
         WHERE bal.employee_id IS NOT NULL
           AND bal.punch_date IS NOT NULL
