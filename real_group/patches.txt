@@ -11,13 +11,10 @@ real_group.patches.remove_skip_gate_pass
 
 execute:frappe.db.set_value('DocType', 'Attendance', "in_create", 1)
 execute:frappe.db.set_value('DocType', 'Employee Checkin', "in_create", 1)
-real_group.patches.update_cross_day_shift
 real_group.patches.remove_stale_server_script
 real_group.patches.remove_scripts
 real_group.patches.remove_incentive_scripts
 real_group.patches.create_employee_naming_series
-real_group.patches.migrate_weekly_off
-real_group.patches.update_time_in_shift
 real_group.patches.remove_scripts_v1
 real_group.patches.remove_scripts_v2
 real_group.patches.remove_scripts_v3
