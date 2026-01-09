@@ -25,7 +25,8 @@
    "fieldname": "punch_date",
    "fieldtype": "Date",
    "label": "Punch Date",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "punch_time",
@@ -84,7 +85,8 @@
    "label": "Is Processed",
    "no_copy": 1,
    "options": "\nN\nY\nE",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "time_pro_reference_id",
@@ -111,12 +113,13 @@
    "label": "Employee",
    "options": "Employee",
    "read_only": 1,
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2026-01-07 22:01:10.072884",
+ "modified": "2026-01-09 12:02:09.662833",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "BioAttendanceLog",
