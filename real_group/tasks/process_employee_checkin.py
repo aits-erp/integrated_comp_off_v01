@@ -78,7 +78,7 @@ def process_employee_checkin(logs):
 
         for log in emp_logs:
             try:
-                punch_dt = log.punch_datetime
+                punch_dt = ensure_punch_datetime(log)
                 if not punch_dt:
                     mark_bio_log(
                         log.name,
@@ -170,7 +170,7 @@ def process_employee_checkout(logs):
 
         for log in emp_logs:
             try:
-                punch_dt = log.punch_datetime
+                punch_dt = ensure_punch_datetime(log)
                 if not punch_dt:
                     mark_bio_log(
                         log.name,

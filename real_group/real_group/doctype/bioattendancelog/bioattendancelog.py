@@ -25,7 +25,6 @@ class BioAttendanceLog(Document):
         present_day: DF.Data | None
         punch_date: DF.Date | None
         punch_date_backup: DF.Date | None
-        punch_datetime: DF.Datetime | None
         punch_direction: DF.Literal["", "I", "O"]
         punch_time: DF.Time | None
         terminal_id: DF.Data | None
@@ -37,7 +36,7 @@ class BioAttendanceLog(Document):
         if self.punch_date and self.punch_time:
             punch_time = get_timedelta(self.punch_time)
             punch_date = getdate(self.punch_date)
-            self.punch_datetime = datetime.combine(punch_date, time.min) + punch_time
+            #self.punch_datetime = datetime.combine(punch_date, time.min) + punch_time
 
     def _block(self):
         frappe.throw(
