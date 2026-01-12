@@ -1,9 +1,13 @@
 import frappe 
 
 def execute():
-    add_index = {
-        "Attendance":["attendance_date","attendance_request","employee","custom_reprocess_reference"],
-        "Employee Checkin":["attendance"]
-    }
-    for doctype, fields in add_index.items():
-        frappe.db.add_index(doctype, fields)
+    add_index = [
+        ("Attendance", ["attendance_date"]),
+        ("Attendance", ["attendance_request"]),
+        ("Attendance", ["employee"]),
+        ("Attendance", ["custom_reprocess_reference"]),
+        ("Attendance", ["leave_application"]),
+        ("Employee Checkin", ["attendance"])
+    ]
+    for doctype,field in add_index:
+        frappe.db.add_index(doctype, field)
