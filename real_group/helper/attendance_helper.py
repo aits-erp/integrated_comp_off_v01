@@ -45,7 +45,11 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
 
     if existing_attendance:
         existing_attendance = frappe.get_doc("Attendance", existing_attendance)
-        if existing_attendance.status == "Half Day" and existing_attendance.leave_application:
+
+        # Important for reprocess: attendance for a date may be created earlier in the same
+        # job as Absent (no logs found yet) and later the correct logs arrive (e.g. night shift).
+        # In that case we must update the existing submitted Attendance rather than skipping.
+        if logs:
             shift = logs[0].shift if logs else existing_attendance.shift
             (
                 attendance_status,
@@ -56,10 +60,13 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                 out_time,
             ) = get_attendance(logs, employee_doc.grade, shift)
 
-            if attendance_status == "Half Day":
-                attendance_status = "Present"
-            if attendance_status == "Absent":
-                attendance_status = "Half Day"
+            # If there's already a half-day leave linked, keep it as half-day unless logs
+            # justify marking it present.
+            if existing_attendance.status == "Half Day" and existing_attendance.leave_application:
+                if attendance_status == "Half Day":
+                    attendance_status = "Present"
+                if attendance_status == "Absent":
+                    attendance_status = "Half Day"
 
             existing_attendance.db_set(
                 {
@@ -74,6 +81,17 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                 }
             )
 
+            update_attendance_in_checkins([c.name for c in logs], existing_attendance.name)
+            # Keep tags consistent when we change status on an already-submitted doc.
+            try:
+                from real_group.doc_events.attendance import update_attendance_tag
+
+                update_attendance_tag(existing_attendance)
+            except Exception:
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    f"[Attendance] Failed to update tag for {existing_attendance.name}",
+                )
     elif holiday and not logs:
         if holiday.get("is_half_day"):
             frappe.get_doc(

@@ -48,8 +48,8 @@ class ReprocessAttendance(Document):
         self.validate_pending_attendance()
         from_date, to_date = self.get_dates()
         self.validate_salary_slip(from_date, to_date)
-        self.validate_attendance_request()
-        self.validate_leave_application()
+        # self.validate_attendance_request()
+        # self.validate_leave_application()
 
     def on_submit(self):
         self.process_removal()

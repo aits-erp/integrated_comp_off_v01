@@ -8,7 +8,6 @@
   "employee_id",
   "punch_date",
   "punch_time",
-  "punch_datetime",
   "punch_date_backup",
   "column_break_ivwh",
   "area",
@@ -32,14 +31,6 @@
    "fieldname": "punch_time",
    "fieldtype": "Time",
    "label": "Punch Time",
-   "read_only": 1
-  },
-  {
-   "fieldname": "punch_datetime",
-   "fieldtype": "Datetime",
-   "in_list_view": 1,
-   "label": "Punch Datetime",
-   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -119,7 +110,7 @@
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2026-01-09 12:02:09.662833",
+ "modified": "2026-01-12 18:33:20.704724",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "BioAttendanceLog",
