@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from datetime import time as dt_time
 
 import frappe
-from frappe.utils import add_days, cint, format_date, get_datetime, get_time, getdate
+from frappe.utils import add_days, cint, format_date, get_datetime, get_time, getdate, today
 from frappe.utils.caching import redis_cache
 
 from real_group.utils import convert_time_to_hours, is_holiday_for_employee
@@ -16,7 +16,7 @@ month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "O
 
 def execute(filters=None):
     month = filters.get("month")
-    year = int(filters.get("year"))
+    year = cint(filters.get("year"))
     include_processed_status = bool(cint(filters.get("processed_attendance")))
     columns, data = get_columns(month, year), []
     company = filters.get("company")
@@ -175,6 +175,10 @@ def get_columns(month: str, year: int):
 
 @redis_cache
 def get_dates(month: str, year: int):
+    if not month or not year:
+        today = getdate()
+        month = month_order[today.month - 1]
+        year = today.year
     month_index = month_order.index(month) + 1
     start_date = date(year, month_index, 1)
     last_day = calendar.monthrange(year, month_index)[1]
