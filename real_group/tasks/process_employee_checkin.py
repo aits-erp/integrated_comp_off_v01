@@ -39,7 +39,7 @@ def process():
         "BioAttendanceLog",
         filters={"is_processed": "N"},
         fields=["*", "employee_id as employee"],
-        limit_page_length=1000,
+        limit_page_length=10000,
         order_by="punch_date asc, punch_time asc",
     )
 
