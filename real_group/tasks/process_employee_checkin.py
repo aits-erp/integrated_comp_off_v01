@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 import frappe
-from frappe.utils import format_time, get_datetime, get_link_to_form, get_time, get_timedelta, getdate
+from frappe.utils import cstr, format_time, get_datetime, get_link_to_form, get_time, get_timedelta, getdate
 
 from real_group.utils import convert_time_to_minutes
 
@@ -141,6 +141,20 @@ def process_employee_checkin(logs):
                     f"Checkin created {get_link_to_form('Employee Checkin', doc.name)}",
                 )
             except Exception as e:
+                message = cstr(e)
+                if "Duplicate entry" in message and "custom_bio_log_id" in message:
+                    existing_checkin = frappe.db.get_value(
+                        "Employee Checkin",
+                        {"custom_bio_log_id": log.name},
+                        "name",
+                    )
+                    if existing_checkin:
+                        mark_bio_log(
+                            log.name,
+                            "E",
+                            f"Error processing checkout for employee {get_link_to_form('Employee', emp)}: Bio log already linked to {get_link_to_form('Employee Checkin', existing_checkin)}",
+                        )
+                        continue
                 mark_bio_log(
                     log.name,
                     "E",
@@ -231,6 +245,20 @@ def process_employee_checkout(logs):
                     f"Checkout created {get_link_to_form('Employee Checkin', doc.name)}",
                 )
             except Exception as e:
+                message = cstr(e)
+                if "Duplicate entry" in message and "custom_bio_log_id" in message:
+                    existing_checkin = frappe.db.get_value(
+                        "Employee Checkin",
+                        {"custom_bio_log_id": log.name},
+                        "name",
+                    )
+                    if existing_checkin:
+                        mark_bio_log(
+                            log.name,
+                            "E",
+                            f"Error processing checkout for employee {get_link_to_form('Employee', emp)}: Bio log already linked to {get_link_to_form('Employee Checkin', existing_checkin)}",
+                        )
+                        continue
                 mark_bio_log(
                     log.name,
                     "E",
