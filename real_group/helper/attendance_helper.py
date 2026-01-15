@@ -88,8 +88,9 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                 from real_group.doc_events.attendance import update_attendance_tag, allocate_incentive, allocate_c_off
 
                 update_attendance_tag(existing_attendance)
-                allocate_incentive(existing_attendance)
-                allocate_c_off(existing_attendance)
+                if not reprocess_ref:
+                    allocate_incentive(existing_attendance)
+                    allocate_c_off(existing_attendance)
             except Exception:
                 frappe.log_error(
                     frappe.get_traceback(),
