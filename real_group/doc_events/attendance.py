@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 import frappe
-from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getdate
+from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getdate, fmt_money
 
 from real_group.helper.attendance_helper import create_attendance
 from real_group.utils import (
@@ -203,7 +203,10 @@ def allocate_incentive(doc):
         return incentive_log
 
     def round_incentive(amount):
-        return (amount // 25) * 25
+        remainder = amount % 50
+        if remainder <= 25:
+            return amount - remainder
+        return amount + (50 - remainder)
 
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     date_of_joining = employee.date_of_joining
@@ -309,7 +312,6 @@ def allocate_incentive(doc):
         additional_salary.cancel()
         additional_salary.delete()
     additional_incentive_as = min(additional_incentive_as, incentive_ceil) if incentive_ceil else additional_incentive_as
-    additional_incentive = round_incentive(additional_incentive)
     additional_incentive_as = round_incentive(additional_incentive_as)
 
     incentive_log = _create_incentive_log(
