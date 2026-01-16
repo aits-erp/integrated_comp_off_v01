@@ -237,17 +237,22 @@ def get_attendance(logs, grade, shift_type):
     )
     grade = frappe.get_cached_doc("Employee Grade", grade)
     shift = frappe.get_cached_doc("Shift Type", shift_type)
-    if (
-        cint(shift.enable_late_entry_marking)
-        and in_time
-        and in_time
-        > logs[0].shift_start
-        + (
-            timedelta(minutes=cint(convert_time_to_minutes(shift.custom_late_entry_grace_period)))
-            + (timedelta(minutes=cint(convert_time_to_minutes(grade.custom_late_entry_grace_period))))
-        )
-    ):
-        late_entry = True
+    force_half_day_due_to_late = False
+    if cint(shift.enable_late_entry_marking) and in_time:
+        shift_grace_minutes = cint(convert_time_to_minutes(shift.custom_late_entry_grace_period))
+        grade_grace_minutes = cint(convert_time_to_minutes(grade.custom_late_entry_grace_period))
+        grade_grace_minutes = max(grade_grace_minutes, shift_grace_minutes)
+
+        shift_grace_time = logs[0].shift_start + timedelta(minutes=shift_grace_minutes)
+        grade_grace_time = logs[0].shift_start + timedelta(minutes=grade_grace_minutes)
+
+        if in_time <= shift_grace_time:
+            late_entry = False
+        elif in_time <= grade_grace_time:
+            late_entry = True
+        else:
+            late_entry = False
+            force_half_day_due_to_late = True
 
     if (
         cint(shift.enable_early_exit_marking)
@@ -270,13 +275,28 @@ def get_attendance(logs, grade, shift_type):
     absent_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_absent)
 
     if working_threshold and total_working_hours >= working_threshold:
-        return "Present", total_working_hours, late_entry, early_exit, in_time, out_time
+        status = "Present"
     elif half_day_threshold and total_working_hours >= half_day_threshold and total_working_hours < working_threshold:
-        return "Half Day", total_working_hours, late_entry, early_exit, in_time, out_time
+        status = "Half Day"
     elif absent_threshold and total_working_hours < absent_threshold:
-        return "Absent", total_working_hours, late_entry, early_exit, in_time, out_time
+        status = "Absent"
     else:
-        return "Absent", total_working_hours, late_entry, early_exit, in_time, out_time
+        status = "Absent"
+
+    if force_half_day_due_to_late and status == "Present":
+        status = "Half Day"
+
+    if (
+        late_entry
+        and working_threshold
+        and half_day_threshold
+        and total_working_hours < working_threshold
+        and total_working_hours >= half_day_threshold
+    ):
+        late_entry = False
+        status = "Half Day"
+
+    return status, total_working_hours, late_entry, early_exit, in_time, out_time
 
 
 def get_short_leaves(employee, date):
@@ -290,6 +310,8 @@ def get_short_leaves(employee, date):
 
 def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance):
     if not allowed_late_day or not deduction_cycle:
+        return
+    if not attendance or not attendance.late_entry or attendance.status != "Present":
         return
     month_start = get_first_day(attendance.attendance_date)
     month_end = get_last_day(attendance.attendance_date)
@@ -306,7 +328,8 @@ def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction
         {
             "employee": employee,
             "attendance_date": ["in", _filter_dates],
-            "status": "Present",
+            "docstatus": 1,
+            # "status": "Present",
             "late_entry": 1,
         },
     )
