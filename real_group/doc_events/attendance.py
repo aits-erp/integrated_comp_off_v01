@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 import frappe
-from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getdate, fmt_money
+from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getdate
 
 from real_group.helper.attendance_helper import create_attendance
 from real_group.utils import (
