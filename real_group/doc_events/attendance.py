@@ -184,7 +184,7 @@ def allocate_incentive(doc):
         new_additional_salary.insert(ignore_permissions=True)
         new_additional_salary.submit()
 
-    def _create_incentive_log(employee: str, amount, from_date, to_date, work_date, status, hours_worked):
+    def _create_incentive_log(employee: str, amount, from_date, to_date, work_date, status, hours_worked,credit):
         incentive_log = frappe.get_doc(
             dict(
                 doctype="Incentive Log",
@@ -194,6 +194,7 @@ def allocate_incentive(doc):
                 incentive=amount,
                 work_date=work_date,
                 status=status,
+                credit=credit,
                 extra_worked_hours=hours_worked,
             )
         )
@@ -202,7 +203,10 @@ def allocate_incentive(doc):
         return incentive_log
 
     def round_incentive(amount):
-        return (amount // 25) * 25
+        remainder = amount % 50
+        if remainder <= 25:
+            return amount - remainder
+        return amount + (50 - remainder)
 
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     date_of_joining = employee.date_of_joining
@@ -300,19 +304,20 @@ def allocate_incentive(doc):
         },
         fieldname="name",
     )
-
+    incentive_ceil = grade_doc.custom_incentive_ceiling
+    additional_incentive_as = additional_incentive
     if existing_incentive:
         additional_salary = frappe.get_doc("Additional Salary", existing_incentive)
-        additional_incentive += additional_salary.amount
+        additional_incentive_as = additional_incentive + additional_salary.amount
         additional_salary.cancel()
         additional_salary.delete()
-
-    additional_incentive = round_incentive(additional_incentive)
+    additional_incentive_as = min(additional_incentive_as, incentive_ceil) if incentive_ceil else additional_incentive_as
+    additional_incentive_as = round_incentive(additional_incentive_as)
 
     incentive_log = _create_incentive_log(
-        employee.name, additional_incentive, month_start, month_end, doc.attendance_date, status, worked_hrs_in_delta
+        employee.name, additional_incentive, month_start, month_end, doc.attendance_date, status, worked_hrs_in_delta,credit
     )
-    _create_additional_salary(employee.name, additional_incentive, incentive_log.name)
+    _create_additional_salary(employee.name, additional_incentive_as, incentive_log.name)
 
 
 def allocate_c_off(doc):

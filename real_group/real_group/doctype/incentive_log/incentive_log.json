@@ -19,8 +19,9 @@
   "incentive_original_value",
   "extra_incentive",
   "column_break_enqq",
-  "total_incentive",
+  "credit",
   "status",
+  "total_incentive",
   "amended_from"
  ],
  "fields": [
@@ -71,6 +72,7 @@
   {
    "fieldname": "extra_incentive",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Extra Incentive"
   },
   {
@@ -80,6 +82,7 @@
   {
    "fieldname": "total_incentive",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Total Incentive"
   },
   {
@@ -95,6 +98,7 @@
   {
    "fieldname": "incentive_original_value",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Incentive Original Value",
    "precision": "2"
   },
@@ -112,12 +116,18 @@
    "fieldname": "extra_worked_hours",
    "fieldtype": "Time",
    "label": "Extra Worked Hours"
+  },
+  {
+   "fieldname": "credit",
+   "fieldtype": "Float",
+   "label": "Credit ",
+   "precision": "1"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-21 14:21:20.185792",
+ "modified": "2026-01-15 15:56:07.744118",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Incentive Log",

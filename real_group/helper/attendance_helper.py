@@ -71,7 +71,9 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
             existing_attendance.db_set(
                 {
                     "status": attendance_status,
-                    "working_hours": working_hours,
+                    "working_hours": working_hours + existing_attendance.working_hours
+                    if existing_attendance.working_hours
+                    else working_hours,
                     "shift": shift,
                     "late_entry": late_entry,
                     "early_exit": early_exit,
@@ -80,13 +82,15 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                     "custom_reprocess_reference": reprocess_ref,
                 }
             )
-
             update_attendance_in_checkins([c.name for c in logs], existing_attendance.name)
             # Keep tags consistent when we change status on an already-submitted doc.
             try:
-                from real_group.doc_events.attendance import update_attendance_tag
+                from real_group.doc_events.attendance import update_attendance_tag, allocate_incentive, allocate_c_off
 
                 update_attendance_tag(existing_attendance)
+                if not reprocess_ref:
+                    allocate_incentive(existing_attendance)
+                    allocate_c_off(existing_attendance)
             except Exception:
                 frappe.log_error(
                     frappe.get_traceback(),
