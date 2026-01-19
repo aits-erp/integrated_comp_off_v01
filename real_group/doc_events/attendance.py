@@ -305,11 +305,23 @@ def allocate_incentive(doc):
         },
         fieldname="name",
     )
+    existing_incentive_logs = frappe.db.get_all(
+        "Incentive Log",
+        filters={
+            "employee": employee.name,
+            "work_date": ("between", (month_start, month_end)),
+            "docstatus": 1,
+        },
+        fields=["name", "incentive"],
+    )
+    existing_incentive_amount = (
+        sum((log.get("incentive") or 0) for log in existing_incentive_logs) if existing_incentive_logs else 0
+    )
     incentive_ceil = grade_doc.custom_incentive_ceiling
     additional_incentive_as = additional_incentive
     if existing_incentive:
         additional_salary = frappe.get_doc("Additional Salary", existing_incentive)
-        additional_incentive_as = additional_incentive + additional_salary.amount
+        additional_incentive_as = additional_incentive + existing_incentive_amount
         additional_salary.cancel()
         additional_salary.delete()
     additional_incentive_as = (
