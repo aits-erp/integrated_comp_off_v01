@@ -239,8 +239,8 @@ def get_attendance(logs, grade, shift_type):
     shift = frappe.get_cached_doc("Shift Type", shift_type)
     force_half_day_due_to_late = False
     if cint(shift.enable_late_entry_marking) and in_time:
-        shift_grace_minutes = cint(convert_time_to_minutes(shift.custom_late_entry_grace_period))
-        grade_grace_minutes = cint(convert_time_to_minutes(grade.custom_late_entry_grace_period))
+        shift_grace_minutes = convert_time_to_minutes(shift.custom_late_entry_grace_period)
+        grade_grace_minutes = convert_time_to_minutes(grade.custom_late_entry_grace_period)
         grade_grace_minutes = max(grade_grace_minutes, shift_grace_minutes)
 
         shift_grace_time = logs[0].shift_start + timedelta(minutes=shift_grace_minutes)
