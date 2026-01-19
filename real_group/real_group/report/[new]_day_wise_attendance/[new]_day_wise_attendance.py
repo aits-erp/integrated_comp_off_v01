@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from datetime import time as dt_time
 
 import frappe
-from frappe.utils import add_days, cint, format_date, get_datetime, get_time, getdate, today
+from frappe.utils import add_days, cint, format_date, get_datetime, get_time, getdate
 from frappe.utils.caching import redis_cache
 
 from real_group.utils import convert_time_to_hours, is_holiday_for_employee
@@ -444,7 +444,7 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
     if not day_off_data or not day_off_data.get("is_holiday"):
         return None
 
-    sandwich_status = get_sandwich_absent_status(employee, target_date)
+    sandwich_status = get_sandwich_absent_status(employee, target_date, checkins=checkins)
     if sandwich_status:
         return sandwich_status
 
@@ -487,15 +487,27 @@ def get_day_off_attendance_request_status(employee: str, target_date):
     return None
 
 
-def get_sandwich_absent_status(employee: str, target_date):
-    attendance = get_attendance_record(employee, target_date)
-    if not attendance or not is_absent_attendance(attendance):
+def get_sandwich_absent_status(employee: str, target_date, checkins=None):
+    # If there is physical presence on the day off, don't mark it as sandwich-absent.
+    if checkins:
         return None
+
+    attendance = get_attendance_record(employee, target_date)
+    if attendance and getattr(attendance, "custom_marked_absent_by_sandwich", 0):
+        return "A1"
 
     previous_attendance = get_attendance_record(employee, add_days(target_date, -1))
     next_attendance = get_attendance_record(employee, add_days(target_date, 1))
 
-    if is_leave_attendance(previous_attendance) and is_leave_attendance(next_attendance):
+    def _is_sandwich_side(att):
+        if not att:
+            return False
+        if getattr(att, "custom_marked_absent_by_sandwich", 0):
+            return True
+        return is_absent_attendance(att) or is_leave_attendance(att)
+
+    # Treat the day-off as sandwich-absent when adjacent days indicate absence/leave.
+    if _is_sandwich_side(previous_attendance) and _is_sandwich_side(next_attendance):
         return "A1"
 
     return None
@@ -509,7 +521,7 @@ def get_attendance_record(employee: str, target_date):
             "attendance_date": target_date,
             "docstatus": ["!=", 2],
         },
-        fields=["name", "status", "leave_type", "leave_application"],
+        fields=["name", "status", "leave_type", "leave_application", "custom_marked_absent_by_sandwich"],
         limit=1,
     )
     return records[0] if records else None
