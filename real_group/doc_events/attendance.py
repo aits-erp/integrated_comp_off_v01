@@ -174,7 +174,7 @@ def allocate_incentive(doc):
             dict(
                 doctype="Additional Salary",
                 employee=employee,
-                payroll_date=get_last_day(getdate()),
+                payroll_date=get_last_day(doc.attendance_date),
                 salary_component="Incentives",
                 amount=amount,
                 custom_incentive_reference=incentive_log_name,
@@ -291,8 +291,8 @@ def allocate_incentive(doc):
         )
         or 0
     )
-    month_start = get_first_day(getdate())
-    month_end = get_last_day(getdate())
+    month_start = get_first_day(doc.attendance_date)
+    month_end = get_last_day(doc.attendance_date)
     additional_incentive = (earning / (date_diff(month_end, month_start) + 1)) * credit
 
     existing_incentive = frappe.db.get_value(
