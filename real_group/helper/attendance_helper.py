@@ -60,32 +60,57 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                 out_time,
             ) = get_attendance(logs, employee_doc.grade, shift)
 
+            # If the Attendance was first created as Absent (no logs yet) and logs arrive later
+            # (night shift / delayed sync), update the actual status and timings.
+            if existing_attendance.status == "Absent":
+                existing_attendance.db_set(
+                    {
+                        "status": attendance_status,
+                        "working_hours": working_hours,
+                        "shift": shift,
+                        "late_entry": late_entry,
+                        "early_exit": early_exit,
+                        "in_time": in_time,
+                        "out_time": out_time,
+                        "custom_reprocess_reference": reprocess_ref,
+                    }
+                )
+
             # If there's already a half-day leave linked, keep it as half-day unless logs
             # justify marking it present.
-            if existing_attendance.status == "Half Day" and existing_attendance.leave_application:
+            elif existing_attendance.status == "Half Day" and existing_attendance.leave_application:
                 if attendance_status == "Half Day":
                     attendance_status = "Present"
                 if attendance_status == "Absent":
                     attendance_status = "Half Day"
 
-            existing_attendance.db_set(
-                {
-                    "status": attendance_status,
-                    "working_hours": working_hours + existing_attendance.working_hours
-                    if existing_attendance.working_hours
-                    else working_hours,
-                    "shift": shift,
-                    "late_entry": late_entry,
-                    "early_exit": early_exit,
-                    "in_time": in_time,
-                    "out_time": out_time,
-                    "custom_reprocess_reference": reprocess_ref,
-                }
-            )
+                existing_attendance.db_set(
+                    {
+                        "status": attendance_status,
+                        "working_hours": working_hours + existing_attendance.working_hours
+                        if existing_attendance.working_hours
+                        else working_hours,
+                        "shift": shift,
+                        "late_entry": late_entry,
+                        "early_exit": early_exit,
+                        "in_time": in_time,
+                        "out_time": out_time,
+                        "custom_reprocess_reference": reprocess_ref,
+                    }
+                )
+            else:
+                existing_attendance.db_set(
+                    {
+                        "working_hours": working_hours + existing_attendance.working_hours
+                        if existing_attendance.working_hours
+                        else working_hours,
+                        "custom_reprocess_reference": reprocess_ref,
+                    }
+                )
             update_attendance_in_checkins([c.name for c in logs], existing_attendance.name)
             # Keep tags consistent when we change status on an already-submitted doc.
             try:
-                from real_group.doc_events.attendance import update_attendance_tag, allocate_incentive, allocate_c_off
+                from real_group.doc_events.attendance import allocate_c_off, allocate_incentive, update_attendance_tag
 
                 update_attendance_tag(existing_attendance)
                 if not reprocess_ref:
