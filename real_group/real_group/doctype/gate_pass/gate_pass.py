@@ -23,6 +23,7 @@ class GatePass(Document):
         employee_name: DF.Data | None
         name: DF.Int | None
         reason: DF.Literal["", "Personal", "Work"]
+        reason_details: DF.SmallText
         status: DF.Literal["Draft", "Pending", "Rejected", "Approved"]
     # end: auto-generated types
     def before_insert(self):

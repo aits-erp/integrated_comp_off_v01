@@ -12,6 +12,7 @@
   "column_break_moor",
   "date",
   "reason",
+  "reason_details",
   "status"
  ],
  "fields": [
@@ -71,12 +72,18 @@
    "label": "Status",
    "options": "Draft\nPending\nRejected\nApproved",
    "read_only": 1
+  },
+  {
+   "fieldname": "reason_details",
+   "fieldtype": "Small Text",
+   "label": "Reason Details",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-16 21:18:22.658428",
+ "modified": "2026-01-20 19:40:34.237009",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Gate Pass",
