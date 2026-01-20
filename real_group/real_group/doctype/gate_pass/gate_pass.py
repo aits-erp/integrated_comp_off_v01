@@ -5,8 +5,6 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import add_days, get_datetime, getdate
 
-from real_group.tasks.process_employee_checkin import get_first_checkin_for_the_day
-
 
 class GatePass(Document):
     # begin: auto-generated types
@@ -23,8 +21,9 @@ class GatePass(Document):
         employee_name: DF.Data | None
         name: DF.Int | None
         reason: DF.Literal["", "Personal", "Work"]
-        reason_details: DF.SmallText
+        reason_detail: DF.SmallText
         status: DF.Literal["Draft", "Pending", "Rejected", "Approved"]
+
     # end: auto-generated types
     def before_insert(self):
         self.validate_date()
@@ -41,6 +40,7 @@ class GatePass(Document):
         has_checkin = get_checkin_exists(self.employee, getdate())
         if not has_checkin:
             frappe.throw(frappe._("Employee  has not checked in today. Cannot create Gate Pass."))
+
     def validate_branch(self):
         branch = frappe.db.get_value("Employee", self.employee, "branch")
         if not branch:
@@ -48,6 +48,7 @@ class GatePass(Document):
         skip_gate_pass = frappe.db.get_value("Branch", branch, "custom_skip_gate_pass")
         if skip_gate_pass == 1:
             frappe.throw(frappe._("Branch doesn't allow gate pass."))
+
 
 def get_checkin_exists(employee: str, date: str) -> bool:
     start_time = get_datetime(date)
@@ -63,6 +64,8 @@ def get_checkin_exists(employee: str, date: str) -> bool:
         limit=1,
     )
     return bool(checkin)
+
+
 def expire_gate_passes():
     gate_passes = frappe.get_all(
         "Gate Pass",

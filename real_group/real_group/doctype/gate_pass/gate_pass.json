@@ -12,7 +12,7 @@
   "column_break_moor",
   "date",
   "reason",
-  "reason_details",
+  "reason_detail",
   "status"
  ],
  "fields": [
@@ -74,16 +74,16 @@
    "read_only": 1
   },
   {
-   "fieldname": "reason_details",
+   "fieldname": "reason_detail",
    "fieldtype": "Small Text",
-   "label": "Reason Details",
+   "label": "Reason Detail",
    "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-20 19:40:34.237009",
+ "modified": "2026-01-20 21:40:23.153849",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Gate Pass",
