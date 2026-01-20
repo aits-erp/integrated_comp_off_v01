@@ -39,6 +39,8 @@ def on_submit(doc, method=None):
     update_attendance_tag(doc)
     if frappe.flags.in_reprocess_attendance:
         return
+    if doc.custom_marked_absent_by_sandwich:
+        return
     frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
 
@@ -621,9 +623,11 @@ def should_consider_holiday(employee: str, date, weekly_holiday_name=None):
 
 def get_mark_to_absent(employee, for_date):
     weekly_off_name = get_weekly_off_based_on_date(employee, for_date)
+    safe_limit = add_days(for_date, -30)
     filters = [
         ["employee", "=", employee],
         ["attendance_date", "<", for_date],
+        ["attendance_date", ">=", safe_limit],
         ["status", "in", ["Present", "Work From Home", "On Duty"]],
         ["docstatus", "=", 1],
     ]
