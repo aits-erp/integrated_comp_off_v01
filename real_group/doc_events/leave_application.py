@@ -417,6 +417,7 @@ def has_present_day_between(employee, start_date, end_date):
                 "employee": employee,
                 "attendance_date": ["in", _filter_dates],
                 "status": ["in", ["Present", "Half Day"]],
+                "leave_application": ["is", "not set"],
                 "docstatus": 1,
             },
         )
