@@ -318,6 +318,10 @@ class ReprocessAttendance(Document):
         self.process_leave_and_requests(from_date, to_date)
 
     def process_leave_and_requests(self, from_date, to_date):
+        self.apply_leave_applications()
+        self.apply_attendance_requests()
+        frappe.db.commit()  # nosemgrep
+
         attendances = frappe.get_all(
             "Attendance",
             filters={
@@ -337,9 +341,6 @@ class ReprocessAttendance(Document):
             else:
                 revert_sandwich_attendance(doc)
             frappe.db.commit()  # nosemgrep
-
-        self.apply_leave_applications()
-        self.apply_attendance_requests()
 
     def apply_attendance_requests(self):
         requests = self.get_cancelled_requests()
