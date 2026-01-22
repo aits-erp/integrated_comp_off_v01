@@ -318,8 +318,8 @@ class ReprocessAttendance(Document):
         self.process_leave_and_requests(from_date, to_date)
 
     def process_leave_and_requests(self, from_date, to_date):
-        self.apply_leave_applications()
         self.apply_attendance_requests()
+        self.apply_leave_applications()
         frappe.db.commit()  # nosemgrep
 
         attendances = frappe.get_all(
