@@ -146,7 +146,7 @@ def validate_el_and_cl(doc):
             "docstatus": ["!=", 2],
             "workflow_state": ["not in", ["Cancelled", "Rejected by HOD", "Rejected by HR"]],
             "name": ["!=", doc.name],
-            "from_date": ["<=", doc.from_date],
+            "from_date": ["<=", add_days(doc.to_date, 2)],
         },
         fields=["name", "leave_type", "from_date", "to_date", "half_day", "half_day_date"],
     )
