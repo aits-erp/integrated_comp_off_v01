@@ -444,6 +444,11 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
     if not day_off_data or not day_off_data.get("is_holiday"):
         return None
 
+    attendance_on_day_off = get_attendance_record(employee, target_date)
+    if attendance_on_day_off and attendance_on_day_off.get("leave_application"):
+        tag = (attendance_on_day_off.get("custom_attendance_tag") or "").strip()
+        if tag:
+            return tag
     sandwich_status = get_sandwich_absent_status(employee, target_date, checkins=checkins)
     if sandwich_status:
         return sandwich_status
@@ -504,7 +509,6 @@ def get_sandwich_absent_status(employee: str, target_date, checkins=None):
             return False
         if getattr(att, "custom_marked_absent_by_sandwich", 0):
             return True
-        return is_absent_attendance(att) or is_leave_attendance(att)
 
     # Treat the day-off as sandwich-absent when adjacent days indicate absence/leave.
     if _is_sandwich_side(previous_attendance) and _is_sandwich_side(next_attendance):
@@ -521,27 +525,17 @@ def get_attendance_record(employee: str, target_date):
             "attendance_date": target_date,
             "docstatus": ["!=", 2],
         },
-        fields=["name", "status", "leave_type", "leave_application", "custom_marked_absent_by_sandwich"],
+        fields=[
+            "name",
+            "status",
+            "leave_type",
+            "leave_application",
+            "custom_attendance_tag",
+            "custom_marked_absent_by_sandwich",
+        ],
         limit=1,
     )
     return records[0] if records else None
-
-
-def is_absent_attendance(attendance_doc):
-    if not attendance_doc:
-        return False
-    status = (attendance_doc.get("status") or "").strip().upper()
-    return status == "ABSENT"
-
-
-def is_leave_attendance(attendance_doc):
-    if not attendance_doc:
-        return False
-    if attendance_doc.get("leave_type") or attendance_doc.get("leave_application"):
-        return True
-
-    status = (attendance_doc.get("status") or "").strip().upper()
-    return "leave" in status.lower()
 
 
 def get_leave_code(leave_type_doc):
