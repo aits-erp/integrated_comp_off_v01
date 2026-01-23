@@ -400,9 +400,15 @@ def get_status(employee, date, data_on_date, day_status):
                     if leave_application_doc.half_day_date == date:
                         status = "HCL"
 
-                combo_status = get_half_day_combo_status(employee, date, leave_application_doc, leave_type_doc)
-                if combo_status:
-                    status = combo_status
+                full_day_code = get_full_day_code_if_other_half_leave_approved(
+                    employee, date, leave_application_doc, leave_type_doc
+                )
+                if full_day_code:
+                    status = full_day_code
+                else:
+                    combo_status = get_half_day_combo_status(employee, date, leave_application_doc, leave_type_doc)
+                    if combo_status:
+                        status = combo_status
 
         if attendance.attendance_request:
             status = "OD"
@@ -549,6 +555,51 @@ def get_leave_code(leave_type_doc):
         return "LW"
     if "casual leave" in leave_type_doc.name.lower():
         return "CL"
+    return None
+
+
+def get_full_day_code_if_other_half_leave_approved(employee, target_date, primary_application, primary_leave_type):
+    if not employee or not target_date or not primary_application or not primary_leave_type:
+        return None
+
+    if not getattr(primary_application, "half_day", False):
+        return None
+    if not getattr(primary_application, "half_day_date", None):
+        return None
+    if getdate(primary_application.half_day_date) != target_date:
+        return None
+
+    primary_code = get_leave_code(primary_leave_type)
+    if primary_code not in {"EL", "CL", "CO"}:
+        return None
+
+    primary_half_type = (getattr(primary_application, "custom_half_type", None) or "").strip()
+
+    other_leaves = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": employee,
+            "status": "Approved",
+            "docstatus": ["!=", 2],
+            "from_date": ["<=", target_date],
+            "to_date": [">=", target_date],
+            "half_day": 1,
+            "half_day_date": target_date,
+            "name": ["!=", primary_application.name],
+        },
+        fields=["name", "leave_type", "custom_half_type"],
+    )
+
+    for other in other_leaves:
+        other_half_type = (getattr(other, "custom_half_type", None) or "").strip()
+        if primary_half_type and other_half_type and other_half_type == primary_half_type:
+            continue
+
+        other_leave_type = frappe.get_cached_doc("Leave Type", other.leave_type)
+        other_code = get_leave_code(other_leave_type)
+        if other_code == primary_code:
+            return primary_code
+
     return None
 
 
