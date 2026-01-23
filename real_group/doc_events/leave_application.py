@@ -63,6 +63,8 @@ def validate_workflow_state(doc):
 
 
 def validate_attendance(doc):
+    if frappe.flags.in_reprocess_attendance:
+        return
     if doc.from_date == doc.to_date:
         att_exist = frappe.db.exists(
             "Attendance",
@@ -146,7 +148,6 @@ def validate_el_and_cl(doc):
             "docstatus": ["!=", 2],
             "workflow_state": ["not in", ["Cancelled", "Rejected by HOD", "Rejected by HR"]],
             "name": ["!=", doc.name],
-            "from_date": ["<=", doc.from_date],
         },
         fields=["name", "leave_type", "from_date", "to_date", "half_day", "half_day_date"],
     )
@@ -417,6 +418,7 @@ def has_present_day_between(employee, start_date, end_date):
                 "employee": employee,
                 "attendance_date": ["in", _filter_dates],
                 "status": ["in", ["Present", "Half Day"]],
+                "leave_application": ["is", "not set"],
                 "docstatus": 1,
             },
         )

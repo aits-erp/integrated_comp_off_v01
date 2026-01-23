@@ -318,6 +318,10 @@ class ReprocessAttendance(Document):
         self.process_leave_and_requests(from_date, to_date)
 
     def process_leave_and_requests(self, from_date, to_date):
+        self.apply_attendance_requests()
+        self.apply_leave_applications()
+        frappe.db.commit()  # nosemgrep
+
         attendances = frappe.get_all(
             "Attendance",
             filters={
@@ -337,9 +341,6 @@ class ReprocessAttendance(Document):
             else:
                 revert_sandwich_attendance(doc)
             frappe.db.commit()  # nosemgrep
-
-        self.apply_leave_applications()
-        self.apply_attendance_requests()
 
     def apply_attendance_requests(self):
         requests = self.get_cancelled_requests()
@@ -389,58 +390,31 @@ class ReprocessAttendance(Document):
         for application in leave_applications:
             try:
                 doc = frappe.get_doc("Leave Application", application)
-                start_date = getdate(doc.from_date)
-                end_date = getdate(doc.to_date)
-                half_day_date = getdate(doc.half_day_date) if doc.half_day_date else None
+                try:
+                    frappe.flags.in_install = "frappe"  # Hack to bypass the workflow
 
-                while start_date <= end_date:
-                    try:
-                        frappe.flags.in_install = "frappe"  # Hack to bypass the workflow
-                        is_holiday = is_holiday_for_employee(self.employee, start_date)
-                        # 1. it is not holiday, even after the reprocessing of the attendance
-                        # 2. it is holiday but half day, then check if leave application is for half day on that date
-                        new_leave = frappe.copy_doc(doc)
-                        if not is_holiday:
-                            new_leave.from_date = start_date
-                            new_leave.to_date = start_date
+                    # Recreate the leave exactly as it was (same from/to range).
+                    # Splitting into per-day leaves breaks weekly-offs/holidays inside the range
+                    # and can create overlapping Leave Applications.
+                    new_leave = frappe.copy_doc(doc)
+                    new_leave.from_date = doc.from_date
+                    new_leave.to_date = doc.to_date
 
-                            if doc.half_day:
-                                new_leave.half_day = 1
-                                if (half_day_date == start_date) or (doc.from_date == doc.to_date):
-                                    new_leave.half_day_date = start_date
-                            else:
-                                new_leave.half_day = 0
-                                new_leave.half_day_date = None
-                        else:
-                            if is_holiday.get("is_half_day"):
-                                if doc.half_day:
-                                    new_leave.half_day = 1
-                                    if (half_day_date == start_date) or (doc.from_date == doc.to_date):
-                                        new_leave.half_day_date = start_date
-                                else:
-                                    half_type = is_holiday.get("half_type")
-                                    new_leave.half_day = 1
-                                    new_leave.half_day_date = start_date
-                                    if half_type == "First Half":
-                                        new_leave.custom_half_type = "Second Half"
-                                    elif half_type == "Second Half":
-                                        new_leave.custom_half_type = "First Half"
-                        leave_type = doc.leave_type
-                        has_leave_balance = self.get_leave_type_balance(leave_type)
-                        if has_leave_balance and has_leave_balance > 0:
-                            new_leave.status = "Approved"
-                            workflow_name = new_leave.meta.get_workflow()
-                            field_name = get_workflow_state_field(workflow_name)
-                            new_leave.update({field_name: "Approved"})
-                            new_leave.name = None
-                            new_leave.insert(ignore_permissions=True)
-                            new_leave.submit()
-                    except Exception:
-                        frappe.log_error(
-                            frappe.get_traceback(),
-                            f"Error in Reprocess Attendance : {self.name}",
-                        )
-                    start_date = add_days(start_date, 1)
+                    leave_type = doc.leave_type
+                    has_leave_balance = self.get_leave_type_balance(leave_type)
+                    if has_leave_balance and has_leave_balance > 0:
+                        new_leave.status = "Approved"
+                        workflow_name = new_leave.meta.get_workflow()
+                        field_name = get_workflow_state_field(workflow_name)
+                        new_leave.update({field_name: "Approved"})
+                        new_leave.name = None
+                        new_leave.insert(ignore_permissions=True)
+                        new_leave.submit()
+                except Exception:
+                    frappe.log_error(
+                        frappe.get_traceback(),
+                        f"Error in Reprocess Attendance : {self.name}",
+                    )
             except Exception:
                 frappe.log_error(
                     frappe.get_traceback(),

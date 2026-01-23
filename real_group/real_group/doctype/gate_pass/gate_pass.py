@@ -25,10 +25,35 @@ class GatePass(Document):
         status: DF.Literal["Draft", "Pending", "Rejected", "Approved"]
 
     # end: auto-generated types
+    def validate(self):
+        self.validate_single_gate_pass_per_day()
+
     def before_insert(self):
         self.validate_date()
         self.validate_checkin()
         self.validate_branch()
+
+    def validate_single_gate_pass_per_day(self):
+        if not self.employee or not self.date:
+            return
+
+        existing = frappe.get_all(
+            "Gate Pass",
+            filters=[
+                ["employee", "=", self.employee],
+                ["date", "=", self.date],
+                ["docstatus", "in", [0, 1]],
+                ["name", "!=", self.name or ""],
+            ],
+            pluck="name",
+            limit=1,
+        )
+
+        if existing:
+            frappe.throw(
+                frappe._("You have already applied for a Gate Pass for this date."),
+                title=frappe._("Duplicate Gate Pass"),
+            )
 
     def validate_date(self):
         if getdate(self.date) < getdate():

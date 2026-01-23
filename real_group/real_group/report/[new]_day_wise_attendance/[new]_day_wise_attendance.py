@@ -400,9 +400,15 @@ def get_status(employee, date, data_on_date, day_status):
                     if leave_application_doc.half_day_date == date:
                         status = "HCL"
 
-                combo_status = get_half_day_combo_status(employee, date, leave_application_doc, leave_type_doc)
-                if combo_status:
-                    status = combo_status
+                full_day_code = get_full_day_code_if_other_half_leave_approved(
+                    employee, date, leave_application_doc, leave_type_doc
+                )
+                if full_day_code:
+                    status = full_day_code
+                else:
+                    combo_status = get_half_day_combo_status(employee, date, leave_application_doc, leave_type_doc)
+                    if combo_status:
+                        status = combo_status
 
         if attendance.attendance_request:
             status = "OD"
@@ -444,6 +450,11 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
     if not day_off_data or not day_off_data.get("is_holiday"):
         return None
 
+    attendance_on_day_off = get_attendance_record(employee, target_date)
+    if attendance_on_day_off and attendance_on_day_off.get("leave_application"):
+        tag = (attendance_on_day_off.get("custom_attendance_tag") or "").strip()
+        if tag:
+            return tag
     sandwich_status = get_sandwich_absent_status(employee, target_date, checkins=checkins)
     if sandwich_status:
         return sandwich_status
@@ -504,7 +515,6 @@ def get_sandwich_absent_status(employee: str, target_date, checkins=None):
             return False
         if getattr(att, "custom_marked_absent_by_sandwich", 0):
             return True
-        return is_absent_attendance(att) or is_leave_attendance(att)
 
     # Treat the day-off as sandwich-absent when adjacent days indicate absence/leave.
     if _is_sandwich_side(previous_attendance) and _is_sandwich_side(next_attendance):
@@ -521,27 +531,17 @@ def get_attendance_record(employee: str, target_date):
             "attendance_date": target_date,
             "docstatus": ["!=", 2],
         },
-        fields=["name", "status", "leave_type", "leave_application", "custom_marked_absent_by_sandwich"],
+        fields=[
+            "name",
+            "status",
+            "leave_type",
+            "leave_application",
+            "custom_attendance_tag",
+            "custom_marked_absent_by_sandwich",
+        ],
         limit=1,
     )
     return records[0] if records else None
-
-
-def is_absent_attendance(attendance_doc):
-    if not attendance_doc:
-        return False
-    status = (attendance_doc.get("status") or "").strip().upper()
-    return status == "ABSENT"
-
-
-def is_leave_attendance(attendance_doc):
-    if not attendance_doc:
-        return False
-    if attendance_doc.get("leave_type") or attendance_doc.get("leave_application"):
-        return True
-
-    status = (attendance_doc.get("status") or "").strip().upper()
-    return "leave" in status.lower()
 
 
 def get_leave_code(leave_type_doc):
@@ -555,6 +555,51 @@ def get_leave_code(leave_type_doc):
         return "LW"
     if "casual leave" in leave_type_doc.name.lower():
         return "CL"
+    return None
+
+
+def get_full_day_code_if_other_half_leave_approved(employee, target_date, primary_application, primary_leave_type):
+    if not employee or not target_date or not primary_application or not primary_leave_type:
+        return None
+
+    if not getattr(primary_application, "half_day", False):
+        return None
+    if not getattr(primary_application, "half_day_date", None):
+        return None
+    if getdate(primary_application.half_day_date) != target_date:
+        return None
+
+    primary_code = get_leave_code(primary_leave_type)
+    if primary_code not in {"EL", "CL", "CO"}:
+        return None
+
+    primary_half_type = (getattr(primary_application, "custom_half_type", None) or "").strip()
+
+    other_leaves = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": employee,
+            "status": "Approved",
+            "docstatus": ["!=", 2],
+            "from_date": ["<=", target_date],
+            "to_date": [">=", target_date],
+            "half_day": 1,
+            "half_day_date": target_date,
+            "name": ["!=", primary_application.name],
+        },
+        fields=["name", "leave_type", "custom_half_type"],
+    )
+
+    for other in other_leaves:
+        other_half_type = (getattr(other, "custom_half_type", None) or "").strip()
+        if primary_half_type and other_half_type and other_half_type == primary_half_type:
+            continue
+
+        other_leave_type = frappe.get_cached_doc("Leave Type", other.leave_type)
+        other_code = get_leave_code(other_leave_type)
+        if other_code == primary_code:
+            return primary_code
+
     return None
 
 

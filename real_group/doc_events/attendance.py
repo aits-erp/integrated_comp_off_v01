@@ -126,7 +126,17 @@ def update_attendance_tag(doc):
     if doc.status == "On Leave" or doc.leave_application:
         leave_type = frappe.get_doc("Leave Type", doc.leave_type)
         if is_sandwich and is_holiday and is_holiday.get("is_holiday") and not is_holiday.get("is_half_day"):
-            status = "A"
+            if doc.leave_application:
+                if "earned leave" in leave_type.name.lower():
+                    status = "EL"
+                elif "casual leave" in leave_type.name.lower():
+                    status = "CL"
+                elif leave_type.is_compensatory:
+                    status = "CO"
+                else:
+                    status = "A"
+            else:
+                status = "A"
         elif leave_type.is_lwp:
             status = "LWP"
         elif "earned leave" in leave_type.name.lower():

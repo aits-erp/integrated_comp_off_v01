@@ -86,9 +86,9 @@ class LeaveApplicationOverride(LeaveApplication):
                 continue
 
             # For sandwich → converted holidays are now full_leave → mark absent
-            if apply_sandwich and day_status == "full_leave" and holiday_map[d]["is_holiday"]:
-                self.create_or_update_attendance(attendance_name, date_str, status="Absent")
-                continue
+            # if apply_sandwich and day_status == "full_leave" and holiday_map[d]["is_holiday"]:
+            #     self.create_or_update_attendance(attendance_name, date_str, status="Absent")
+            #     continue
 
             # Normal leave or half-day logic
             is_lwp = frappe.db.get_value("Leave Type", self.leave_type, "is_lwp")

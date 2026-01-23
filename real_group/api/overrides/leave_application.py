@@ -10,7 +10,7 @@ from hrms.hr.doctype.leave_application.leave_application import (
 )
 from hrms.hr.doctype.leave_application.leave_application import get_holidays as _get_holidays
 
-from real_group.utils import is_holiday_for_employee
+from real_group.utils import has_absent_attendance, is_holiday_for_employee
 
 
 @frappe.whitelist()
@@ -73,9 +73,13 @@ def get_number_of_leave_days(
     holiday_info = {}
     for d in all_dates:
         info = is_holiday_for_employee(employee, d) or {}
+        absent_marked = has_absent_attendance(employee, d)
         holiday_info[d] = {
             "is_holiday": bool(info.get("is_holiday")),
             "is_half_day": bool(info.get("is_half_day")),
+            # If a non-working day is already marked Absent (e.g. sandwich policy),
+            # treat it as a leave-eligible working day for counting purposes.
+            "treat_as_working": bool(absent_marked),
         }
 
     # Assign status per date
@@ -83,7 +87,7 @@ def get_number_of_leave_days(
     for d in all_dates:
         if is_half_day and half_day_date == d:
             status[d] = "half_leave"
-        elif holiday_info[d]["is_holiday"]:
+        elif holiday_info[d]["is_holiday"] and not holiday_info[d]["treat_as_working"]:
             status[d] = "half_holiday" if holiday_info[d]["is_half_day"] else "full_holiday"
         else:
             status[d] = "full_leave"
