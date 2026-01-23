@@ -85,6 +85,22 @@ def is_holiday_for_employee(employee: str, date, weekly_holiday_name=None):
     return False
 
 
+def has_absent_attendance(employee: str, attendance_date) -> bool:
+    """Return True if there is a non-cancelled Attendance marked Absent for the given date."""
+
+    return bool(
+        frappe.db.exists(
+            "Attendance",
+            {
+                "employee": employee,
+                "attendance_date": getdate(attendance_date),
+                "status": "Absent",
+                "docstatus": ["!=", 2],
+            },
+        )
+    )
+
+
 @frappe.whitelist()
 def find_half_day(employee: str, from_date, to_date):
     from_date = getdate(from_date)

@@ -8,7 +8,7 @@ from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequ
 from real_group.helper.attendance_helper import (
     create_attendance,
 )
-from real_group.utils import convert_time_to_hours, is_holiday_for_employee
+from real_group.utils import convert_time_to_hours, has_absent_attendance, is_holiday_for_employee
 
 
 class AttendanceRequestOverride(AttendanceRequest):
@@ -63,7 +63,7 @@ class AttendanceRequestOverride(AttendanceRequest):
         # 1. Check if attendance_date is a holiday or weekly off
         # 2. If it is holiday and not half day, do not mark attendance
         holiday = is_holiday_for_employee(self.employee, attendance_date)
-        if holiday and not holiday.get("is_half_day"):
+        if holiday and not holiday.get("is_half_day") and not has_absent_attendance(self.employee, attendance_date):
             frappe.msgprint(
                 _("Attendance not submitted for {0} as it is a Holiday.").format(
                     frappe.bold(format_date(attendance_date))
@@ -108,13 +108,16 @@ class AttendanceRequestOverride(AttendanceRequest):
 
         for day in range(request_days):
             attendance_date = add_days(self.from_date, day)
-            # Check if attendance_date is a holiday or weekly off
-            if is_holiday_for_employee(self.employee, attendance_date):
+            holiday = is_holiday_for_employee(self.employee, attendance_date)
+            attendance = self.get_attendance_record(attendance_date)
+
+            # Check if attendance_date is a holiday or weekly off.
+            # If it is marked Absent already (e.g. sandwich policy), allow overwrite via request.
+            if holiday and not holiday.get("is_half_day") and not has_absent_attendance(self.employee, attendance_date):
                 attendance_warnings.append({"date": attendance_date, "reason": "Holiday", "action": "Skip"})
             elif self.has_leave_record(attendance_date):
                 attendance_warnings.append({"date": attendance_date, "reason": "On Leave", "action": "Skip"})
             else:
-                attendance = self.get_attendance_record(attendance_date)
                 if attendance:
                     attendance_warnings.append(
                         {
