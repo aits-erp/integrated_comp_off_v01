@@ -152,6 +152,8 @@ def validate_date(doc):
 
 
 def validate_attendance(doc):
+    if frappe.flags.in_reprocess_attendance:
+        return
     if frappe.db.exists(
         "Attendance",
         {
