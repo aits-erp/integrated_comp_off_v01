@@ -455,13 +455,13 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
         tag = (attendance_on_day_off.get("custom_attendance_tag") or "").strip()
         if tag:
             return tag
-    sandwich_status = get_sandwich_absent_status(employee, target_date, checkins=checkins)
-    if sandwich_status:
-        return sandwich_status
-
     od_status = get_day_off_attendance_request_status(employee, target_date)
     if od_status:
         return od_status
+
+    sandwich_status = get_sandwich_absent_status(employee, target_date, checkins=checkins)
+    if sandwich_status:
+        return sandwich_status
 
     has_checkins = bool(checkins)
     if day_off_data.get("is_weekly_off"):
