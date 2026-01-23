@@ -63,6 +63,8 @@ def validate_workflow_state(doc):
 
 
 def validate_attendance(doc):
+    if frappe.flags.in_reprocess_attendance:
+        return
     if doc.from_date == doc.to_date:
         att_exist = frappe.db.exists(
             "Attendance",
