@@ -1,11 +1,9 @@
 # Copyright (c) 2025, rtCamp and contributors
 # For license information, please see license.txt
 
-from datetime import datetime, time
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import get_timedelta, getdate
 
 
 class BioAttendanceLog(Document):
@@ -18,25 +16,19 @@ class BioAttendanceLog(Document):
         from frappe.types import DF
 
         area: DF.Data | None
-        employee_id: DF.Link
-        is_processed: DF.Literal["", "N", "Y", "E"]
+        employee_id: DF.Data
+        is_processed: DF.Data | None
         message: DF.Text | None
         name: DF.Int | None
         present_day: DF.Data | None
-        punch_date: DF.Date | None
-        punch_date_backup: DF.Date | None
-        punch_direction: DF.Literal["", "I", "O"]
-        punch_time: DF.Time | None
+        punch_date: DF.Data | None
+        punch_date_backup: DF.Data | None
+        punch_direction: DF.Data | None
+        punch_time: DF.Data | None
         terminal_id: DF.Data | None
         time_pro_reference_id: DF.Data | None
     # end: auto-generated types
     pass
-
-    def validate(self):
-        if self.punch_date and self.punch_time:
-            punch_time = get_timedelta(self.punch_time)
-            punch_date = getdate(self.punch_date)
-            #self.punch_datetime = datetime.combine(punch_date, time.min) + punch_time
 
     def _block(self):
         frappe.throw(
