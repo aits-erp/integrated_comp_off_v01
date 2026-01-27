@@ -1,7 +1,7 @@
 import frappe
 
 SOURCE_TABLE = "bio_attendance_log"
-TARGET_TABLE = "tabBioAttendanceLog"
+TARGET_TABLE = "tabbioatendancelog"
 START_DATE = "2026-01-01"
 END_DATE = "2026-01-31"
 
@@ -28,7 +28,7 @@ def execute():
 
     frappe.db.sql(
         """
-        INSERT INTO `tabBioAttendanceLog` (
+        INSERT INTO `tabbioatendancelog` (
             employee_id,
             punch_date,
             punch_time,
@@ -60,7 +60,7 @@ def execute():
           AND bal.punch_date BETWEEN %s AND %s
           AND NOT EXISTS (
               SELECT 1
-              FROM `tabBioAttendanceLog` t
+              FROM `tabbioatendancelog` t
               WHERE t.employee_id = bal.employee_id
                 AND t.punch_date = bal.punch_date
                 AND t.punch_time = bal.punch_time

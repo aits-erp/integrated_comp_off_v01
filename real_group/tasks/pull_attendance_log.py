@@ -49,7 +49,7 @@ def pull_data_from_postgre():
         for r in result:
             doc = frappe.get_doc(
                 {
-                    "doctype": "BioAttendanceLog",
+                    "doctype": "bioattendancelog",
                     "time_pro_reference_id": r.get("time_pro_reference_id"),
                     "employee": r.get("employee_id"),
                     "punch_date": r.get("punch_date"),
@@ -64,7 +64,7 @@ def pull_data_from_postgre():
             docs.append(doc)
 
             if docs:
-                bulk_insert("BioAttendanceLog", docs)
+                bulk_insert("bioattendancelog", docs)
 
             last_sync = result and result[-1].get("upload_time")
             settings.db_set("last_attendance_log_sync_datetime", last_sync, commit=True)
