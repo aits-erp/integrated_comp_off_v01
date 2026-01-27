@@ -4,7 +4,7 @@ import frappe
 def execute():
     frappe.db.sql(
         """
-        ALTER TABLE `tabBioAttendanceLog`
+        ALTER TABLE `tabbioatendancelog`
         MODIFY COLUMN `name` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
         MODIFY COLUMN `creation` datetime(6) NULL DEFAULT CURRENT_TIMESTAMP(6),
         MODIFY COLUMN `modified` datetime(6) NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),

@@ -113,7 +113,7 @@
  "modified": "2026-01-27 17:42:38.577190",
  "modified_by": "Administrator",
  "module": "Real Group",
- "name": "BioAttendanceLog",
+ "name": "bioattendancelog",
  "naming_rule": "Autoincrement",
  "owner": "Administrator",
  "permissions": [

@@ -23,7 +23,7 @@ def ensure_punch_datetime(log):
 
 def mark_bio_log(log_name: str, status: str, message: str):
     frappe.db.set_value(
-        "BioAttendanceLog",
+        "bioattendancelog",
         log_name,
         {
             "is_processed": status,
@@ -36,7 +36,7 @@ def mark_bio_log(log_name: str, status: str, message: str):
 
 def process():
     logs = frappe.get_all(
-        "BioAttendanceLog",
+        "bioattendancelog",
         filters={"is_processed": "N"},
         fields=["*", "employee_id as employee"],
         limit_page_length=10000,

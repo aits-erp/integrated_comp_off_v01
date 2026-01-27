@@ -1,7 +1,7 @@
 import frappe
 
 SOURCE_TABLE = "bio_attendance_log"
-TARGET_TABLE = "tabBioAttendanceLog"
+TARGET_TABLE = "tabbioatendancelog"
 
 
 def table_exists(table_name: str) -> bool:
@@ -21,11 +21,10 @@ def execute():
 
     frappe.db.sql(
         """
-        INSERT INTO `tabBioAttendanceLog` (
+        INSERT INTO `tabbioatendancelog` (
             employee_id,
             punch_date,
             punch_time,
-            punch_datetime,
             area,
             terminal_id,
             punch_direction,
@@ -39,7 +38,6 @@ def execute():
             bal.employee_id,
             bal.punch_date,
             bal.punch_time,
-            TIMESTAMP(bal.punch_date, bal.punch_time),
             bal.area,
             bal.terminal_id,
             bal.punch_direction,
@@ -54,7 +52,7 @@ def execute():
           AND bal.punch_time IS NOT NULL
           AND NOT EXISTS (
               SELECT 1
-              FROM `tabBioAttendanceLog` t
+              FROM `tabbioatendancelog` t
               WHERE t.employee_id = bal.employee_id
                 AND t.punch_date = bal.punch_date
                 AND t.punch_time = bal.punch_time

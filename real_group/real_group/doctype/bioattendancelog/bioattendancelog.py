@@ -6,7 +6,7 @@ import frappe
 from frappe.model.document import Document
 
 
-class BioAttendanceLog(Document):
+class bioattendancelog(Document):
     # begin: auto-generated types
     # This code is auto-generated. Do not modify anything in this block.
 
@@ -32,7 +32,7 @@ class BioAttendanceLog(Document):
 
     def _block(self):
         frappe.throw(
-            "BioAttendanceLog is a system log and cannot be modified",
+            "bioattendancelog is a system log and cannot be modified",
             frappe.PermissionError,
         )
 
@@ -69,12 +69,12 @@ def reset_bioattendance_logs(log_names):
     if not names:
         return {"updated": 0}
 
-    existing = frappe.get_all("BioAttendanceLog", filters={"name": ["in", names]}, pluck="name")
+    existing = frappe.get_all("bioattendancelog", filters={"name": ["in", names]}, pluck="name")
 
     if not existing:
         return {"updated": 0}
 
     for name in existing:
-        frappe.db.set_value("BioAttendanceLog", name, "is_processed", "N")
+        frappe.db.set_value("bioattendancelog", name, "is_processed", "N")
 
     return {"updated": len(existing)}

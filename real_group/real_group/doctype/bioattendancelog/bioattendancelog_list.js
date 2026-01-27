@@ -1,4 +1,4 @@
-frappe.listview_settings["BioAttendanceLog"] = {
+frappe.listview_settings["bioattendancelog"] = {
   onload(listview) {
     if (listview.view_name === "Report") return;
     listview.page.clear_primary_action();

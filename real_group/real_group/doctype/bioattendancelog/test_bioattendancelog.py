@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestBioAttendanceLog(FrappeTestCase):
+class Testbioattendancelog(FrappeTestCase):
     pass
