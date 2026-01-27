@@ -176,6 +176,7 @@ class ReprocessAttendance(Document):
         return get_link_to_form("Reprocess Attendance", self.name)
 
     def process_removal(self):
+        frappe.flags.in_reprocess_attendance = True
         self.db_set("status", "In Progress")
         from_date, to_date = self.get_dates()
         self.cancel_leaves(from_date, to_date)

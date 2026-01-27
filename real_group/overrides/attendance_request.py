@@ -137,6 +137,19 @@ class AttendanceRequestOverride(AttendanceRequest):
     # 3. If none of the above two conditions are met, then just cancel the attendance as usual and create attendance for
     # Absent.
     def on_cancel(self):
+        # When Attendance Requests are cancelled as part of Reprocess Attendance,
+        # we don't want to create new Attendance records here (Absent/Leave/etc).
+        # Reprocess will handle attendance recreation for the period.
+        if getattr(frappe.flags, "in_reprocess_attendance", False):
+            attendance_list = frappe.get_all(
+                "Attendance",
+                filters={"employee": self.employee, "attendance_request": self.name, "docstatus": 1},
+                fields=["name"],
+            )
+            for attendance in attendance_list:
+                frappe.get_doc("Attendance", attendance.name).cancel()
+            return
+
         attendance_list = frappe.get_all(
             "Attendance",
             filters={"employee": self.employee, "attendance_request": self.name, "docstatus": 1},
