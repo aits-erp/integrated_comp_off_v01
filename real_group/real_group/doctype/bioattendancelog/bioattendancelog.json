@@ -22,14 +22,14 @@
  "fields": [
   {
    "fieldname": "punch_date",
-   "fieldtype": "Date",
+   "fieldtype": "Data",
    "label": "Punch Date",
    "read_only": 1,
    "search_index": 1
   },
   {
    "fieldname": "punch_time",
-   "fieldtype": "Time",
+   "fieldtype": "Data",
    "label": "Punch Time",
    "read_only": 1
   },
@@ -51,7 +51,7 @@
   },
   {
    "fieldname": "punch_direction",
-   "fieldtype": "Select",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Punch Direction",
    "options": "\nI\nO",
@@ -70,7 +70,7 @@
   {
    "default": "N",
    "fieldname": "is_processed",
-   "fieldtype": "Select",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Is Processed",
@@ -87,7 +87,7 @@
   },
   {
    "fieldname": "punch_date_backup",
-   "fieldtype": "Date",
+   "fieldtype": "Data",
    "label": "Punch Date Backup",
    "read_only": 1
   },
@@ -99,7 +99,7 @@
   },
   {
    "fieldname": "employee_id",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Employee",
    "options": "Employee",
@@ -110,7 +110,7 @@
  ],
  "grid_page_length": 50,
  "links": [],
- "modified": "2026-01-12 18:33:20.704724",
+ "modified": "2026-01-27 17:42:38.577190",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "BioAttendanceLog",
