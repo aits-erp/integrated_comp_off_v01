@@ -1,9 +1,40 @@
-import frappe
-from frappe.utils import flt, getdate, get_last_day
 from importlib import import_module
+
+import frappe
+from frappe.utils import flt, get_last_day, getdate
 
 # IMPORTANT: module path contains [new]_form_14 so normal import won't work
 new_form_14 = import_module("real_group.real_group.report.[new]_form_14.[new]_form_14")
+
+
+# ----------------  Salary Component Order ----------------
+
+HR_ALLOTTED_ORDER = [
+    "Basic",
+    "House Rent Allowance",
+    "Conveyance",
+    "Education Allowance",
+    "Canteen Allowance",
+    "Washing Allowance",
+    "Special Allowances",
+    "Children Hostel Allowance",
+    "Over Time",
+    "Incentives",
+    "Local Transport Allowance",
+    "Miscellaneous",
+]
+
+HR_ACTUAL_ORDER = [
+    "Basic",
+    "House Rent Allowance",
+    "Conveyance",
+    "Education Allowance",
+    "Canteen Allowance",
+    "Washing Allowance",
+    "Special Allowances",
+    "Local Transport Allowance",
+    "Children Hostel Allowance",
+]
 
 
 # ---------------- Public API ----------------
@@ -13,33 +44,7 @@ def execute(filters=None):
     if not (filters.get("company") and filters.get("month") and filters.get("year")):
         return [], []
 
-    # Build columns in Salary Structure order (only if employee filter is set)
-    sst_for_order = None
-    if filters.get("employee"):
-        sst_for_order = get_latest_effective_salary_structure(
-            employee=filters.employee,
-            slip_start_date=getdate(f"{filters.year}-{month_to_mm(filters.month)}-01"),
-        )
-    else:
-        # fallback: first employee in result set (for column order)
-        emp = frappe.db.get_value(
-            "Salary Slip",
-            {
-                "company": filters.company,
-                "start_date": ["between", get_month_range(filters.year, filters.month)],
-                "docstatus": 1,
-            },
-            "employee",
-            order_by="creation asc",
-        )
-        if emp:
-            sst_for_order = get_latest_effective_salary_structure(
-                employee=emp,
-                slip_start_date=getdate(f"{filters.year}-{month_to_mm(filters.month)}-01"),
-            )
-
-
-    columns = get_columns(sst_for_order)
+    columns = get_columns()
     data = get_data(filters)
     return columns, data
 
@@ -293,33 +298,11 @@ def get_columns(sst_name_for_order=None):
         "Miscellaneous": ("misc_actual", "MISC"),
     }
 
-    # If we have a salary structure, order columns by Salary Detail.idx
-    ordered_components = []
-    if sst_name_for_order:
-        ordered_components = get_salary_structure_components_in_order(
-            sst_name_for_order
-        )
-
     # Build allotted columns
     allotted_cols = []
-    used = set()
-    for comp in ordered_components:
+    for comp in HR_ALLOTTED_ORDER:
         if comp in allotted_map:
             fieldname, label = allotted_map[comp]
-            allotted_cols.append(
-                {
-                    "fieldname": fieldname,
-                    "fieldtype": "Float",
-                    "precision": "0",
-                    "label": label,
-                    "width": "150px",
-                }
-            )
-            used.add(comp)
-
-    # Append remaining (if structure has fewer / employee not set)
-    for comp, (fieldname, label) in allotted_map.items():
-        if comp not in used:
             allotted_cols.append(
                 {
                     "fieldname": fieldname,
@@ -343,7 +326,7 @@ def get_columns(sst_name_for_order=None):
     # Build actual columns
     actual_cols = []
     used = set()
-    for comp in ordered_components:
+    for comp in HR_ACTUAL_ORDER:
         if comp in actual_map:
             fieldname, label = actual_map[comp]
             actual_cols.append(
@@ -379,6 +362,20 @@ def get_columns(sst_name_for_order=None):
             "width": "150px",
         },
         {
+            "fieldname": "over_time_actual",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "OT",
+            "width": "120px",
+        },
+        {
+            "fieldname": "incentive_actual",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "INCT",
+            "width": "120px",
+        },
+        {
             "fieldname": "gross_pay_total_earned",
             "fieldtype": "Float",
             "precision": "0",
@@ -390,91 +387,82 @@ def get_columns(sst_name_for_order=None):
             "fieldtype": "Float",
             "precision": "0",
             "label": "EPF",
-            "width": "150px",
+            "width": "120px",
         },
         {
             "fieldname": "esic",
             "fieldtype": "Float",
             "precision": "0",
             "label": "ESIC",
-            "width": "150px",
+            "width": "120px",
         },
         {
             "fieldname": "loan",
             "fieldtype": "Float",
             "precision": "0",
             "label": "LOAN",
-            "width": "150px",
+            "width": "120px",
         },
         {
             "fieldname": "salary_advance",
             "fieldtype": "Float",
             "precision": "0",
             "label": "ADV",
-            "width": "150px",
+            "width": "120px",
         },
         {
             "fieldname": "income_tax",
             "fieldtype": "Float",
             "precision": "0",
             "label": "IT",
-            "width": "150px",
+            "width": "120px",
+        },
+        {
+            "fieldname": "misc_actual",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "MISC",
+            "width": "120px",
         },
         {
             "fieldname": "labour_welfare_fund",
             "fieldtype": "Float",
             "precision": "0",
             "label": "LWF",
-            "width": "150px",
+            "width": "120px",
         },
         {
             "fieldname": "other_ded",
             "fieldtype": "Float",
             "precision": "0",
             "label": "OTHER DED",
-            "width": "150px",
+            "width": "140px",
         },
         {
             "fieldname": "glwf",
             "fieldtype": "Float",
             "precision": "0",
             "label": "GLWF",
-            "width": "150px",
+            "width": "120px",
         },
         {
             "fieldname": "total_deduction",
             "fieldtype": "Float",
             "precision": "0",
             "label": "DTOT",
-            "width": "150px",
+            "width": "120px",
         },
         {
             "fieldname": "net_payment",
             "fieldtype": "Float",
             "precision": "0",
-            "label": "Net Payment",
+            "label": "NET PAYMENT",
             "width": "150px",
         },
         {
             "fieldname": "remark",
             "fieldtype": "Data",
-            "precision": "0",
-            "label": "Remark",
-            "width": "150px",
-        },
-        {"fieldname": "tally", "fieldtype": "Data", "label": "Tally", "width": "100px"},
-        {
-            "fieldname": "paid_tally",
-            "fieldtype": "Float",
-            "precision": "1",
-            "label": "Paid Tally",
-            "width": "150px",
-        },
-        {
-            "fieldname": "work_tally",
-            "fieldtype": "Float",
-            "precision": "1",
-            "label": "Work Tally",
+            "label": "REMARK",
             "width": "150px",
         },
     ]
@@ -519,7 +507,7 @@ def get_data(filters):
     # ✅ FIX: latest effective salary structure assignment for that salary slip period
     sql = frappe.db.sql(
         f"""
-        SELECT 
+        SELECT
             ss.name as salary_slip,
             e.name as emp,
             e.employee_name as emp_name,
@@ -528,7 +516,7 @@ def get_data(filters):
             e.date_of_birth,
             e.date_of_joining,
             e.branch,
-            e.custom_emp_category emp_category, 
+            e.custom_emp_category emp_category,
             e.department,
             e.custom_division division,
             e.designation,
@@ -617,13 +605,10 @@ def get_data(filters):
         apply_salary_slip_loan_deduction(res)
         apply_holiday_tour_overlap(res, from_date, to_date)
 
-        res["working_days"] = (res.get("month_days") or 0) - (
-            (res.get("weekly_off") or 0) + (res.get("holiday") or 0)
-        )
+        res["working_days"] = (res.get("month_days") or 0) - ((res.get("weekly_off") or 0) + (res.get("holiday") or 0))
 
         result.append(res)
 
-    apply_final_tallies(result)
     return result
 
 
@@ -696,7 +681,6 @@ def apply_salary_structure_allotted(res):
 
     # Gross (prefer Salary Structure total_earning if available)
     res["gross"] = sum(flt(r.get("amount")) for r in rows)
-    res["remark"] = sst_name
 
 
 def get_salary_structure_components_in_order(sst_name):
@@ -785,7 +769,7 @@ def set_attendance_defaults(res):
 
 def apply_tour_logic(res, from_date, to_date):
     res["tour_for_office"] = 0
-    deduct_od = 0
+    # educt_od = 0
 
     tour_sql = frappe.db.sql(
         """
@@ -839,7 +823,7 @@ def apply_loan_installment_logic(res, from_date, to_date):
             `tabEmployee Advance` ea
         LEFT JOIN
             `tabAdditional Salary` ads ON ads.ref_docname = ea.name
-        WHERE 
+        WHERE
             ads.payroll_date BETWEEN %s AND %s
             AND ads.employee = %s
             AND ads.ref_doctype = 'Employee Advance'
@@ -885,9 +869,7 @@ def apply_loan_installment_logic(res, from_date, to_date):
                 as_dict=True,
             )
             res["loan_closing"] = (
-                closing_loan_sql[0]["amount"]
-                if closing_loan_sql and closing_loan_sql[0].get("amount")
-                else 0
+                closing_loan_sql[0]["amount"] if closing_loan_sql and closing_loan_sql[0].get("amount") else 0
             )
     else:
         res["loan_opening_balance"] = 0
@@ -943,37 +925,6 @@ def apply_holiday_tour_overlap(res, from_date, to_date):
 
         res["tour_for_office"] = (res.get("tour_for_office") or 0) - deduct_od
         res["od"] = (res.get("od") or 0) + deduct_od
-
-
-def apply_final_tallies(result):
-    for i in result:
-        tally_val = (
-            (i.get("present_real") or 0)
-            + (i.get("casual_leave") or 0)
-            + (i.get("earned_leave") or 0)
-            + (i.get("comp_off") or 0)
-            + (i.get("tour_for_office") or 0)
-            + (i.get("od") or 0)
-            + (i.get("weekly_off") or 0)
-            + (i.get("holiday") or 0)
-        )
-
-        i["tally"] = (
-            "True" if flt(tally_val, 1) == flt(i.get("paid_days") or 0, 1) else "False"
-        )
-        i["paid_tally"] = tally_val
-
-        i["work_tally"] = (
-            (i.get("present_real") or 0)
-            + (i.get("absent") or 0)
-            + (i.get("casual_leave") or 0)
-            + (i.get("earned_leave") or 0)
-            + (i.get("comp_off") or 0)
-            + (i.get("tour_for_office") or 0)
-            + (i.get("od") or 0)
-            + (i.get("weekly_off") or 0)
-            + (i.get("holiday") or 0)
-        )
 
 
 # ---------------- Date utils ----------------
