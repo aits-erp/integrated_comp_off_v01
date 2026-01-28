@@ -16,6 +16,7 @@ class GatePass(Document):
         from frappe.types import DF
 
         amended_from: DF.Link | None
+        checkout_time: DF.Datetime | None
         date: DF.Date
         employee: DF.Link
         employee_name: DF.Data | None
