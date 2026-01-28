@@ -102,3 +102,28 @@ def expire_gate_passes():
         doc = frappe.get_doc("Gate Pass", gate_pass)
         doc.status = "Rejected"
         doc.submit()
+
+
+@frappe.whitelist()
+def get_latest_checkout_time(employee: str, date: str):
+    if not employee or not date:
+        return None
+
+    gate_pass_date = getdate(date)
+    start_time = get_datetime(gate_pass_date)
+    end_time = get_datetime(add_days(gate_pass_date, 1))
+
+    latest_out = frappe.get_list(
+        "Employee Checkin",
+        filters=[
+            ["employee", "=", employee],
+            ["log_type", "=", "OUT"],
+            ["time", ">=", start_time],
+            ["time", "<", end_time],
+        ],
+        pluck="time",
+        order_by="time desc",
+        limit=1,
+    )
+
+    return latest_out[0] if latest_out else None
