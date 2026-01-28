@@ -16,28 +16,33 @@ class GatePass(Document):
         from frappe.types import DF
 
         amended_from: DF.Link | None
+        checkout_time: DF.Datetime | None
         date: DF.Date
         employee: DF.Link
         employee_name: DF.Data | None
         name: DF.Int | None
-        reason: DF.Literal["", "Personal", "Work"]
+        reason: DF.Literal["", "Personal", "Official"]
         reason_detail: DF.SmallText
         status: DF.Literal["Draft", "Pending", "Rejected", "Approved"]
 
     # end: auto-generated types
     def validate(self):
-        self.validate_single_gate_pass_per_day()
+        self.validate_total_gate_pass_per_day()
 
     def before_insert(self):
         self.validate_date()
         self.validate_checkin()
         self.validate_branch()
 
-    def validate_single_gate_pass_per_day(self):
+    def validate_total_gate_pass_per_day(self):
         if not self.employee or not self.date:
             return
 
-        existing = frappe.get_all(
+        in_log_count = get_in_log_count(self.employee, self.date)
+        if in_log_count <= 0:
+            frappe.throw(frappe._("Employee has not checked in today. Cannot create Gate Pass."))
+
+        existing_gate_passes = frappe.get_all(
             "Gate Pass",
             filters=[
                 ["employee", "=", self.employee],
@@ -46,13 +51,14 @@ class GatePass(Document):
                 ["name", "!=", self.name or ""],
             ],
             pluck="name",
-            limit=1,
         )
 
-        if existing:
+        if len(existing_gate_passes) >= in_log_count:
             frappe.throw(
-                frappe._("You have already applied for a Gate Pass for this date."),
-                title=frappe._("Duplicate Gate Pass"),
+                frappe._("You can create at most {0} Gate Pass(es) for this date based on your check-ins.").format(
+                    in_log_count
+                ),
+                title=frappe._("Gate Pass Limit Reached"),
             )
 
     def validate_date(self):
@@ -62,9 +68,9 @@ class GatePass(Document):
             frappe.throw(frappe._("Gate Pass date cannot be created for future dates"))
 
     def validate_checkin(self):
-        has_checkin = get_checkin_exists(self.employee, getdate())
-        if not has_checkin:
-            frappe.throw(frappe._("Employee  has not checked in today. Cannot create Gate Pass."))
+        in_log_count = get_in_log_count(self.employee, self.date)
+        if in_log_count <= 0:
+            frappe.throw(frappe._("Employee has not checked in today. Cannot create Gate Pass."))
 
     def validate_branch(self):
         branch = frappe.db.get_value("Employee", self.employee, "branch")
@@ -75,20 +81,23 @@ class GatePass(Document):
             frappe.throw(frappe._("Branch doesn't allow gate pass."))
 
 
-def get_checkin_exists(employee: str, date: str) -> bool:
+def get_in_log_count(employee: str, date: str) -> int:
+    if not employee or not date:
+        return 0
+
     start_time = get_datetime(date)
     end_time = get_datetime(add_days(getdate(date), 1))
-    checkin = frappe.get_all(
+    in_logs = frappe.get_all(
         "Employee Checkin",
         filters=[
             ["employee", "=", employee],
+            ["log_type", "=", "IN"],
             ["time", ">=", start_time],
             ["time", "<", end_time],
         ],
         pluck="name",
-        limit=1,
     )
-    return bool(checkin)
+    return len(in_logs)
 
 
 def expire_gate_passes():
@@ -100,4 +109,31 @@ def expire_gate_passes():
     for gate_pass in gate_passes:
         doc = frappe.get_doc("Gate Pass", gate_pass)
         doc.status = "Rejected"
+        if doc.meta.has_field("workflow_state") and doc.workflow_state == "Gate Pass":
+            doc.workflow_state = "Rejected at Gate"
         doc.submit()
+
+
+@frappe.whitelist()
+def get_latest_checkout_time(employee: str, date: str):
+    if not employee or not date:
+        return None
+
+    gate_pass_date = getdate(date)
+    start_time = get_datetime(gate_pass_date)
+    end_time = get_datetime(add_days(gate_pass_date, 1))
+
+    latest_out = frappe.get_list(
+        "Employee Checkin",
+        filters=[
+            ["employee", "=", employee],
+            ["log_type", "=", "OUT"],
+            ["time", ">=", start_time],
+            ["time", "<", end_time],
+        ],
+        pluck="time",
+        order_by="time desc",
+        limit=1,
+    )
+
+    return latest_out[0] if latest_out else None
