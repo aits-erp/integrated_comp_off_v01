@@ -109,6 +109,8 @@ def expire_gate_passes():
     for gate_pass in gate_passes:
         doc = frappe.get_doc("Gate Pass", gate_pass)
         doc.status = "Rejected"
+        if doc.meta.has_field("workflow_state") and doc.workflow_state == "Gate Pass":
+            doc.workflow_state = "Rejected at Gate"
         doc.submit()
 
 
