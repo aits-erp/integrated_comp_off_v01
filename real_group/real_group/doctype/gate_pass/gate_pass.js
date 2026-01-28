@@ -1,9 +1,6 @@
 // // Copyright (c) 2025, rtCamp and contributors
 // // For license information, please see license.txt
 
-// Copyright (c) 2025, rtCamp and contributors
-// For license information, please see license.txt
-
 async function set_latest_checkout_time(frm) {
   if (!frm.doc.employee || !frm.doc.date) {
     return;

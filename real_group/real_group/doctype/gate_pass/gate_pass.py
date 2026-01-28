@@ -21,7 +21,7 @@ class GatePass(Document):
         employee: DF.Link
         employee_name: DF.Data | None
         name: DF.Int | None
-        reason: DF.Literal["", "Personal", "Work"]
+        reason: DF.Literal["", "Personal", "Official"]
         reason_detail: DF.SmallText
         status: DF.Literal["Draft", "Pending", "Rejected", "Approved"]
 
