@@ -23,7 +23,11 @@ def process(from_date=None, employee_names: list | None = None, reprocess_ref=No
             filters={"custom_single_punch_applicable": 0, "custom_no_punch_applicable": 0},
             pluck="name",
         )
-        employees = frappe.get_all("Employee", filters={"grade": ["in", grades], "status": "Active"}, pluck="name")
+        employees = frappe.get_all(
+            "Employee",
+            filters={"grade": ["in", grades], "status": "Active", "date_of_joining": ["<", start_date_for_night_shift]},
+            pluck="name",
+        )
     else:
         employees = employee_names
 
@@ -51,8 +55,6 @@ def process(from_date=None, employee_names: list | None = None, reprocess_ref=No
         group = logs_by_employee.get(employee, [])
         create_attendance(employee, start_date, group, reprocess_ref)
 
-        frappe.db.commit()  # nosemgrep
-
     # Processing Night Shift Employees
     night_shift_checkins = frappe.get_all(
         "Employee Checkin",
@@ -76,4 +78,3 @@ def process(from_date=None, employee_names: list | None = None, reprocess_ref=No
     for employee in employees:
         group = night_logs_by_employee.get(employee, [])
         create_attendance(employee, start_date_for_night_shift, group, reprocess_ref)
-        frappe.db.commit()  # nosemgrep
