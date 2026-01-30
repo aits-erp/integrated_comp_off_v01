@@ -159,7 +159,7 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
         # ─────────────────────────────
         # 🔹 Additional Rule — for Quarterly frequency only
         # ─────────────────────────────
-        if freq == "quarterly":
+        if freq == "quarterly" and not getdate(join_date) <= getdate(self.effective_from):
             month = join_date.month
             quarter_start_month = ((month - 1) // 3) * 3 + 1
             quarter_months = [quarter_start_month, quarter_start_month + 1, quarter_start_month + 2]
