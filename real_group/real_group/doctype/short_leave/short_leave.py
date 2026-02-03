@@ -27,8 +27,8 @@ class ShortLeave(Document):
         self.validate_short_leave_request()
 
     def validate_short_leave_request(self):
-        grade = frappe.get_cached_value("Employee", self.employee, "grade")
-        grade = frappe.get_cached_doc("Employee Grade", grade)
+        grade = frappe.db.get_value("Employee", self.employee, "grade")
+        grade = frappe.get_doc("Employee Grade", grade)
 
         from_date = get_first_day(self.for_date)
         to_date = get_last_day(self.for_date)
@@ -38,7 +38,7 @@ class ShortLeave(Document):
 
         diff = get_datetime(self.punch_time) - get_datetime(self.shift_start_time)
         if grade.custom_hours_per_leave:
-            if diff > grade.custom_hours_per_leave and self.reason == grade.custom_short_leave_type:
+            if diff > grade.custom_hours_per_leave:
                 frappe.throw(frappe._("Short Leave is not allowed beyond Short Leave Time Allowed "))
 
         if (
@@ -51,6 +51,7 @@ class ShortLeave(Document):
                     "name": ["!=", self.name],
                 },
             )
+            + 1
             > grade.custom_number_of_leaves
         ):
             frappe.throw(frappe._("Short Leave Limit Exceeded, Contact your HR Manager"))

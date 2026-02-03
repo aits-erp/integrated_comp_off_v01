@@ -475,7 +475,7 @@ def get_day_off_attendance_request_status(employee: str, target_date):
         "Attendance Request",
         filters={
             "employee": employee,
-            "docstatus": ["!=", 2],
+            "docstatus": ["=", 1],
             "from_date": ["<=", target_date],
             "to_date": [">=", target_date],
         },
