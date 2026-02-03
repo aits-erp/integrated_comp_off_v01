@@ -293,6 +293,7 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
 
     direct_map = {
         "P": ("P", "P"),
+        "SL": ("P", "P"),
         "HD": ("P", "A"),
         "MIS": ("P", "P"),
         "A": ("A", "A"),
@@ -440,7 +441,7 @@ def add_half_day_to_counters(counters, code):
         return
     key = code.upper()
     target = None
-    if key in {"P", "MIS"}:
+    if key in {"P", "MIS", "SL"}:
         target = "p"
     elif key in {"A", "A1", "LW"}:
         target = "a"

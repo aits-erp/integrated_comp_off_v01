@@ -30,6 +30,7 @@ fieldnames = [column["fieldname"] for column in column_config]
 
 leave_split = {
     "P": {"present": 1},
+    "SL": {"present": 1},
     "POW": {"present": 1},
     "POH": {"present": 1},
     "PEL": {"present": 0.5, "el": 0.5, "half_day": 1.0},
@@ -233,6 +234,7 @@ def append_summary_columns(columns):
 def calculate_summary_metrics(status_row, emp_data, dates):
     FULL_PAID_STATUSES = {
         "P",
+        "SL",
         "POH",
         "POW",
         "CL",
