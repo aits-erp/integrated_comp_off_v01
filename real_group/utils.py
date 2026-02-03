@@ -1,7 +1,7 @@
 from datetime import date, time, timedelta
 
 import frappe
-from frappe.utils import add_days, date_diff, get_time, getdate
+from frappe.utils import add_days, date_diff, get_datetime, get_first_day, get_last_day, get_time, getdate
 from frappe.utils.caching import redis_cache
 from hrms.hr.utils import get_leave_allocations
 from pypika.functions import Count
@@ -331,3 +331,29 @@ def get_distance_between_coordinates(lat1, long1, lat2, long2):
 
     a = 0.5 - cos((lat2 - lat1) * p) / 2 + cos(lat1 * p) * cos(lat2 * p) * (1 - cos((long2 - long1) * p)) / 2
     return 2 * r * asin(sqrt(a)) * 1000
+
+
+def check_effective_date(from_date, today, frequency, allocate_on_day):
+    from dateutil import relativedelta
+
+    from_date = get_datetime(from_date)
+    today = frappe.flags.current_date or get_datetime(today)
+    rd = relativedelta.relativedelta(today, from_date)
+
+    expected_date = {
+        "First Day": get_first_day(today),
+        "Last Day": get_last_day(today),
+        "Date of Joining": from_date,
+    }[allocate_on_day]
+
+    if expected_date.day == today.day:
+        if frequency == "Monthly":
+            return True
+        elif frequency == "Quarterly" and rd.months % 3 == 0:
+            return True
+        elif frequency == "Half-Yearly" and rd.months % 6 == 0:
+            return True
+        elif frequency == "Yearly" and rd.months % 12 == 0:
+            return True
+
+    return False
