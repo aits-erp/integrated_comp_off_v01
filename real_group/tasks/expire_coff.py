@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import today
+from frappe.utils import flt, today
 
 
 def create_comp_off_expiry_ledger(
@@ -128,6 +128,27 @@ def expire_unused_comp_off():
             transaction_type=transaction_type,
             transaction_name=transaction_name,
         )
+
+        if transaction_type == "Leave Allocation" and transaction_name:
+            allocation = frappe.db.get_value(
+                "Leave Allocation",
+                transaction_name,
+                ["new_leaves_allocated", "total_leaves_allocated"],
+                as_dict=True,
+            )
+            if allocation:
+                frappe.db.set_value(
+                    "Leave Allocation",
+                    transaction_name,
+                    "new_leaves_allocated",
+                    max(0, flt(allocation.new_leaves_allocated) - flt(expire_qty)),
+                )
+                frappe.db.set_value(
+                    "Leave Allocation",
+                    transaction_name,
+                    "total_leaves_allocated",
+                    max(0, flt(allocation.total_leaves_allocated) - flt(expire_qty)),
+                )
 
         frappe.db.set_value(
             "Compensatory Leave Request",
