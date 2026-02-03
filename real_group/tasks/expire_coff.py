@@ -2,7 +2,15 @@ import frappe
 from frappe.utils import today
 
 
-def create_comp_off_expiry_ledger(employee, employee_name, company, expire_qty, date):
+def create_comp_off_expiry_ledger(
+    employee,
+    employee_name,
+    company,
+    expire_qty,
+    date,
+    transaction_type,
+    transaction_name,
+):
     doc = frappe.get_doc(
         {
             "doctype": "Leave Ledger Entry",
@@ -10,6 +18,8 @@ def create_comp_off_expiry_ledger(employee, employee_name, company, expire_qty, 
             "employee_name": employee_name,
             "company": company,
             "leave_type": "Compensatory Off",
+            "transaction_type": transaction_type,
+            "transaction_name": transaction_name,
             "leaves": -expire_qty,
             "from_date": date,
             "to_date": date,
@@ -35,7 +45,7 @@ def expire_unused_comp_off():
             "expiry": today_date,
             "status": ["!=", "Expired"],
         },
-        fields=["name", "employee", "credit"],
+        fields=["name", "employee", "credit", "leave_allocation"],
     )
 
     for req in requests:
@@ -73,6 +83,12 @@ def expire_unused_comp_off():
 
         expire_qty = min(balance, credit)
 
+        transaction_type = "Compensatory Leave Request"
+        transaction_name = req.name
+        if req.get("leave_allocation"):
+            transaction_type = "Leave Allocation"
+            transaction_name = req.leave_allocation
+
         # Idempotency guard
         exists = frappe.db.exists(
             "Leave Ledger Entry",
@@ -80,9 +96,11 @@ def expire_unused_comp_off():
                 "employee": employee,
                 "leave_type": "Compensatory Off",
                 "is_expired": 1,
+                "transaction_type": transaction_type,
+                "transaction_name": transaction_name,
                 "from_date": today_date,
                 "to_date": today_date,
-                "leaves": -expire_qty,
+                "docstatus": 1,
             },
         )
         if exists:
@@ -107,6 +125,8 @@ def expire_unused_comp_off():
             company=employee_doc.company,
             expire_qty=expire_qty,
             date=today_date,
+            transaction_type=transaction_type,
+            transaction_name=transaction_name,
         )
 
         frappe.db.set_value(
