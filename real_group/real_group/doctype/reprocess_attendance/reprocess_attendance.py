@@ -53,7 +53,15 @@ class ReprocessAttendance(Document):
 
     def on_submit(self):
         self.process_removal()
-        self.reprocess()
+        frappe.enqueue_doc(
+            self.doctype,
+            self.name,
+            "reprocess",
+            queue="long",
+            timeout=60 * 60,
+            enqueue_after_commit=True,
+            job_name=f"Reprocess Attendance: {self.name}",
+        )
 
     def get_leave_applications(self, from_date, to_date):
         leave_applications = frappe.get_all(
