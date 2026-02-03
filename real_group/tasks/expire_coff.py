@@ -1,18 +1,38 @@
 import frappe
 from frappe.utils import today
-from hrms.hr.doctype.leave_ledger_entry.leave_ledger_entry import (
-    create_leave_ledger_entry,
-)
+
+
+def create_comp_off_expiry_ledger(employee, employee_name, company, expire_qty, date):
+    doc = frappe.get_doc(
+        {
+            "doctype": "Leave Ledger Entry",
+            "employee": employee,
+            "employee_name": employee_name,
+            "company": company,
+            "leave_type": "Compensatory Off",
+            "leaves": -expire_qty,
+            "from_date": date,
+            "to_date": date,
+            "is_expired": 1,
+            "is_carry_forward": 0,
+            "is_lwp": 0,
+        }
+    )
+
+    doc.flags.ignore_permissions = 1
+    doc.flags.ignore_links = 1
+
+    doc.insert()
+    doc.submit()
 
 
 def expire_unused_comp_off():
     today_date = today()
 
-    # Comp requests expiring today (not already expired)
     requests = frappe.get_all(
         "Compensatory Leave Request",
         filters={
-            "leave_expiry": today_date,
+            "expiry": today_date,
             "status": ["!=", "Expired"],
         },
         fields=["name", "employee", "credit"],
@@ -23,9 +43,14 @@ def expire_unused_comp_off():
         credit = req.credit or 0
 
         if credit <= 0:
+            frappe.db.set_value(
+                "Compensatory Leave Request",
+                req.name,
+                "status",
+                "Expired",
+            )
             continue
 
-        # Actual remaining Comp Off balance from ledger
         balance = frappe.db.sql(
             """
             SELECT IFNULL(SUM(leaves), 0)
@@ -38,7 +63,6 @@ def expire_unused_comp_off():
         )[0][0]
 
         if balance <= 0:
-            # Nothing left to expire
             frappe.db.set_value(
                 "Compensatory Leave Request",
                 req.name,
@@ -47,19 +71,44 @@ def expire_unused_comp_off():
             )
             continue
 
-        # Only expire unused portion
         expire_qty = min(balance, credit)
 
-        # Create negative ledger entry (this is the key)
-        create_leave_ledger_entry(
-            employee=employee,
-            leave_type="Compensatory Off",
-            leaves=-expire_qty,
-            transaction_type="Leave Expiry",
-            transaction_name=req.name,
+        # Idempotency guard
+        exists = frappe.db.exists(
+            "Leave Ledger Entry",
+            {
+                "employee": employee,
+                "leave_type": "Compensatory Off",
+                "is_expired": 1,
+                "from_date": today_date,
+                "to_date": today_date,
+                "leaves": -expire_qty,
+            },
+        )
+        if exists:
+            frappe.db.set_value(
+                "Compensatory Leave Request",
+                req.name,
+                "status",
+                "Expired",
+            )
+            continue
+
+        employee_doc = frappe.db.get_value(
+            "Employee",
+            employee,
+            ["employee_name", "company"],
+            as_dict=True,
         )
 
-        # Mark request expired
+        create_comp_off_expiry_ledger(
+            employee=employee,
+            employee_name=employee_doc.employee_name,
+            company=employee_doc.company,
+            expire_qty=expire_qty,
+            date=today_date,
+        )
+
         frappe.db.set_value(
             "Compensatory Leave Request",
             req.name,
