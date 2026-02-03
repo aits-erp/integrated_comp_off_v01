@@ -252,6 +252,7 @@ scheduler_events = {
             "real_group.tasks.update_weekly_off_in_employee.process",
             "real_group.tasks.update_weekly_off_list.process",
         ],
+        "0 1 * * *": ["real_group.tasks.expire_coff.expire_unused_comp_off"],
         "0 3 * * *": ["real_group.tasks.process_attendance.process"],
         "59 23 * * *": ["real_group.tasks.process_attendance_for_single_checkin.process"],
         "0 14 * * *": ["real_group.utils.allocate_leaves_for_worked_days"],
