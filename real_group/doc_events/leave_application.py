@@ -51,8 +51,7 @@ def validate_compensation_leave(doc):
         and frappe.db.get_value("Leave Type", doc.leave_type, "is_compensatory")
         and doc.from_date != doc.to_date
     ):
-        if not doc.compensatory_leave_application:
-            frappe.throw(frappe._("You may apply for Compensatory Off Leave one day at a time!"))
+        frappe.throw(frappe._("You may apply for Compensatory Off Leave one day at a time!"))
 
 
 def validate_workflow_state(doc):
