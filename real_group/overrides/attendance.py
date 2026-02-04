@@ -5,7 +5,12 @@ from hrms.hr.doctype.attendance.attendance import Attendance
 
 
 class AttendanceOverride(Attendance):
-    def unlink_attendance_from_checkins(self):
+    def on_cancel(self):
+        self.unlink_attendance_from_checkins_override()
+
+    def unlink_attendance_from_checkins_override(self):
+        if frappe.flags.in_reprocess_attendance:
+            return
         EmployeeCheckin = frappe.qb.DocType("Employee Checkin")
         linked_logs = (
             frappe.qb.from_(EmployeeCheckin)
