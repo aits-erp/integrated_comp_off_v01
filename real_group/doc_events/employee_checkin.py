@@ -20,11 +20,12 @@ def validate(doc, method=None):
 
 def before_insert(doc, method=None):
     assign_closest_shift_on_insert(doc, method)
-    apply_short_leave_attendance_on_late_checkin(doc)
+    # apply_short_leave_attendance_on_late_checkin(doc)
 
 
 def after_insert(doc, method=None):
     send_sms_on_late_checkin(doc)
+    apply_short_leave_attendance_on_late_checkin(doc)
 
 
 def before_save(doc, method=None):
@@ -49,8 +50,8 @@ def update_processed_time(doc):
 def apply_short_leave_attendance_on_late_checkin(doc):
     if not is_first_checkin(doc) or doc.log_type != "IN":
         return
-    employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
-    grade = frappe.get_cached_doc("Employee Grade", employee.grade, for_update=False)
+    employee = frappe.get_doc("Employee", doc.employee, for_update=False)
+    grade = frappe.get_doc("Employee Grade", employee.grade, for_update=False)
 
     if (
         grade.custom_short_leave_type != "Personal"
@@ -64,9 +65,16 @@ def apply_short_leave_attendance_on_late_checkin(doc):
 
     start_time = get_datetime(shift_start_time)
     checkin_time = get_datetime(doc.time)
-    diff = checkin_time - start_time
+    diff = checkin_time - (
+        start_time
+        + (
+            get_timedelta(data.get("shift_type").get("custom_late_entry_grace_period"))
+            if data.get("shift_type").get("custom_late_entry_grace_period")
+            else get_timedelta()
+        )
+    )
 
-    if get_timedelta() < diff < grade.custom_hours_per_leave:
+    if diff > get_timedelta() and get_timedelta() < diff < grade.custom_hours_per_leave:
         try:
             short_leave = frappe.get_doc(
                 {

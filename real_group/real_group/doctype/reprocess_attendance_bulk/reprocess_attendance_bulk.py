@@ -30,8 +30,8 @@ class ReprocessAttendanceBulk(Document):
 
     def before_submit(self):
         self.validate_in_progress_attendance()
-        self.validate_attendance_request()
-        self.validate_leave_application()
+        # self.validate_attendance_request()
+        # self.validate_leave_application()
         self.validate_salary_slip()
 
     def on_submit(self):

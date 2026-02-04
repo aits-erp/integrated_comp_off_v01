@@ -475,7 +475,7 @@ def get_day_off_attendance_request_status(employee: str, target_date):
         "Attendance Request",
         filters={
             "employee": employee,
-            "docstatus": ["!=", 2],
+            "docstatus": ["=", 1],
             "from_date": ["<=", target_date],
             "to_date": [">=", target_date],
         },
@@ -752,6 +752,53 @@ def get_optional_combo_from_status(current_status):
     return status_map.get(current_status)
 
 
+@redis_cache
+def has_short_leave(employee, for_date):
+    if not employee or not for_date:
+        return False
+    try:
+        for_date = getdate(for_date)
+    except Exception:
+        return False
+    return bool(
+        frappe.db.exists(
+            "Short Leave",
+            {
+                "employee": employee,
+                "for_date": for_date,
+                "docstatus": 1,
+            },
+        )
+    )
+
+
+def _get_employee_and_date_for_short_leave(attendance_doc, checkins):
+    employee = None
+    for_date = None
+
+    if attendance_doc:
+        try:
+            employee = attendance_doc.get("employee")
+            for_date = attendance_doc.get("attendance_date")
+        except Exception:
+            employee = getattr(attendance_doc, "employee", None)
+            for_date = getattr(attendance_doc, "attendance_date", None)
+
+    if (not employee or not for_date) and checkins:
+        first = checkins[0]
+        try:
+            employee = employee or first.get("employee")
+            for_date = for_date or first.get("shift_start") or first.get("time")
+        except Exception:
+            employee = employee or getattr(first, "employee", None)
+            for_date = for_date or getattr(first, "shift_start", None) or getattr(first, "time", None)
+
+    if not employee or not for_date:
+        return None, None
+
+    return employee, getdate(for_date)
+
+
 def derive_processed_status(status_code, processed_code, attendance_doc, checkins, worked_hours, holiday_info):
     display_status = (status_code or "").strip()
     business_status = (processed_code or "").strip()
@@ -759,6 +806,13 @@ def derive_processed_status(status_code, processed_code, attendance_doc, checkin
     presence = _has_physical_presence(worked_hours, checkins)
     holiday_info = holiday_info if isinstance(holiday_info, dict) else {}
     is_day_off = bool(holiday_info.get("is_holiday"))
+
+    # If employee is present and has an approved Short Leave on the same day,
+    # show processed status as SL in reports.
+    if display_status == "P":
+        employee, for_date = _get_employee_and_date_for_short_leave(attendance_doc, checkins)
+        if employee and for_date and has_short_leave(employee, for_date):
+            return "SL"
 
     direct_map = {
         "LW": "A",

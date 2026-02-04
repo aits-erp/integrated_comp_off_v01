@@ -637,6 +637,8 @@ def get_mark_to_absent(employee, for_date):
     filters = [
         ["employee", "=", employee],
         ["attendance_date", "<", for_date],
+        ["working_hours", "is", "set"],
+        ["working_hours", "!=", "0"],
         ["attendance_date", ">=", safe_limit],
         ["status", "in", ["Present", "Work From Home", "On Duty"]],
         ["docstatus", "=", 1],

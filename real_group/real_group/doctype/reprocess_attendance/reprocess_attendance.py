@@ -52,6 +52,17 @@ class ReprocessAttendance(Document):
         # self.validate_leave_application()
 
     def on_submit(self):
+        frappe.enqueue_doc(
+            self.doctype,
+            self.name,
+            "run_process",
+            queue="long",
+            timeout=60 * 60,
+            enqueue_after_commit=True,
+            job_name=f"Reprocess Attendance: {self.name}",
+        )
+
+    def run_process(self):
         self.process_removal()
         self.reprocess()
 
@@ -182,7 +193,7 @@ class ReprocessAttendance(Document):
         self.cancel_leaves(from_date, to_date)
         self.cancel_attendance_requests(from_date, to_date)
         self.cancel_attendance(from_date, to_date)
-        frappe.db.commit()  # nosemgrep
+        # frappe.db.commit()  # nosemgrep
 
     def reprocess(self):
         frappe.flags.in_reprocess_attendance = True
@@ -220,7 +231,7 @@ class ReprocessAttendance(Document):
             attendance.save()
             attendance.add_tag("No Check in Required")
             attendance.submit()
-            frappe.db.commit()  # nosemgrep
+            # frappe.db.commit()  # nosemgrep
             start_date = add_days(start_date, 1)
 
         self.process_leave_and_requests(from_date, to_date)
@@ -298,7 +309,7 @@ class ReprocessAttendance(Document):
                     for checkin in checkins:
                         frappe.db.set_value("Employee Checkin", checkin, "attendance", attendance.name)
             attendance.add_tag("Single Check in Required")
-            frappe.db.commit()  # nosemgrep
+            # frappe.db.commit()  # nosemgrep
             start_date = add_days(start_date, 1)
         self.process_leave_and_requests(from_date, to_date)
 
@@ -321,7 +332,7 @@ class ReprocessAttendance(Document):
     def process_leave_and_requests(self, from_date, to_date):
         self.apply_attendance_requests()
         self.apply_leave_applications()
-        frappe.db.commit()  # nosemgrep
+        # frappe.db.commit()  # nosemgrep
 
         attendances = frappe.get_all(
             "Attendance",
@@ -341,7 +352,7 @@ class ReprocessAttendance(Document):
                 sandwich_attendance(doc)
             else:
                 revert_sandwich_attendance(doc)
-            frappe.db.commit()  # nosemgrep
+            # frappe.db.commit()  # nosemgrep
 
     def apply_attendance_requests(self):
         requests = self.get_cancelled_requests()

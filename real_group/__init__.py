@@ -17,12 +17,14 @@ def monkey_patch():
     import hrms.hr.doctype.leave_policy_assignment.leave_policy_assignment as lpa
 
     from real_group.overrides.leave_policy_assignment import get_earned_leaves, get_leave_type_details
+    from real_group.utils import check_effective_date
 
     lpa.get_leave_type_details = get_leave_type_details
 
     import hrms.hr.utils as hr_utils
 
     hr_utils.get_earned_leaves = get_earned_leaves
+    hr_utils.check_effective_date = check_effective_date
 
     import hrms.hr.doctype.leave_application.leave_application as la
 
