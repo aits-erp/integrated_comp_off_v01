@@ -44,8 +44,9 @@ class ReprocessAttendanceBulk(Document):
             try:
                 reprocess_attendance = frappe.get_doc("Reprocess Attendance", d)
                 reprocess_attendance.flags.from_bulk = True
-                reprocess_attendance.run_process()
                 reprocess_attendance.submit()
+                reprocess_attendance.run_process()
+                frappe.db.commit()
             except Exception:
                 frappe.log_error(
                     title=f"Error processing Reprocess Attendance {d} from Reprocess Attendance Bulk {self.name}",
