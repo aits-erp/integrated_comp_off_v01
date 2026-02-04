@@ -6,6 +6,7 @@ from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getda
 from real_group.helper.attendance_helper import create_attendance
 from real_group.utils import (
     convert_time_to_hours,
+    get_holiday_dates_for_employee,
     get_weekly_off_based_on_date,
     is_holiday_for_employee,
 )
@@ -634,12 +635,11 @@ def should_consider_holiday(employee: str, date, weekly_holiday_name=None):
 def get_mark_to_absent(employee, for_date):
     weekly_off_name = get_weekly_off_based_on_date(employee, for_date)
     safe_limit = add_days(for_date, -30)
+    holidays = get_holiday_dates_for_employee(employee, safe_limit, for_date)
     filters = [
         ["employee", "=", employee],
         ["attendance_date", "<", for_date],
-        ["working_hours", "is", "set"],
-        ["working_hours", "!=", "0"],
-        ["attendance_date", ">=", safe_limit],
+        ["attendance_date", "not in", holidays],
         ["status", "in", ["Present", "Work From Home", "On Duty"]],
         ["docstatus", "=", 1],
     ]
