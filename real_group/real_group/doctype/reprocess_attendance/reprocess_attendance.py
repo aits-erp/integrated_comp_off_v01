@@ -48,18 +48,12 @@ class ReprocessAttendance(Document):
         self.validate_pending_attendance()
         from_date, to_date = self.get_dates()
         self.validate_salary_slip(from_date, to_date)
-        # self.validate_attendance_request()
-        # self.validate_leave_application()
 
     def on_submit(self):
+        if hasattr(self.flags, "from_bulk") and self.flags.from_bulk:
+            return
         frappe.enqueue_doc(
-            self.doctype,
-            self.name,
-            "run_process",
-            queue="long",
-            timeout=60 * 60,
-            enqueue_after_commit=True,
-            job_name=f"Reprocess Attendance: {self.name}",
+            self.doctype, self.name, "run_process", queue="long", timeout=60 * 60, enqueue_after_commit=True
         )
 
     def run_process(self):

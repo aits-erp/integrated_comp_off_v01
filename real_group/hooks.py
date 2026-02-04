@@ -150,7 +150,6 @@ override_doctype_class = {
     "Leave Allocation": "real_group.overrides.leave_allocation.LeaveAllocationOverride",
     "Attendance Request": "real_group.overrides.attendance_request.AttendanceRequestOverride",
     "Employee Transfer": "real_group.overrides.employee_transfer.EmployeeTransferOverride",
-    "Attendance": "real_group.overrides.attendance.AttendanceOverride",
 }
 
 # Document Events

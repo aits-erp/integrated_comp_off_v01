@@ -137,7 +137,8 @@ class LeaveApplicationOverride(LeaveApplication):
     def cancel_attendance(self):
         if self.docstatus != 2:
             return
-
+        if getattr(frappe.flags, "in_reprocess_attendance", False):
+            return
         from frappe.utils import getdate
 
         Attendance = frappe.qb.DocType("Attendance")
