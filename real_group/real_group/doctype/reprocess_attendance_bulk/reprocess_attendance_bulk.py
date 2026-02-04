@@ -30,15 +30,29 @@ class ReprocessAttendanceBulk(Document):
 
     def before_submit(self):
         self.validate_in_progress_attendance()
-        # self.validate_attendance_request()
-        # self.validate_leave_application()
         self.validate_salary_slip()
 
     def on_submit(self):
+        frappe.enqueue_doc(
+            self.doctype, self.name, method="process", queue="long", timeout=7200, enqueue_after_commit=True
+        )
+
+    def process(self):
+        frappe.db.sql("SET SESSION innodb_lock_wait_timeout = 120")
         data = self.get_reprocess_attendance()
         for d in data:
-            reprocess_attendance = frappe.get_doc("Reprocess Attendance", d)
-            reprocess_attendance.submit()
+            try:
+                reprocess_attendance = frappe.get_doc("Reprocess Attendance", d)
+                reprocess_attendance.flags.from_bulk = True
+                reprocess_attendance.submit()
+                reprocess_attendance.run_process()
+                frappe.db.commit()
+            except Exception:
+                frappe.log_error(
+                    title=f"Error processing Reprocess Attendance {d} from Reprocess Attendance Bulk {self.name}",
+                    message=frappe.get_traceback(),
+                )
+                continue
 
     def get_reprocess_attendance(self):
         return frappe.get_all(
