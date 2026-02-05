@@ -96,7 +96,7 @@ def execute(filters=None):
             shift[date_str] = day_shift_name
             if day_shift_name:
                 shift_type = shift_map.get(day_shift_name)
-                if shift_type and shift_type.custom_shift_time and worked_hours_value:
+                if shift_type and shift_type.custom_shift_time and (worked_hours_value or 0) > 0:
                     shift_time = get_time(shift_type.custom_shift_time)
                     worked_time = get_time(timedelta(hours=worked_hours_value))
                     if holiday_info and holiday_info.get("is_holiday"):
