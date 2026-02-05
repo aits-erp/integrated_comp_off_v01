@@ -29,7 +29,7 @@ def before_cancel(doc, method=None):
             "docstatus": 1,
         },
     ):
-        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."))
+        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."), SandwichPolicyError)
 
 
 def before_delete(doc, method=None):
@@ -446,4 +446,8 @@ def validate_leave_balance(doc):
 
 
 class OverlapError(frappe.ValidationError):
+    pass
+
+
+class SandwichPolicyError(frappe.ValidationError):
     pass

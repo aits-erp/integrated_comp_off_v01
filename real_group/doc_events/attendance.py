@@ -23,7 +23,7 @@ def validate(doc, method=None):
 
 def before_cancel(doc, method=None):
     if is_salary_processed(doc):
-        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."))
+        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."), SandwichPolicyError)
 
 
 def on_cancel(doc, method=None):
@@ -479,7 +479,10 @@ def sandwich_attendance(doc):
         if attendance_name:
             existing = frappe.get_doc("Attendance", attendance_name)
             # Only override if not already marked by sandwich
-            existing.cancel()
+            try:
+                existing.cancel()
+            except SandwichPolicyError:
+                continue  # Skip if cannot cancel due to salary processed
         # Create fresh Absent
         new_attendance = frappe.get_doc(
             {
@@ -741,3 +744,7 @@ def get_mark_to_absent(employee, for_date):
         current = add_days(block_end, 1)
 
     return list(to_mark_absent)
+
+
+class SandwichPolicyError(frappe.ValidationError):
+    pass

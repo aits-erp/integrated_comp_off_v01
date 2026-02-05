@@ -16,7 +16,7 @@ def validate(doc, method=None):
 
 def before_cancel(doc, method=None):
     if is_salary_processed(doc):
-        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."))
+        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."), SandwichPolicyError)
 
 
 def before_delete(doc, method=None):
@@ -192,3 +192,7 @@ def is_salary_processed(doc):
     ):
         return True
     return False
+
+
+class SandwichPolicyError(frappe.ValidationError):
+    pass
