@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, date_diff, formatdate, get_link_to_form, getdate
 
+from real_group.doc_events.attendance import SandwichPolicyError
 from real_group.utils import is_holiday_for_employee
 
 
@@ -446,8 +447,4 @@ def validate_leave_balance(doc):
 
 
 class OverlapError(frappe.ValidationError):
-    pass
-
-
-class SandwichPolicyError(frappe.ValidationError):
     pass

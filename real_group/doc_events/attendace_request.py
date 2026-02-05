@@ -2,6 +2,8 @@ import frappe
 from frappe import _
 from frappe.utils import date_diff, get_link_to_form, getdate
 
+from real_group.doc_events.attendance import SandwichPolicyError
+
 
 def validate(doc, method=None):
     validate_zero_punch_employee(doc)
@@ -192,7 +194,3 @@ def is_salary_processed(doc):
     ):
         return True
     return False
-
-
-class SandwichPolicyError(frappe.ValidationError):
-    pass
