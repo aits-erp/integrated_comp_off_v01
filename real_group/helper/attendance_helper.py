@@ -104,6 +104,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                         "working_hours": working_hours + existing_attendance.working_hours
                         if existing_attendance.working_hours
                         else working_hours,
+                        "shift": shift if not existing_attendance.shift else existing_attendance.shift,
                         "custom_reprocess_reference": reprocess_ref,
                     }
                 )
