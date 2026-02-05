@@ -442,6 +442,7 @@ class ReprocessAttendance(Document):
         )
         for leave in leaves:
             doc = frappe.get_doc("Leave Application", leave)
+            doc.flags.ignore_links = True
             doc.cancel()
             doc.add_comment(
                 comment_type="Comment",
@@ -460,6 +461,7 @@ class ReprocessAttendance(Document):
         requests = self.get_requests(from_date, to_date)
         for request in requests:
             doc = frappe.get_doc("Attendance Request", request)
+            doc.flags.ignore_links = True
             doc.cancel()
             doc.add_comment(
                 comment_type="Comment",
