@@ -2,7 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import date_diff, get_link_to_form, getdate
 
-from real_group.doc_events.attendance import SandwichPolicyError
+from real_group.utils import SandwichPolicyError
 
 
 def validate(doc, method=None):

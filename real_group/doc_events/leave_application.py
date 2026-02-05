@@ -2,8 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, date_diff, formatdate, get_link_to_form, getdate
 
-from real_group.doc_events.attendance import SandwichPolicyError
-from real_group.utils import is_holiday_for_employee
+from real_group.utils import SandwichPolicyError, is_holiday_for_employee
 
 
 def validate(doc, method=None):

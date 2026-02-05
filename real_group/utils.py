@@ -357,3 +357,7 @@ def check_effective_date(from_date, today, frequency, allocate_on_day):
             return True
 
     return False
+
+
+class SandwichPolicyError(frappe.ValidationError):
+    pass
