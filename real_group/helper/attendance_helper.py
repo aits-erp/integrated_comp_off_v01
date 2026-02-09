@@ -355,7 +355,7 @@ def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction
             "employee": employee,
             "attendance_date": ["in", _filter_dates],
             "docstatus": 1,
-            "status": "Present",
+            "status": ["in", ["Present", "Half Day"]],
             "late_entry": 1,
         },
     )

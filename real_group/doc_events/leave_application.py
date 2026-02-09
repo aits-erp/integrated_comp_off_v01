@@ -2,7 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, date_diff, formatdate, get_link_to_form, getdate
 
-from real_group.utils import is_holiday_for_employee
+from real_group.utils import SandwichPolicyError, is_holiday_for_employee
 
 
 def validate(doc, method=None):
@@ -29,7 +29,7 @@ def before_cancel(doc, method=None):
             "docstatus": 1,
         },
     ):
-        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."))
+        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."), SandwichPolicyError)
 
 
 def before_delete(doc, method=None):

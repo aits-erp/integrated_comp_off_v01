@@ -5,6 +5,7 @@ from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getda
 
 from real_group.helper.attendance_helper import create_attendance
 from real_group.utils import (
+    SandwichPolicyError,
     convert_time_to_hours,
     get_holiday_dates_for_employee,
     get_weekly_off_based_on_date,
@@ -23,7 +24,7 @@ def validate(doc, method=None):
 
 def before_cancel(doc, method=None):
     if is_salary_processed(doc):
-        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."))
+        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."), SandwichPolicyError)
 
 
 def on_cancel(doc, method=None):
@@ -479,7 +480,10 @@ def sandwich_attendance(doc):
         if attendance_name:
             existing = frappe.get_doc("Attendance", attendance_name)
             # Only override if not already marked by sandwich
-            existing.cancel()
+            try:
+                existing.cancel()
+            except SandwichPolicyError:
+                continue  # Skip if cannot cancel due to salary processed
         # Create fresh Absent
         new_attendance = frappe.get_doc(
             {

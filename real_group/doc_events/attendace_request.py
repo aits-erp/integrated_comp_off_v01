@@ -2,6 +2,8 @@ import frappe
 from frappe import _
 from frappe.utils import date_diff, get_link_to_form, getdate
 
+from real_group.utils import SandwichPolicyError
+
 
 def validate(doc, method=None):
     validate_zero_punch_employee(doc)
@@ -16,7 +18,7 @@ def validate(doc, method=None):
 
 def before_cancel(doc, method=None):
     if is_salary_processed(doc):
-        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."))
+        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."), SandwichPolicyError)
 
 
 def before_delete(doc, method=None):
