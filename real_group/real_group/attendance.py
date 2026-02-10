@@ -21,7 +21,9 @@ def reset_attendance_log(bio_id):
 
     bio = frappe.db.sql("SELECT * from tabbioattendancelog where name = %s", bio_id)
     if bio:
-        check_ins = frappe.db.get_all("Employee Checkin", filters={"custom_bio_log_id": bio_id})
+        check_ins = frappe.db.get_all(
+            "Employee Checkin", filters={"custom_bio_log_id": bio_id}
+        )
         for check_in in check_ins:
             frappe.delete_doc("Employee Checkin", check_in.get("name"))
 
@@ -67,7 +69,13 @@ def process_attendance_from_attendance_summary_queue(employee, company):
     x = frappe.call(
         "frappe.desk.query_report.run",
         report_name="Biometric Attendance Summary To Mark Attendance",
-        filters={"company": company, "branch": "", "month": month, "year": year, "employee": employee},
+        filters={
+            "company": company,
+            "branch": "",
+            "month": month,
+            "year": year,
+            "employee": employee,
+        },
         ignore_prepared_report=True,
     )
     filtered_result = []
@@ -101,8 +109,13 @@ def process_attendance_from_attendance_summary_queue(employee, company):
         emp_grade_doc = frappe.get_doc("Employee Grade", emp_grade)
         date_of_joining = frappe.db.get_value("Employee", employee, "date_of_joining")
         if is_active == "Active":
-            if emp_grade_doc.custom_no_punch_applicable == 0 or emp_grade_doc.custom_single_punch_applicable == 0:
-                while cur_date <= frappe.utils.getdate(frappe.utils.add_to_date(frappe.utils.today(), days=-1)):
+            if (
+                emp_grade_doc.custom_no_punch_applicable == 0
+                or emp_grade_doc.custom_single_punch_applicable == 0
+            ):
+                while cur_date <= frappe.utils.getdate(
+                    frappe.utils.add_to_date(frappe.utils.today(), days=-1)
+                ):
                     holiday_sql = frappe.db.sql(
                         f"""
 						SELECT
@@ -128,7 +141,11 @@ def process_attendance_from_attendance_summary_queue(employee, company):
                     attendance_exists = frappe.db.get_all(
                         "Attendance",
                         fields=["name"],
-                        filters={"employee": employee, "attendance_date": cur_date, "docstatus": "1"},
+                        filters={
+                            "employee": employee,
+                            "attendance_date": cur_date,
+                            "docstatus": "1",
+                        },
                     )
                     if attendance_exists:
                         frappe.log_error("pass", employee)
@@ -146,9 +163,13 @@ def process_attendance_from_attendance_summary_queue(employee, company):
                             )
                             frappe.db.commit()
                         if not holiday_sql:
-                            if date_of_joining <= frappe.utils.getdate(cur_date) and frappe.utils.getdate(
+                            if date_of_joining <= frappe.utils.getdate(
                                 cur_date
-                            ) <= frappe.utils.getdate(frappe.utils.add_to_date(frappe.utils.today(), days=-1)):
+                            ) and frappe.utils.getdate(
+                                cur_date
+                            ) <= frappe.utils.getdate(
+                                frappe.utils.add_to_date(frappe.utils.today(), days=-1)
+                            ):
                                 attendance = frappe.new_doc("Attendance")
                                 try:
                                     attendance.update(
@@ -172,9 +193,13 @@ def process_attendance_from_attendance_summary_queue(employee, company):
                     else:
                         frappe.log_error("pass1", employee)
                         if not holiday_sql:
-                            if date_of_joining <= frappe.utils.getdate(cur_date) and frappe.utils.getdate(
+                            if date_of_joining <= frappe.utils.getdate(
                                 cur_date
-                            ) <= frappe.utils.getdate(frappe.utils.add_to_date(frappe.utils.today(), days=-1)):
+                            ) and frappe.utils.getdate(
+                                cur_date
+                            ) <= frappe.utils.getdate(
+                                frappe.utils.add_to_date(frappe.utils.today(), days=-1)
+                            ):
                                 attendance = frappe.new_doc("Attendance")
                                 try:
                                     attendance.update(
@@ -198,14 +223,19 @@ def process_attendance_from_attendance_summary_queue(employee, company):
                     cur_date = frappe.utils.add_to_date(cur_date, days=1)
     else:
         for i in x.get("result"):
-            frappe.log_error(f"attendance marking {i.get('employee')}", i.get("employee"))
+            frappe.log_error(
+                f"attendance marking {i.get('employee')}", i.get("employee")
+            )
             employee_code = i.get("employee")
             if employee_code in all_emp_list and employee_code not in emp_filter:
                 emp_filter.add(employee_code)
             i["attendance_date"] = str(i.get("date"))
             if i["in_time"] is None and i["out_time"] is None:
                 continue
-            elif i.get("attendance") == "Missing In and Out" or i.get("attendance") == "Not Present":
+            elif (
+                i.get("attendance") == "Missing In and Out"
+                or i.get("attendance") == "Not Present"
+            ):
                 continue
             elif i.get("attendance") == "" or i.get("attendance") is None:
                 continue
@@ -232,16 +262,27 @@ def process_attendance_from_attendance_summary_queue(employee, company):
 
             current_date = start_date
             while current_date <= end_date:
-                missing_dates.append({"attendance_date": str(current_date), "attendance": "Absent", "employee": key})
+                missing_dates.append(
+                    {
+                        "attendance_date": str(current_date),
+                        "attendance": "Absent",
+                        "employee": key,
+                    }
+                )
                 current_date += frappe.utils.get_timedelta("24:00:00")
 
             # Merge missing dates with filtered result for the current employee
-            merged_dict = {item["attendance_date"]: item for item in missing_dates + inner_filtered_result}
+            merged_dict = {
+                item["attendance_date"]: item
+                for item in missing_dates + inner_filtered_result
+            }
 
             merged_list = list(merged_dict.values())
             mark_till = t_date
             for r in merged_list:
-                cross_days = frappe.db.get_value("Shift Type", r.get("shift"), "custom_end_across_days")
+                cross_days = frappe.db.get_value(
+                    "Shift Type", r.get("shift"), "custom_end_across_days"
+                )
                 if cross_days == 0:
                     mark_till = t_date
                 if cross_days == 1:
@@ -275,14 +316,23 @@ def process_attendance_from_attendance_summary_queue(employee, company):
                     # attendance_tag = "l"
                 attendance_date = r.get("attendance_date")
 
-                if holiday_sql and r.get("attendance") in ("Present", "Half Day", "Absent"):
+                if holiday_sql and r.get("attendance") in (
+                    "Present",
+                    "Half Day",
+                    "Absent",
+                ):
                     if holiday_sql[0].weekly_off == 1:
                         attendance_tag = "POW"
 
                     if holiday_sql[0].weekly_off == 0:
                         attendance_tag = "POH"
 
-                if r.get("attendance") in ("Absent", "Missing In", "Missing Out", "Invalid Punch"):
+                if r.get("attendance") in (
+                    "Absent",
+                    "Missing In",
+                    "Missing Out",
+                    "Invalid Punch",
+                ):
                     mark_attendance = "Absent"
                     attendance_tag = ""
 
@@ -291,7 +341,9 @@ def process_attendance_from_attendance_summary_queue(employee, company):
                     if r.get("attendance") in ("Half Day"):
                         half_type = "First Half"
                         shift = frappe.get_doc("Shift Type", r.get("shift"))
-                        half_day_time = shift.start_time + shift.custom_half_day_threshold
+                        half_day_time = (
+                            shift.start_time + shift.custom_half_day_threshold
+                        )
 
                         if r.get("in_time") > half_day_time:
                             half_type = "Second Half"
@@ -324,9 +376,12 @@ def process_attendance_from_attendance_summary_queue(employee, company):
                     )
                 if not attendance_exists:
                     if not holiday_sql or (
-                        mark_attendance in ("Half Day", "Present") and attendance_tag not in ("POH", "POW")
+                        mark_attendance in ("Half Day", "Present")
+                        and attendance_tag not in ("POH", "POW")
                     ):
-                        if frappe.utils.getdate(attendance_date) <= frappe.utils.getdate(mark_till):
+                        if frappe.utils.getdate(
+                            attendance_date
+                        ) <= frappe.utils.getdate(mark_till):
                             attendance = frappe.new_doc("Attendance")
                             try:
                                 attendance.update(
@@ -339,8 +394,12 @@ def process_attendance_from_attendance_summary_queue(employee, company):
                                         "custom_half_type": half_type,
                                         "custom_reason": r.get("attendance"),
                                         "shift": r.get("shift"),
-                                        "late_entry": 1 if r.get("late_entry") == "Yes" else 0,
-                                        "early_exit": 1 if r.get("early_exit") == "Yes" else 0,
+                                        "late_entry": (
+                                            1 if r.get("late_entry") == "Yes" else 0
+                                        ),
+                                        "early_exit": (
+                                            1 if r.get("early_exit") == "Yes" else 0
+                                        ),
                                     }
                                 ).save()
                                 attendance.submit()
@@ -386,7 +445,13 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
     x = frappe.call(
         "frappe.desk.query_report.run",
         report_name="Biometric Attendance Summary To Mark Attendance",
-        filters={"company": company, "branch": "", "month": month, "year": year, "employee": employee},
+        filters={
+            "company": company,
+            "branch": "",
+            "month": month,
+            "year": year,
+            "employee": employee,
+        },
         ignore_prepared_report=True,
     )
     filtered_result = []
@@ -420,13 +485,24 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
         emp_grade_doc = frappe.get_doc("Employee Grade", emp_grade)
         date_of_joining = frappe.db.get_value("Employee", employee, "date_of_joining")
         if is_active == "Active":
-            if emp_grade_doc.custom_no_punch_applicable == 0 or emp_grade_doc.custom_single_punch_applicable == 0:
-                while cur_date <= frappe.utils.getdate(frappe.utils.add_to_date(frappe.utils.today(), days=-2)):
-                    frappe.log_error(f"attendance marking {employee}{cur_date}", employee)
+            if (
+                emp_grade_doc.custom_no_punch_applicable == 0
+                or emp_grade_doc.custom_single_punch_applicable == 0
+            ):
+                while cur_date <= frappe.utils.getdate(
+                    frappe.utils.add_to_date(frappe.utils.today(), days=-2)
+                ):
+                    frappe.log_error(
+                        f"attendance marking {employee}{cur_date}", employee
+                    )
                     attendance_exists = frappe.db.get_all(
                         "Attendance",
                         fields=["name"],
-                        filters={"employee": employee, "attendance_date": cur_date, "docstatus": "1"},
+                        filters={
+                            "employee": employee,
+                            "attendance_date": cur_date,
+                            "docstatus": "1",
+                        },
                     )
                     holiday_sql = frappe.db.sql(
                         f"""
@@ -451,9 +527,13 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
                     # 	att.delete()
                     if not attendance_exists:
                         if not holiday_sql:
-                            if date_of_joining <= frappe.utils.getdate(cur_date) and frappe.utils.getdate(
+                            if date_of_joining <= frappe.utils.getdate(
                                 cur_date
-                            ) <= frappe.utils.getdate(frappe.utils.add_to_date(frappe.utils.today(), days=-2)):
+                            ) and frappe.utils.getdate(
+                                cur_date
+                            ) <= frappe.utils.getdate(
+                                frappe.utils.add_to_date(frappe.utils.today(), days=-2)
+                            ):
                                 attendance = frappe.new_doc("Attendance")
                                 try:
                                     attendance.update(
@@ -477,14 +557,19 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
                     cur_date = frappe.utils.add_to_date(cur_date, days=1)
     else:
         for i in x.get("result"):
-            frappe.log_error(f"attendance marking {i.get('employee')}", i.get("employee"))
+            frappe.log_error(
+                f"attendance marking {i.get('employee')}", i.get("employee")
+            )
             employee_code = i.get("employee")
             if employee_code in all_emp_list and employee_code not in emp_filter:
                 emp_filter.add(employee_code)
             i["attendance_date"] = str(i.get("date"))
             if i["in_time"] is None and i["out_time"] is None:
                 continue
-            elif i.get("attendance") == "Missing In and Out" or i.get("attendance") == "Not Present":
+            elif (
+                i.get("attendance") == "Missing In and Out"
+                or i.get("attendance") == "Not Present"
+            ):
                 continue
             elif i.get("attendance") == "" or i.get("attendance") is None:
                 continue
@@ -511,11 +596,20 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
 
             current_date = start_date
             while current_date <= end_date:
-                missing_dates.append({"attendance_date": str(current_date), "attendance": "Absent", "employee": key})
+                missing_dates.append(
+                    {
+                        "attendance_date": str(current_date),
+                        "attendance": "Absent",
+                        "employee": key,
+                    }
+                )
                 current_date += frappe.utils.get_timedelta("24:00:00")
 
             # Merge missing dates with filtered result for the current employee
-            merged_dict = {item["attendance_date"]: item for item in missing_dates + inner_filtered_result}
+            merged_dict = {
+                item["attendance_date"]: item
+                for item in missing_dates + inner_filtered_result
+            }
 
             merged_list = list(merged_dict.values())
             mark_till = t_date  # noqa: F841
@@ -548,14 +642,23 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
                     # attendance_tag = "l"
                 attendance_date = r.get("attendance_date")
 
-                if holiday_sql and r.get("attendance") in ("Present", "Half Day", "Absent"):
+                if holiday_sql and r.get("attendance") in (
+                    "Present",
+                    "Half Day",
+                    "Absent",
+                ):
                     if holiday_sql[0].weekly_off == 1:
                         attendance_tag = "POW"
 
                     if holiday_sql[0].weekly_off == 0:
                         attendance_tag = "POH"
 
-                if r.get("attendance") in ("Absent", "Missing In", "Missing Out", "Invalid Punch"):
+                if r.get("attendance") in (
+                    "Absent",
+                    "Missing In",
+                    "Missing Out",
+                    "Invalid Punch",
+                ):
                     mark_attendance = "Absent"
                     attendance_tag = ""
 
@@ -564,7 +667,9 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
                     if r.get("attendance") in ("Half Day"):
                         half_type = "First Half"
                         shift = frappe.get_doc("Shift Type", r.get("shift"))
-                        half_day_time = shift.start_time + shift.custom_half_day_threshold
+                        half_day_time = (
+                            shift.start_time + shift.custom_half_day_threshold
+                        )
 
                         if r.get("in_time") > half_day_time:
                             half_type = "Second Half"
@@ -584,9 +689,12 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
                 # 	att.delete()
                 if not attendance_exists:
                     if not holiday_sql or (
-                        mark_attendance in ("Half Day", "Present") and attendance_tag not in ("POH", "POW")
+                        mark_attendance in ("Half Day", "Present")
+                        and attendance_tag not in ("POH", "POW")
                     ):
-                        if frappe.utils.getdate(attendance_date) <= frappe.utils.getdate(
+                        if frappe.utils.getdate(
+                            attendance_date
+                        ) <= frappe.utils.getdate(
                             frappe.utils.add_to_date(frappe.utils.getdate(), days=-2)
                         ):
                             attendance = frappe.new_doc("Attendance")
@@ -601,8 +709,12 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
                                         "custom_half_type": half_type,
                                         "custom_reason": r.get("attendance"),
                                         "shift": r.get("shift"),
-                                        "late_entry": 1 if r.get("late_entry") == "Yes" else 0,
-                                        "early_exit": 1 if r.get("early_exit") == "Yes" else 0,
+                                        "late_entry": (
+                                            1 if r.get("late_entry") == "Yes" else 0
+                                        ),
+                                        "early_exit": (
+                                            1 if r.get("early_exit") == "Yes" else 0
+                                        ),
                                     }
                                 ).save()
                                 attendance.submit()
@@ -633,16 +745,24 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
 
 def terminate_leave_allocation_on_expiry():
     today = frappe.utils.add_to_date(frappe.utils.getdate(), days=-1)
-    comp_lv_req = frappe.db.get_all("Compensatory Leave Request", filters={"expiry": today, "docstatus": 1})
+    comp_lv_req = frappe.db.get_all(
+        "Compensatory Leave Request", filters={"expiry": today, "docstatus": 1}
+    )
     print(comp_lv_req)
     if comp_lv_req:
         for count in comp_lv_req:
             comp_leave = frappe.get_doc("Compensatory Leave Request", count.get("name"))
             allocated_leave_list = frappe.db.get_all(
-                "Leave Allocation", filters={"leave_type": "Compensatory Off", "employee": comp_leave.employee}
+                "Leave Allocation",
+                filters={
+                    "leave_type": "Compensatory Off",
+                    "employee": comp_leave.employee,
+                },
             )
             if allocated_leave_list:
-                al = frappe.get_doc("Leave Allocation", allocated_leave_list[0].get("name"))
+                al = frappe.get_doc(
+                    "Leave Allocation", allocated_leave_list[0].get("name")
+                )
                 leave_balance = get_leave_balance_on(
                     comp_leave.employee,
                     comp_leave.leave_type,
@@ -652,11 +772,22 @@ def terminate_leave_allocation_on_expiry():
                     for_consumption=True,
                 )
                 difference = al.new_leaves_allocated - comp_leave.credit
-                if difference >= (leave_balance.get("leave_balance") - comp_leave.credit):
+                if difference >= (
+                    leave_balance.get("leave_balance") - comp_leave.credit
+                ):
                     try:
-                        al.new_leaves_allocated = al.new_leaves_allocated - comp_leave.credit
-                        al.total_leaves_allocated = al.total_leaves_allocated - comp_leave.credit
+                        al.new_leaves_allocated = (
+                            al.new_leaves_allocated - comp_leave.credit
+                        )
+                        al.total_leaves_allocated = (
+                            al.total_leaves_allocated - comp_leave.credit
+                        )
                         al.save()
-                        frappe.db.set_value("Compensatory Leave Request", comp_leave.name, "custom_is_expired", 1)
+                        frappe.db.set_value(
+                            "Compensatory Leave Request",
+                            comp_leave.name,
+                            "custom_is_expired",
+                            1,
+                        )
                     except Exception as e:
                         frappe.log_error("terminate_leave_allocation_on_expiry", e)

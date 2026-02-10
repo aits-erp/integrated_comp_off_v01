@@ -926,7 +926,7 @@ def create_salary_slip(doc, method):
             else:  # else direct insert new salary slip
                 bonus_tran = ""
                 if doc.custom_bonus_amount != 0:
-                    series = get_next_series_no(doc.doctype, doc.company, doc.posting_date, cur)
+                    series = get_next_series_no(doc.doctype, doc.company, doc.posting_date, con, cur)
 
                     frappe.db.set_value("Salary Slip", doc.name, "custom_erp_vrno", series)
 
@@ -1096,14 +1096,14 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 			UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month,
 			ss.modified,
 			sd.parentfield,
-			CASE
+			CASE 
 				WHEN sd.parentfield = 'earnings' THEN CONCAT('E', sd.idx)
 				WHEN sd.parentfield = 'deductions' THEN CONCAT('D', sd.idx)
 				ELSE sd.idx
 			END AS afno,
 			(SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1) AS afcode,
 			LEFT(UPPER(sd.salary_component), 15) AS afhead,
-			CASE
+			CASE 
 				WHEN sd.custom_erp_rate_indicator = 'D' AND sd.salary_component = 'Labour Welfare Fund' THEN ss_sd.amount
 				WHEN sd.custom_erp_rate_indicator IN ('L', 'D', 'R') AND sd.salary_component != 'Labour Welfare Fund' THEN sd.amount
 				WHEN sd.custom_erp_rate_indicator IN ('P', 'Q', 'C', 'F') THEN sd.custom_erp_rate
@@ -1116,7 +1116,7 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 			(SELECT username FROM `tabUser` WHERE name = ss.owner) AS user_code,
 			IFNULL(SUM(ss_sd.amount), 0) AS afield,
 			-- sd.amount AS actuals,
-			CASE
+			CASE 
 				WHEN sd.custom_erp_rate_indicator = 'D' AND sd.salary_component = 'Labour Welfare Fund' THEN ss_sd.amount
 				WHEN sd.custom_erp_rate_indicator IN ('L', 'D', 'R') AND sd.salary_component != 'Labour Welfare Fund' THEN sd.amount
 				WHEN sd.custom_erp_rate_indicator IN ('P', 'Q', 'C', 'F') THEN ss_sd.amount
@@ -1136,15 +1136,22 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
         as_dict=1,
     )
 
+    # frappe.log_error("Wait", salary_slips)
+    # frappe.throw("Wait")
+
     if not salary_slips:
         return None
 
     # update Provident fund actuals
-    basic_actuals = next((item["actuals"] or 0 for item in salary_slips if item["afhead"] == "BASIC"), 0)
+    basic_actuals = next(
+        (item["actuals"] or 0 for item in salary_slips if item["afhead"] == "BASIC"), 0
+    )
     pf_expected = round(basic_actuals * 0.12, 0)
 
     # update ESIC actuals
-    esic_actuals_sum = sum((item["actuals"] or 0) for item in salary_slips if item["afno"].startswith("E"))
+    esic_actuals_sum = sum(
+        (item["actuals"] or 0) for item in salary_slips if item["afno"].startswith("E")
+    )
     esic_base = round(esic_actuals_sum * 0.0075, 0)
 
     for item in salary_slips:
@@ -1177,10 +1184,14 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 
                 else:
                     if "from_date" in value:
-                        values.append(f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
+                        values.append(
+                            f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')"
+                        )
                     elif "modified" in value:
                         value_to_insert = str(value_to_insert).split(".")
-                        values.append(f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+                        values.append(
+                            f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')"
+                        )
                     elif "afrate" in value:
                         values.append(value_to_insert)
                     else:
@@ -1188,7 +1199,7 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 
         formatted_values = []
         for elem in values:
-            if isinstance(elem, int) or isinstance(elem, float):
+            if type(elem) == int or type(elem) == float:
                 formatted_values.append(f"{float(elem)}")
             else:
                 elem_str = str(elem)
@@ -1199,9 +1210,9 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
 
         sql = f"""
 			INSERT INTO {table_name}
-				({",".join([str(elem) for elem in keys])})
+				({','.join([str(elem) for elem in keys])})
 			VALUES
-				({",".join(formatted_values)})
+				({','.join(formatted_values)})
 		"""
 
         sql_queries.append(sql)
@@ -1226,7 +1237,7 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 			UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month,
 			ss.modified,
 			sd.parentfield,
-			CASE
+			CASE 
 				WHEN sd.parentfield = 'earnings' THEN CONCAT('E', sd.idx)
 				WHEN sd.parentfield = 'deductions' THEN CONCAT('D', sd.idx)
 				ELSE sd.idx
@@ -1234,7 +1245,7 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 			(SELECT custom_erp_code FROM `tabSalary Component` WHERE name = sd.salary_component LIMIT 1) AS afcode,
 			LEFT(UPPER(sd.salary_component), 15) AS afhead,
 			-- sd.custom_erp_rate AS afrate,
-			CASE
+			CASE 
 				WHEN sd.custom_erp_rate_indicator = 'D' AND sd.salary_component = 'Labour Welfare Fund' THEN ss_sd.amount
 				WHEN sd.custom_erp_rate_indicator IN ('L', 'D', 'R') AND sd.salary_component != 'Labour Welfare Fund' THEN sd.amount
 				WHEN sd.custom_erp_rate_indicator IN ('P', 'Q', 'C', 'F') THEN sd.custom_erp_rate
@@ -1248,7 +1259,7 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 			IFNULL(SUM(ss_sd.amount), 0) AS afield,
 			-- IFNULL(SUM(ss_sd.amount), 0) AS actuals,
 			-- sd.amount AS actuals
-			CASE
+			CASE 
 				WHEN sd.custom_erp_rate_indicator = 'D' AND sd.salary_component = 'Labour Welfare Fund' THEN ss_sd.amount
 				WHEN sd.custom_erp_rate_indicator IN ('L', 'D', 'R') AND sd.salary_component != 'Labour Welfare Fund' THEN sd.amount
 				WHEN sd.custom_erp_rate_indicator IN ('P', 'Q', 'C', 'F') THEN ss_sd.amount
@@ -1268,15 +1279,22 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
         as_dict=1,
     )
 
+   # frappe.log_error("Wait Update", salary_slips)
+    # frappe.throw("salary_slips")
+
     if not salary_slips:
         return None
 
     # update Provident fund actuals
-    basic_actuals = next((item["actuals"] or 0 for item in salary_slips if item["afhead"] == "BASIC"), 0)
+    basic_actuals = next(
+        (item["actuals"] or 0 for item in salary_slips if item["afhead"] == "BASIC"), 0
+    )
     pf_expected = round(basic_actuals * 0.12, 0)
 
     # update ESIC actuals
-    esic_actuals_sum = sum((item["actuals"] or 0) for item in salary_slips if item["afno"].startswith("E"))
+    esic_actuals_sum = sum(
+        (item["actuals"] or 0) for item in salary_slips if item["afno"].startswith("E")
+    )
     esic_base = round(esic_actuals_sum * 0.0075, 0)
 
     for item in salary_slips:
@@ -1313,10 +1331,14 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 
                     else:
                         if "from_date" in value:
-                            sets.append(f"{key} = TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
+                            sets.append(
+                                f"{key} = TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')"
+                            )
                         elif "modified" in value:
                             value_to_insert = str(value_to_insert).split(".")
-                            sets.append(f"{key} = TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+                            sets.append(
+                                f"{key} = TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')"
+                            )
                         elif "afrate" in value:
                             sets.append(f"{key} = {value_to_insert}")
                         else:
@@ -1324,8 +1346,8 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 
         sql = f"""
 			UPDATE {table_name}
-			SET {",".join([str(elem) for elem in sets])}
-			WHERE {" AND ".join([str(elem) for elem in conditions])}
+			SET {','.join([str(elem) for elem in sets])}
+			WHERE {' AND '.join([str(elem) for elem in conditions])}
 		"""
 
         sql_queries.append(sql)
@@ -2046,63 +2068,65 @@ def employee_rate_master(emp_code, company):
     return msg
 
 
-def get_next_series_no(doctype, company, date, cur):
+def get_next_series_no(doctype, company, date, con, cur):
     erp_series = frappe.get_doc("ERP Series Master", {"document_type": doctype, "company": company})
-    if erp_series:
-        fy = frappe.db.sql(
-            f"SELECT name FROM `tabFiscal Year` WHERE '{date}' BETWEEN year_start_date AND year_end_date", as_dict=1
-        )
-        # frappe.throw(str(fy))
-        if fy:
-            fiscal_year = fy[0].name[2:4]
-        else:
-            frappe.throw("Fiscal Year Not defined for the Bonus Transaction Date")
-
-        base_series = f"{erp_series.series_prefix}"
-        if erp_series.formatter == "YYY":
-            actual_base_series = f"{base_series}{fiscal_year}Y-"
-            entity_code = frappe.db.get_value("Company", company, "custom_erp_code")
-
-            result_series_count = cur.fetchall()
-            if len(result_series_count) > 0:
-                count = result_series_count[0][0]
-                next_series = f"{actual_base_series}{str(count + 1).zfill(5)}"
-                update_series = f"UPDATE RIPLRR.VRSEQ_MAST SET LASTVRNO = '{int(count) + 1}' WHERE ENTITY_CODE = '{entity_code}' AND VRPREFIX = '{erp_series.tcode}{actual_base_series}')"
-                cur.execute(update_series)
-            else:
-                insert_new_series = f"INSERT INTO RIPLRR.VRSEQ_MAST (LASTVRNO, ENTITY_CODE, VRPREFIX) VALUES (1, '{entity_code}','{erp_series.tcode}{actual_base_series}')"
-                cur.execute(insert_new_series)
-                # con.commit()
-                next_series = f"{actual_base_series}{'1'.zfill(5)}"
-
-        elif erp_series.formatter == "YYM":
-            dt = datetime.strptime(str(date), "%Y-%m-%d")
-            if dt.month in [10, 11, 12]:
-                month_abbr = ["O", "N", "D"][dt.month - 10]
-            else:
-                month_abbr = str(dt.month)
-            actual_base_series = f"{base_series}{fiscal_year}{month_abbr}-"
-            entity_code = frappe.db.get_value("Company", company, "custom_erp_code")
-
-            result_series_count = cur.fetchall()
-            if len(result_series_count) > 0:
-                count = result_series_count[0][0]
-                next_series = f"{actual_base_series}{int(count) + 1}"
-                update_series = f"UPDATE RIPLRR.VRSEQ_MAST SET LASTVRNO = '{int(count) + 1}' WHERE ENTITY_CODE = '{entity_code}' AND VRPREFIX = '{erp_series.tcode}{actual_base_series}'"
-
-                cur.execute(update_series)
-            else:
-                insert_new_series = f"INSERT INTO RIPLRR.VRSEQ_MAST (LASTVRNO, ENTITY_CODE, VRPREFIX) VALUES (1, '{entity_code}','{erp_series.tcode}{actual_base_series}')"
-
-                cur.execute(insert_new_series)
-
-                next_series = f"{actual_base_series}1"
-        else:
-            frappe.throw("Formatter Not Found for ERP Series Master")
-
-        return next_series
-    else:
+    if not erp_series:
         frappe.throw("ERP Series Master Not Defined")
+
+    fy = frappe.db.sql(
+        f"SELECT name FROM `tabFiscal Year` WHERE '{date}' BETWEEN year_start_date AND year_end_date",
+        as_dict=1,
+    )
+    if not fy:
+        frappe.throw("Fiscal Year Not defined for the Bonus Transaction Date")
+
+    fiscal_year = fy[0].name[2:4]
+    base_series = f"{erp_series.series_prefix}"
+    entity_code = frappe.db.get_value("Company", company, "custom_erp_code")
+
+    if erp_series.formatter == "YYY":
+        actual_base_series = f"{base_series}{fiscal_year}Y-"
+        formatted_vrno = True
+    elif erp_series.formatter == "YYM":
+        dt = datetime.strptime(str(date), "%Y-%m-%d")
+        month_abbr = ["O", "N", "D"][dt.month - 10] if dt.month in (10, 11, 12) else str(dt.month)
+        actual_base_series = f"{base_series}{fiscal_year}{month_abbr}-"
+        formatted_vrno = False
+    else:
+        frappe.throw("Formatter Not Found for ERP Series Master")
+
+    vrprefix = f"{erp_series.tcode}{actual_base_series}"
+
+    try:
+        cur.execute(
+            "SELECT LASTVRNO FROM RIPLRR.VRSEQ_MAST WHERE ENTITY_CODE=:1 AND VRPREFIX=:2 FOR UPDATE",
+            (entity_code, vrprefix),
+        )
+        row = cur.fetchone()
+
+        if row:
+            count = int(row[0] or 0)
+            new_count = count + 1
+            cur.execute(
+                "UPDATE RIPLRR.VRSEQ_MAST SET LASTVRNO=:1 WHERE ENTITY_CODE=:2 AND VRPREFIX=:3",
+                (new_count, entity_code, vrprefix),
+            )
+        else:
+            new_count = 1
+            cur.execute(
+                "INSERT INTO RIPLRR.VRSEQ_MAST (LASTVRNO, ENTITY_CODE, VRPREFIX) VALUES (:1, :2, :3)",
+                (new_count, entity_code, vrprefix),
+            )
+
+        con.commit()  # release lock immediately
+    except Exception:
+        con.rollback()
+        raise
+
+    if formatted_vrno:
+        return f"{actual_base_series}{str(new_count).zfill(5)}"
+    return f"{actual_base_series}{new_count}"
+
 
 
 def generate_insert_statements(salary_structure, emp_code, from_date):
