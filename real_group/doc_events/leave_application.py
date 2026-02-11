@@ -113,20 +113,50 @@ def validate_cross_month_leave(doc):
 
 
 def validate_cl(doc):
-    leave_type = doc.leave_type
-    is_based_on_working_days = frappe.db.get_value(
-        "Leave Type", leave_type, "custom_restrict_leave_adjacent_to_holiday"
-    )
-    if is_based_on_working_days:
-        prev_day = add_days(doc.from_date, -1)
-        next_day = add_days(doc.to_date, 1)
+    from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
 
-        if is_holiday_for_employee(doc.employee, prev_day) or is_holiday_for_employee(doc.employee, next_day):
-            frappe.throw(
-                frappe._(
-                    "Casual Leave cannot be applied before or after a holiday or weekly off. Please adjust your leave dates."
-                )
+    leave_type = doc.leave_type
+    is_restrict_adjacent_holiday_enabled = cint(
+        frappe.db.get_value(
+        "Leave Type", leave_type, "custom_restrict_leave_adjacent_to_holiday"
+        )
+    )
+    if not is_restrict_adjacent_holiday_enabled:
+        return
+
+    prev_day = add_days(doc.from_date, -1)
+    next_day = add_days(doc.to_date, 1)
+
+    prev_day_info = is_holiday_for_employee(doc.employee, prev_day) or {}
+    next_day_info = is_holiday_for_employee(doc.employee, next_day) or {}
+    helper_holiday_block = (prev_day_info and not prev_day_info.get("is_weekly_off")) or (
+        next_day_info and not next_day_info.get("is_weekly_off")
+    )
+
+    holiday_lists = {
+        frappe.db.get_value("Employee", doc.employee, "holiday_list"),
+        get_holiday_list_for_employee(doc.employee),
+    }
+    holiday_lists = [d for d in holiday_lists if d]
+
+    db_holiday_block = False
+    if holiday_lists:
+        db_holiday_block = bool(
+            frappe.db.exists(
+                "Holiday",
+                {
+                    "parent": ["in", holiday_lists],
+                    "holiday_date": ["in", [getdate(prev_day), getdate(next_day)]],
+                    "parenttype": "Holiday List",
+                    "parentfield": "holidays",
+                },
             )
+        )
+
+    if helper_holiday_block or db_holiday_block:
+        frappe.throw(
+            frappe._("Casual Leave cannot be applied before or after a holiday. Please adjust your leave dates.")
+        )
 
 
 def validate_el_and_cl(doc):
