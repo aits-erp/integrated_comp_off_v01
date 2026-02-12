@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime
 
 import cx_Oracle
@@ -19,7 +20,10 @@ from real_group.real_group.employee_map import (
 
 def oracle_connection(company):
     oracle_dtl = frappe.db.get_value(
-        "Oracle Credentials", {"company": company}, ["name", "host", "database", "username"], as_dict=1
+        "Oracle Credentials",
+        {"company": company},
+        ["name", "host", "database", "username"],
+        as_dict=1,
     )
     if oracle_dtl:
         oc = frappe.get_doc("Oracle Credentials", oracle_dtl.name)
@@ -35,13 +39,23 @@ def oracle_connection(company):
         if not ORACLE_DSN:
             frappe.throw("Oracle DNS Missing in Real Group Settings")
 
-        try:
-            con = cx_Oracle.connect(user=ORACLE_USER, password=ORACLE_PASSWORD, dsn=ORACLE_DSN)
-            return con
-        except cx_Oracle.DatabaseError as er:
-            frappe.log_error(title="Oracle Connection Error", message=er)
+        last_error = None
+        for _ in range(3):
+            try:
+                con = cx_Oracle.connect(
+                    user=ORACLE_USER, password=ORACLE_PASSWORD, dsn=ORACLE_DSN
+                )
+                return con
+            except cx_Oracle.DatabaseError as er:
+                last_error = er
+                time.sleep(0.5)
+
+        if last_error:
+            frappe.log_error(title="Oracle Connection Error", message=last_error)
             return None
-            # frappe.throw('Oracle Connection Error:', str(er))
+
+        return None
+        # frappe.throw('Oracle Connection Error:', str(er))
     else:
         frappe.log_error("Company not allowed to insert in ERP")
         return None
@@ -258,7 +272,9 @@ def get_insert_query(map, table_name, employee_code):
                     values.append(f"TO_DATE('{value_to_insert}', 'YYYY-MM-DD')")
                 elif "modified" in value:
                     value_to_insert = str(value_to_insert).split(".")
-                    values.append(f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+                    values.append(
+                        f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')"
+                    )
                 else:
                     values.append(f"{value_to_insert}")
 
@@ -355,10 +371,14 @@ def get_update_query(map, table_name, employee_code):
                 if value == "name":
                     continue  # Skip to the next iteration if 'name' is found in value
                 elif "date" in value:
-                    set_clauses.append(f"{key} = TO_DATE('{value_to_update}', 'YYYY-MM-DD')")
+                    set_clauses.append(
+                        f"{key} = TO_DATE('{value_to_update}', 'YYYY-MM-DD')"
+                    )
                 elif "modified" in value:
                     value_to_update = str(value_to_update).split(".")
-                    set_clauses.append(f"{key} = TO_DATE('{value_to_update[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+                    set_clauses.append(
+                        f"{key} = TO_DATE('{value_to_update[0]}', 'YYYY-MM-DD HH24:MI:SS')"
+                    )
                 else:
                     set_clauses.append(f"{key} = '{value_to_update}'")
 
@@ -491,7 +511,12 @@ def create_user(doc, method):
 
             branch = frappe.db.get_value("Employee", doc.username, "branch")
             user_perm = frappe.get_doc(
-                dict(doctype="User Permission", user=doc.username, allow="Branch", for_value=branch)
+                dict(
+                    doctype="User Permission",
+                    user=doc.username,
+                    allow="Branch",
+                    for_value=branch,
+                )
             )
             user_perm.insert(ignore_permissions=True)
             user_perm.save(ignore_permissions=True)
@@ -502,12 +527,16 @@ def create_user(doc, method):
             today = doc.creation.split(" ")[0]
             if result:
                 # frappe.throw(f"User ID {emp_code} present in oracle, clean it first!!")
-                sql = get_user_update_query(UPDATE_USER_MAP, "RIPLRR.USER_MAST", doc.name, today)
+                sql = get_user_update_query(
+                    UPDATE_USER_MAP, "RIPLRR.USER_MAST", doc.name, today
+                )
                 frappe.log_error(title="User Update Query", message=sql)
                 cur.execute(sql)
 
             else:
-                sql = get_user_insert_query(USER_MAP, "RIPLRR.USER_MAST", doc.name, today)
+                sql = get_user_insert_query(
+                    USER_MAP, "RIPLRR.USER_MAST", doc.name, today
+                )
 
                 cur.execute(sql)
             con.commit()  # -----------------Database commit value
@@ -547,11 +576,15 @@ def update_user(doc, method):
             result = cur.fetchall()
             today = str(doc.creation).split(" ")[0]
             if result:
-                sql = get_user_update_query(UPDATE_USER_MAP, "RIPLRR.USER_MAST", doc.name, today)
+                sql = get_user_update_query(
+                    UPDATE_USER_MAP, "RIPLRR.USER_MAST", doc.name, today
+                )
                 cur.execute(sql)
 
             else:
-                sql = get_user_insert_query(USER_MAP, "RIPLRR.USER_MAST", doc.name, today)
+                sql = get_user_insert_query(
+                    USER_MAP, "RIPLRR.USER_MAST", doc.name, today
+                )
                 cur.execute(sql)
 
             con.commit()  # -----------------Database commit value
@@ -579,7 +612,8 @@ def get_user_insert_query(map, table_name, user_code, today):
     # today = doc.creation.split(' ')[0]
 
     fy = frappe.db.sql(
-        f"SELECT name FROM `tabFiscal Year` WHERE '{today}' BETWEEN year_start_date AND year_end_date", as_dict=1
+        f"SELECT name FROM `tabFiscal Year` WHERE '{today}' BETWEEN year_start_date AND year_end_date",
+        as_dict=1,
     )
     # frappe.throw(str(fy))
     if fy:
@@ -634,12 +668,18 @@ def get_user_insert_query(map, table_name, user_code, today):
             else:
                 if "creation" in value:
                     value_to_insert = str(value_to_insert).split(".")
-                    values.append(f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+                    values.append(
+                        f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')"
+                    )
                 elif "modified" in value:
                     value_to_insert = str(value_to_insert).split(".")
-                    values.append(f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+                    values.append(
+                        f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')"
+                    )
                 elif "password" in value:
-                    values.append(f"(SELECT RIPLRR.LHS_UTILITY.GET_ENCRYPT('{value_to_insert}') FROM DUAL)")
+                    values.append(
+                        f"(SELECT RIPLRR.LHS_UTILITY.GET_ENCRYPT('{value_to_insert}') FROM DUAL)"
+                    )
                 else:
                     values.append(f"{value_to_insert}")
 
@@ -672,10 +712,13 @@ def get_user_update_query(map, table_name, user_code, today):
         user_pass = password
 
         fy = frappe.db.sql(
-            f"SELECT name FROM `tabFiscal Year` WHERE '{today}' BETWEEN year_start_date AND year_end_date", as_dict=1
+            f"SELECT name FROM `tabFiscal Year` WHERE '{today}' BETWEEN year_start_date AND year_end_date",
+            as_dict=1,
         )
 
-        reset_days = frappe.db.get_value("System Settings", "System Settings", "force_user_to_reset_password")
+        reset_days = frappe.db.get_value(
+            "System Settings", "System Settings", "force_user_to_reset_password"
+        )
 
         user_values = frappe.db.sql(
             """
@@ -735,7 +778,11 @@ def get_user_update_query(map, table_name, user_code, today):
                 elif "passwd_reset_days" in str(value):
                     set_clauses.append(f"{key} = {int(value_to_update)}")
 
-                elif isinstance(value, str) and "DATE" in key.upper() and value_to_update != "":
+                elif (
+                    isinstance(value, str)
+                    and "DATE" in key.upper()
+                    and value_to_update != ""
+                ):
                     set_clauses.append(f"{key} = TIMESTAMP '{value_to_update}'")
 
                 else:
@@ -755,13 +802,16 @@ def get_user_update_query(map, table_name, user_code, today):
         user_pass = "unidentified"
 
         fy = frappe.db.sql(
-            f"SELECT name FROM `tabFiscal Year` WHERE '{today}' BETWEEN year_start_date AND year_end_date", as_dict=1
+            f"SELECT name FROM `tabFiscal Year` WHERE '{today}' BETWEEN year_start_date AND year_end_date",
+            as_dict=1,
         )
 
         if not fy:
             frappe.throw("Fiscal Year Not defined for the Today Date")
 
-        reset_days = frappe.db.get_value("System Settings", "System Settings", "force_user_to_reset_password")
+        reset_days = frappe.db.get_value(
+            "System Settings", "System Settings", "force_user_to_reset_password"
+        )
 
         user_values = frappe.db.sql(
             """
@@ -819,7 +869,11 @@ def get_user_update_query(map, table_name, user_code, today):
                 elif "passwd_reset_days" in str(value):
                     set_clauses.append(f"{key} = {int(value_to_update)}")
 
-                elif isinstance(value, str) and "DATE" in key.upper() and value_to_update != "":
+                elif (
+                    isinstance(value, str)
+                    and "DATE" in key.upper()
+                    and value_to_update != ""
+                ):
                     set_clauses.append(f"{key} = TIMESTAMP '{value_to_update}'")
 
                 else:
@@ -842,17 +896,37 @@ def get_user_update_query(map, table_name, user_code, today):
 
 
 def create_salary_slip(doc, method):
+    # Skip ERP posting for companies that are not configured for Oracle integration.
+    oracle_dtl = frappe.db.get_value(
+        "Oracle Credentials", {"company": doc.company}, "name"
+    )
+    if not oracle_dtl:
+        return
+
     con = oracle_connection(doc.company)
     if not con:
-        frappe.log_error(title="Oracle Connection information is not set")
+        frappe.log_error(
+            title="Oracle Connection information is not set",
+            message=f"Salary Slip: {doc.name}, Company: {doc.company}, Employee: {doc.employee}",
+        )
+        frappe.throw(
+            f"Oracle connection failed for company '{doc.company}'. Salary Slip not posted to ERP."
+        )
     else:
         try:
             cur = con.cursor()
 
             # Get Salary Slip Insert SQL
             sql_dict = get_salary_slip_insert_query(
-                SALARY_SLIP_SALARY_TRANS, "RIPLRR.EMP_SAL_TRAN", doc.name, doc.salary_structure
+                SALARY_SLIP_SALARY_TRANS,
+                "RIPLRR.EMP_SAL_TRAN",
+                doc.name,
+                doc.salary_structure,
             )
+            if not sql_dict or not sql_dict.get("sql_queries"):
+                frappe.throw(
+                    f"No salary transaction rows prepared for Salary Slip {doc.name}."
+                )
 
             sql_list = sql_dict.get("sql_queries")
             emp_code = sql_dict.get("emp_code")
@@ -864,7 +938,9 @@ def create_salary_slip(doc, method):
             # frappe.log_error("check_for_existing_record_sql", check_for_existing_record_sql)
             cur.execute(check_for_existing_record_sql)
             result_for_existing = cur.fetchall()
-            if result_for_existing:  # if salary slip exist then check is already trasaction done on erp
+            if (
+                result_for_existing
+            ):  # if salary slip exist then check is already trasaction done on erp
                 check_for_transaction_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}' AND (ACC_VRNO IS NOT NULL OR ACC_TCODE IS NOT NULL OR PAYMENT_VRNO IS NOT NULL OR PAYMENT_TCODE IS NOT NULL)"
                 cur.execute(check_for_transaction_sql)
                 result_for_transaction = cur.fetchall()
@@ -905,20 +981,27 @@ def create_salary_slip(doc, method):
                         # frappe.throw(str(bonus_tran_update_sql))
                         if bonus_tran_update_sql is not None:
                             cur.execute(bonus_tran_update_sql)
-                            frappe.db.set_value("Salary Slip", doc.name, "custom_erp_vrno", series)
+                            frappe.db.set_value(
+                                "Salary Slip", doc.name, "custom_erp_vrno", series
+                            )
 
                     attend_bal_sql_update_dict = get_attendance_balance_update_query(
                         ATTENDANCE_BALANCE, "RIPLRR.EMP_ATTEND_BAL", doc.name
                     )
-                    attend_bal_sql_update_list = attend_bal_sql_update_dict.get("sql_queries")
+                    attend_bal_sql_update_list = (attend_bal_sql_update_dict or {}).get(
+                        "sql_queries"
+                    ) or []
 
                     for attend_bal_sql in attend_bal_sql_update_list:
                         cur.execute(attend_bal_sql)
 
                     sql_update_dict = get_salary_slip_update_query(
-                        SALARY_SLIP_SALARY_TRANS, "RIPLRR.EMP_SAL_TRAN", doc.name, doc.salary_structure
+                        SALARY_SLIP_SALARY_TRANS,
+                        "RIPLRR.EMP_SAL_TRAN",
+                        doc.name,
+                        doc.salary_structure,
                     )
-                    sql_update_list = sql_update_dict.get("sql_queries")
+                    sql_update_list = (sql_update_dict or {}).get("sql_queries") or []
 
                     for sql in sql_update_list:
                         cur.execute(sql)
@@ -926,9 +1009,13 @@ def create_salary_slip(doc, method):
             else:  # else direct insert new salary slip
                 bonus_tran = ""
                 if doc.custom_bonus_amount != 0:
-                    series = get_next_series_no(doc.doctype, doc.company, doc.posting_date, con, cur)
+                    series = get_next_series_no(
+                        doc.doctype, doc.company, doc.posting_date, con, cur
+                    )
 
-                    frappe.db.set_value("Salary Slip", doc.name, "custom_erp_vrno", series)
+                    frappe.db.set_value(
+                        "Salary Slip", doc.name, "custom_erp_vrno", series
+                    )
 
                     # Get BONUS TRANSACION Insert SQL
                     bonus_tran_query = get_bonus_transaction_insert_query(
@@ -940,7 +1027,7 @@ def create_salary_slip(doc, method):
                 attend_bal_queries = get_attendance_balance_insert_query(
                     ATTENDANCE_BALANCE, "RIPLRR.EMP_ATTEND_BAL", doc.name
                 )
-                attend_sql_list = attend_bal_queries.get("sql_queries")
+                attend_sql_list = (attend_bal_queries or {}).get("sql_queries") or []
 
                 if bonus_tran != "":
                     cur.execute(bonus_tran)
@@ -1048,7 +1135,9 @@ def cancel_salary_slip(doc, method):
             cur.execute(check_for_existing_record_sql)
             result_for_existing = cur.fetchall()
 
-            if result_for_existing:  # if salary slip exist then check is already trasaction done on erp
+            if (
+                result_for_existing
+            ):  # if salary slip exist then check is already trasaction done on erp
                 check_for_transaction_sql = f"SELECT * FROM RIPLRR.EMP_SAL_TRAN WHERE EMP_CODE = '{emp_code}' AND CAL_YEAR = '{cal_year}' AND MONTH = '{month}' AND (ACC_VRNO IS NOT NULL OR ACC_TCODE IS NOT NULL OR PAYMENT_VRNO IS NOT NULL OR PAYMENT_TCODE IS NOT NULL)"
                 cur.execute(check_for_transaction_sql)
                 result_for_transaction = cur.fetchall()
@@ -1064,7 +1153,9 @@ def cancel_salary_slip(doc, method):
                     cur.execute(update_zero_sql_bonus_tran)
 
             else:  # else direct insert new salary slip
-                frappe.log_error("Salary Slip on cancel", "Salary Slip Not Found in ERP System")
+                frappe.log_error(
+                    "Salary Slip on cancel", "Salary Slip Not Found in ERP System"
+                )
 
             con.commit()  # -----------------Database commit value
 
@@ -1279,7 +1370,7 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
         as_dict=1,
     )
 
-   # frappe.log_error("Wait Update", salary_slips)
+    # frappe.log_error("Wait Update", salary_slips)
     # frappe.throw("salary_slips")
 
     if not salary_slips:
@@ -1365,18 +1456,21 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
 def get_attendance_balance_insert_query(map, table_name, docname):
     salary_slip = frappe.db.sql(
         """
-		SELECT
-			EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
-			EXTRACT(MONTH FROM ss.end_date) AS custom_month,
-			UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month_char,
-			ss.employee AS emp_code,
-			(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
-			ss.company,
-			ss.modified,
-			(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
-			e.leave_approver as leave_approver
-		FROM
-			`tabSalary Slip` as ss
+            SELECT
+                EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
+                EXTRACT(MONTH FROM ss.end_date) AS custom_month,
+                UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month_char,
+                ss.employee AS emp_code,
+                (SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
+                ss.company,
+                e.branch,
+                e.custom_division AS division,
+                e.department,
+                ss.modified,
+                (SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
+                e.leave_approver as leave_approver
+            FROM
+                `tabSalary Slip` as ss
 		LEFT JOIN
 			`tabEmployee` as e ON e.name = ss.employee
 		WHERE
@@ -1393,6 +1487,9 @@ def get_attendance_balance_insert_query(map, table_name, docname):
     month_char = salary_slip[0].get("custom_month_char")
     employee = salary_slip[0].get("emp_code")
     company = salary_slip[0].get("company")
+    branch = salary_slip[0].get("branch")
+    division = salary_slip[0].get("division")
+    department = salary_slip[0].get("department")
     lastupdate = salary_slip[0].get("modified")
     usercode = salary_slip[0].get("user_code")
     leave_approver = salary_slip[0].get("leave_approver")
@@ -1414,18 +1511,39 @@ def get_attendance_balance_insert_query(map, table_name, docname):
     }
 
     # fetching the data from standard report(Monthly Attendance Sheet) don't need to change
+    report_filters = {
+        "month": month_characters[month],
+        "year": cal_year,
+        "employee": employee,
+        "company": company,
+    }
+    if branch:
+        report_filters["branch"] = branch
+    if division:
+        report_filters["division"] = division
+    if department:
+        report_filters["department"] = department
+
     result = frappe.call(
         "frappe.desk.query_report.run",
-        report_name="Monthly Attendance Report",
-        filters={"month": month_characters[month], "year": cal_year, "employee": employee, "company": company},
+        report_name="[New] Monthly Attendance Report",
+        filters=report_filters,
         ignore_prepared_report=True,
     )
 
-    temp_result = result["result"][0]
+    report_rows = (result or {}).get("result") or []
+    temp_result = {}
+    if report_rows and isinstance(report_rows[0], dict):
+        temp_result = next(
+            (row for row in report_rows if row.get("employee") == employee),
+            report_rows[0],
+        )
+
     # needs to map new leave type here
     temp_result = {
         "PRESENT": temp_result.get("total_present", 0.0),
-        "ABSENT_LOP": temp_result.get("total_absent", 0.0) + temp_result.get("leave_without_pay", 0.0),
+        "ABSENT_LOP": temp_result.get("total_absent", 0.0)
+        + temp_result.get("leave_without_pay", 0.0),
         "HOLIDAY": temp_result.get("total_holiday_leave", 0.0),
         "OPTIONAL_LEAVE": temp_result.get("optional_leave", 0.0),
         "SICK_LEAVE": temp_result.get("sick_leave", 0.0),
@@ -1466,11 +1584,19 @@ def get_attendance_balance_insert_query(map, table_name, docname):
     }
 
     for rec in temp_result:
-        leave_type = rec.replace("_", " ").title()  # Replace the leave name to title case
-        if frappe.db.exists("Leave Type", leave_type):  # checing leave type present or not
-            attand_char = frappe.db.get_value("Leave Type", leave_type, "custom_erp_attend_char")  # present then append
+        leave_type = rec.replace(
+            "_", " "
+        ).title()  # Replace the leave name to title case
+        if frappe.db.exists(
+            "Leave Type", leave_type
+        ):  # checing leave type present or not
+            attand_char = frappe.db.get_value(
+                "Leave Type", leave_type, "custom_erp_attend_char"
+            )  # present then append
         else:
-            attand_char = leave_type_map.get(rec, "")  # append from leave_type_map which are define in above lines
+            attand_char = leave_type_map.get(
+                rec, ""
+            )  # append from leave_type_map which are define in above lines
 
         if attand_char:
             attend_bal_rec = {
@@ -1505,7 +1631,9 @@ def get_attendance_balance_insert_query(map, table_name, docname):
                     if "lastupdate" in value:
                         # values.append(f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
                         value_to_insert = str(value_to_insert).split(".")
-                        values.append(f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+                        values.append(
+                            f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')"
+                        )
                     elif "approveddate" in value:
                         value_to_insert = str(value_to_insert).split(".")
                         values.append(
@@ -1534,7 +1662,12 @@ def get_attendance_balance_insert_query(map, table_name, docname):
 
         sql_queries.append(sql)
 
-    sql_dict = {"sql_queries": sql_queries, "emp_code": employee, "cal_year": cal_year, "month": month_char}
+    sql_dict = {
+        "sql_queries": sql_queries,
+        "emp_code": employee,
+        "cal_year": cal_year,
+        "month": month_char,
+    }
 
     return sql_dict
 
@@ -1542,18 +1675,21 @@ def get_attendance_balance_insert_query(map, table_name, docname):
 def get_attendance_balance_update_query(map, table_name, docname):
     salary_slip = frappe.db.sql(
         """
-		SELECT
-			EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
-			EXTRACT(MONTH FROM ss.end_date) AS custom_month,
-			UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month_char,
-			ss.employee AS emp_code,
-			(SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
-			ss.company,
-			ss.modified,
-			(SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
-			e.leave_approver as leave_approver
-		FROM
-			`tabSalary Slip` as ss
+            SELECT
+                EXTRACT(YEAR FROM ss.start_date) AS custom_calendar_year,
+                EXTRACT(MONTH FROM ss.end_date) AS custom_month,
+                UPPER(TRIM(TO_CHAR(ss.start_date, 'MON'))) AS custom_month_char,
+                ss.employee AS emp_code,
+                (SELECT custom_erp_code FROM `tabCompany` WHERE name = ss.company  LIMIT 1) as entity_code,
+                ss.company,
+                e.branch,
+                e.custom_division AS division,
+                e.department,
+                ss.modified,
+                (SELECT username FROM `tabUser` WHERE name = ss.owner) as user_code,
+                e.leave_approver as leave_approver
+            FROM
+                `tabSalary Slip` as ss
 		LEFT JOIN
 			`tabEmployee` as e ON e.name = ss.employee
 		WHERE
@@ -1570,6 +1706,9 @@ def get_attendance_balance_update_query(map, table_name, docname):
     month_char = salary_slip[0].get("custom_month_char")
     employee = salary_slip[0].get("emp_code")
     company = salary_slip[0].get("company")
+    branch = salary_slip[0].get("branch")
+    division = salary_slip[0].get("division")
+    department = salary_slip[0].get("department")
     lastupdate = salary_slip[0].get("modified")
     usercode = salary_slip[0].get("user_code")
     leave_approver = salary_slip[0].get("leave_approver")
@@ -1590,13 +1729,33 @@ def get_attendance_balance_update_query(map, table_name, docname):
     }
 
     # fetching the data from standard report(Monthly Attendance Sheet) don't need to change
+    report_filters = {
+        "month": month_characters[month],
+        "year": cal_year,
+        "employee": employee,
+        "company": company,
+    }
+    if branch:
+        report_filters["branch"] = branch
+    if division:
+        report_filters["division"] = division
+    if department:
+        report_filters["department"] = department
+
     result = frappe.call(
         "frappe.desk.query_report.run",
-        report_name="Monthly Attendance Report",
-        filters={"month": month_characters[month], "year": cal_year, "employee": employee, "company": company},
+        report_name="[New] Monthly Attendance Report",
+        filters=report_filters,
         ignore_prepared_report=True,
     )
-    temp_result = result["result"][0]
+    report_rows = (result or {}).get("result") or []
+    temp_result = {}
+    if report_rows and isinstance(report_rows[0], dict):
+        temp_result = next(
+            (row for row in report_rows if row.get("employee") == employee),
+            report_rows[0],
+        )
+
     # needs to map new leave type here
     temp_result = {
         "PRESENT": temp_result.get("total_present", 0.0),
@@ -1641,11 +1800,19 @@ def get_attendance_balance_update_query(map, table_name, docname):
     }
 
     for rec in temp_result:
-        leave_type = rec.replace("_", " ").title()  # Replace the leave name to title case
-        if frappe.db.exists("Leave Type", leave_type):  # checing leave type present or not
-            attand_char = frappe.db.get_value("Leave Type", leave_type, "custom_erp_attend_char")  # present then append
+        leave_type = rec.replace(
+            "_", " "
+        ).title()  # Replace the leave name to title case
+        if frappe.db.exists(
+            "Leave Type", leave_type
+        ):  # checing leave type present or not
+            attand_char = frappe.db.get_value(
+                "Leave Type", leave_type, "custom_erp_attend_char"
+            )  # present then append
         else:
-            attand_char = leave_type_map.get(rec, "")  # append from leave_type_map which are define in above lines
+            attand_char = leave_type_map.get(
+                rec, ""
+            )  # append from leave_type_map which are define in above lines
 
         if attand_char:
             attend_bal_rec = {
@@ -1683,7 +1850,9 @@ def get_attendance_balance_update_query(map, table_name, docname):
                     else:
                         if "lastupdate" in value:
                             value_to_insert = str(value_to_insert).split(".")
-                            sets.append(f"{key} = TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+                            sets.append(
+                                f"{key} = TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')"
+                            )
                         elif "approveddate" in value:
                             value_to_insert = str(value_to_insert).split(".")
                             sets.append(
@@ -1700,7 +1869,12 @@ def get_attendance_balance_update_query(map, table_name, docname):
 
         sql_queries.append(sql)
 
-    sql_dict = {"sql_queries": sql_queries, "emp_code": employee, "cal_year": cal_year, "month": month_char}
+    sql_dict = {
+        "sql_queries": sql_queries,
+        "emp_code": employee,
+        "cal_year": cal_year,
+        "month": month_char,
+    }
 
     return sql_dict
 
@@ -1753,10 +1927,14 @@ def get_bonus_transaction_insert_query(map, table_name, docname, series):
                 values.append("")
             else:
                 if "from_date" in value or "to_date" in value or "vrdate" in value:
-                    values.append(f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
+                    values.append(
+                        f"TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')"
+                    )
                 elif "bonus_cal_date" in value or "lastupdate" in value:
                     value_to_insert = str(value_to_insert).split(".")
-                    values.append(f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+                    values.append(
+                        f"TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')"
+                    )
                 elif "afcode_str" in value:
                     values.append(f",{value_to_insert},")
                 else:
@@ -1838,10 +2016,14 @@ def get_bonus_transaction_update_query(map, table_name, docname, series):
                     sets.append(f"{key} = ''")
                 else:
                     if "from_date" in value or "to_date" in value or "vrdate" in value:
-                        sets.append(f"{key} = TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')")
+                        sets.append(
+                            f"{key} = TO_DATE('{value_to_insert} 00:00:00', 'YYYY-MM-DD HH24:MI:SS')"
+                        )
                     elif "bonus_cal_date" in value or "lastupdate" in value:
                         value_to_insert = str(value_to_insert).split(".")
-                        sets.append(f"{key} = TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')")
+                        sets.append(
+                            f"{key} = TO_DATE('{value_to_insert[0]}', 'YYYY-MM-DD HH24:MI:SS')"
+                        )
                     elif "afcode_str" in value:
                         sets.append(f"{key} = ',{value_to_insert},'")
                     else:
@@ -1909,10 +2091,14 @@ def config_master(emp_catg, company):
                 for rec in result_list:
                     if rec.get("AFCODE"):
                         salary_component = frappe.db.get_value(
-                            "Salary Component", {"custom_erp_code": rec.get("AFCODE")}, "name"
+                            "Salary Component",
+                            {"custom_erp_code": rec.get("AFCODE")},
+                            "name",
                         )
                         salary_component_abbr = frappe.db.get_value(
-                            "Salary Component", {"custom_erp_code": rec.get("AFCODE")}, "salary_component_abbr"
+                            "Salary Component",
+                            {"custom_erp_code": rec.get("AFCODE")},
+                            "salary_component_abbr",
                         )
                         rec["salary_component"] = salary_component
                         rec["abbr"] = salary_component_abbr
@@ -1991,10 +2177,14 @@ def erp_config_master(emp_catg, company):
                 for rec in result_list:
                     if rec.get("AFCODE"):
                         salary_component = frappe.db.get_value(
-                            "Salary Component", {"custom_erp_code": rec.get("AFCODE")}, "name"
+                            "Salary Component",
+                            {"custom_erp_code": rec.get("AFCODE")},
+                            "name",
                         )
                         salary_component_abbr = frappe.db.get_value(
-                            "Salary Component", {"custom_erp_code": rec.get("AFCODE")}, "salary_component_abbr"
+                            "Salary Component",
+                            {"custom_erp_code": rec.get("AFCODE")},
+                            "salary_component_abbr",
                         )
                         rec["salary_component"] = salary_component
                         rec["abbr"] = salary_component_abbr
@@ -2069,7 +2259,9 @@ def employee_rate_master(emp_code, company):
 
 
 def get_next_series_no(doctype, company, date, con, cur):
-    erp_series = frappe.get_doc("ERP Series Master", {"document_type": doctype, "company": company})
+    erp_series = frappe.get_doc(
+        "ERP Series Master", {"document_type": doctype, "company": company}
+    )
     if not erp_series:
         frappe.throw("ERP Series Master Not Defined")
 
@@ -2089,7 +2281,11 @@ def get_next_series_no(doctype, company, date, con, cur):
         formatted_vrno = True
     elif erp_series.formatter == "YYM":
         dt = datetime.strptime(str(date), "%Y-%m-%d")
-        month_abbr = ["O", "N", "D"][dt.month - 10] if dt.month in (10, 11, 12) else str(dt.month)
+        month_abbr = (
+            ["O", "N", "D"][dt.month - 10]
+            if dt.month in (10, 11, 12)
+            else str(dt.month)
+        )
         actual_base_series = f"{base_series}{fiscal_year}{month_abbr}-"
         formatted_vrno = False
     else:
@@ -2126,7 +2322,6 @@ def get_next_series_no(doctype, company, date, con, cur):
     if formatted_vrno:
         return f"{actual_base_series}{str(new_count).zfill(5)}"
     return f"{actual_base_series}{new_count}"
-
 
 
 def generate_insert_statements(salary_structure, emp_code, from_date):
@@ -2184,9 +2379,13 @@ def insert_salary_structure(doc, method):
 
             cur.execute(update_salary_structure)
 
-        salary_structure = get_salary_structure(doc.employee, doc.from_date, doc.salary_structure)
+        salary_structure = get_salary_structure(
+            doc.employee, doc.from_date, doc.salary_structure
+        )
 
-        sql_statements = generate_insert_statements(salary_structure, doc.employee, doc.from_date)
+        sql_statements = generate_insert_statements(
+            salary_structure, doc.employee, doc.from_date
+        )
 
         # Execute each SQL statement separately
         for sql in sql_statements:
@@ -2236,11 +2435,17 @@ def get_salary_structure(employee, from_date, salary_structure):
     for d in salary_structure_sql:
         d["emp_code"] = employee
         emp_category = frappe.db.get_value("Employee", employee, "custom_emp_category")
-        emp_category = frappe.db.get_value("Employee Category", emp_category, "erp_code")
+        emp_category = frappe.db.get_value(
+            "Employee Category", emp_category, "erp_code"
+        )
         d["emp_category"] = emp_category
         d["custom_emp_category"] = emp_category
-        payroll_series = frappe.db.get_value("Employee", employee, "custom_payroll_series")
-        payroll_series = frappe.db.get_value("Payroll Series", payroll_series, "erp_code")
+        payroll_series = frappe.db.get_value(
+            "Employee", employee, "custom_payroll_series"
+        )
+        payroll_series = frappe.db.get_value(
+            "Payroll Series", payroll_series, "erp_code"
+        )
         d["payroll_series"] = payroll_series
 
     return salary_structure_sql
