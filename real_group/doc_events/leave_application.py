@@ -9,7 +9,14 @@ from frappe.utils import (
     getdate,
 )
 
-from real_group.utils import SandwichPolicyError, is_holiday_for_employee
+from real_group.utils import is_holiday_for_employee
+
+try:
+    from real_group.utils import SandwichPolicyError
+except ImportError:
+    # Backward compatibility for deployments where this exception class is absent.
+    class SandwichPolicyError(frappe.ValidationError):
+        pass
 
 
 def validate(doc, method=None):

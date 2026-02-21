@@ -15,6 +15,11 @@ from real_group.real_group.employee_map import (
     USER_MAP,
 )
 
+
+def _escape_oracle_string(value):
+    return str(value).replace("'", "''")
+
+
 # ----------------Oracle Connection
 
 
@@ -141,23 +146,32 @@ def update_employee(doc, method):
         try:
             cur = con.cursor()
 
-            check_emp_sql = f"""SELECT EMP_CODE FROM RIPLRR.EMP_MAST WHERE EMP_CODE = '{doc.name}'"""
+            safe_emp_code = _escape_oracle_string(doc.name)
+            check_emp_sql = (
+                "SELECT EMP_CODE FROM RIPLRR.EMP_MAST "
+                f"WHERE TRIM(TO_CHAR(EMP_CODE)) = TRIM('{safe_emp_code}')"
+            )
             cur.execute(check_emp_sql)
             result = cur.fetchall()
             if result:
                 sql = get_update_query(EMPLOYEE_MAP, "RIPLRR.EMP_MAST", doc.name)
-                cur.execute(sql)
+                if sql:
+                    cur.execute(sql)
 
             else:
                 sql = get_insert_query(EMPLOYEE_MAP, "RIPLRR.EMP_MAST", doc.name)
                 cur.execute(sql)
 
-            check_acc_code_sql = f"""SELECT ACC_CODE FROM RIPLRR.ACC_MAST WHERE ACC_CODE = '{doc.name}'"""
+            check_acc_code_sql = (
+                "SELECT ACC_CODE FROM RIPLRR.ACC_MAST "
+                f"WHERE TRIM(TO_CHAR(ACC_CODE)) = TRIM('{safe_emp_code}')"
+            )
             cur.execute(check_acc_code_sql)
             result = cur.fetchall()
             if result:
                 sql = get_account_update_query(ACCOUNT_MAP, "RIPLRR.ACC_MAST", doc.name)
-                cur.execute(sql)
+                if sql:
+                    cur.execute(sql)
 
             else:
                 sql = get_account_insert_query(ACCOUNT_MAP, "RIPLRR.ACC_MAST", doc.name)
@@ -180,6 +194,23 @@ def update_employee(doc, method):
                 cur.close()
             if con:
                 con.close()
+
+
+def enqueue_update_employee(doc, method):
+    if frappe.flags.in_migrate or frappe.flags.in_install or frappe.flags.in_patch:
+        return
+
+    frappe.enqueue(
+        "real_group.real_group.integration.update_employee_by_name",
+        queue="short",
+        enqueue_after_commit=True,
+        employee=doc.name,
+    )
+
+
+def update_employee_by_name(employee):
+    doc = frappe.get_doc("Employee", employee)
+    update_employee(doc, method=None)
 
 
 def get_insert_query(map, table_name, employee_code):
@@ -363,31 +394,37 @@ def get_update_query(map, table_name, employee_code):
     set_clauses = []
 
     for key, value in map.items():
-        if value:
-            value_to_update = employee_values[value]
-            if value_to_update is None:
-                set_clauses.append(f"{key} = ''")
-            else:
-                if value == "name":
-                    continue  # Skip to the next iteration if 'name' is found in value
-                elif "date" in value:
-                    set_clauses.append(
-                        f"{key} = TO_DATE('{value_to_update}', 'YYYY-MM-DD')"
-                    )
-                elif "modified" in value:
-                    value_to_update = str(value_to_update).split(".")
-                    set_clauses.append(
-                        f"{key} = TO_DATE('{value_to_update[0]}', 'YYYY-MM-DD HH24:MI:SS')"
-                    )
-                else:
-                    set_clauses.append(f"{key} = '{value_to_update}'")
+        if not value or value == "name":
+            continue
+
+        value_to_update = employee_values.get(value)
+        if value_to_update is None or value_to_update == "":
+            set_clauses.append(f"{key} = NULL")
+            continue
+
+        if "modified" in value:
+            value_to_update = _escape_oracle_string(str(value_to_update).split(".")[0])
+            set_clauses.append(
+                f"{key} = TO_DATE('{value_to_update}', 'YYYY-MM-DD HH24:MI:SS')"
+            )
+        elif "date" in value:
+            value_to_update = _escape_oracle_string(str(value_to_update).split(" ")[0])
+            set_clauses.append(f"{key} = TO_DATE('{value_to_update}', 'YYYY-MM-DD')")
+        else:
+            value_to_update = _escape_oracle_string(value_to_update)
+            set_clauses.append(f"{key} = '{value_to_update}'")
+
+    if not set_clauses:
+        return None
+
+    safe_emp_code = _escape_oracle_string(employee_code)
 
     sql = f"""
 		UPDATE {table_name}
 		SET
 			{", ".join(set_clauses)}
 		WHERE
-			EMP_CODE = '{employee_code}'
+			TRIM(TO_CHAR(EMP_CODE)) = TRIM('{safe_emp_code}')
 	"""
 
     return sql
@@ -473,21 +510,27 @@ def get_account_update_query(map, table_name, employee_code):
     set_clauses = []
 
     for key, value in map.items():
-        if value:
-            value_to_update = employee_values[value]
-            if value_to_update is None:
-                set_clauses.append(f"{key} = ''")
-            elif key == "name":
-                continue
-            else:
-                set_clauses.append(f"{key} = '{value_to_update}'")
+        if not value or value == "name":
+            continue
+
+        value_to_update = employee_values.get(value)
+        if value_to_update is None or value_to_update == "":
+            set_clauses.append(f"{key} = NULL")
+        else:
+            value_to_update = _escape_oracle_string(value_to_update)
+            set_clauses.append(f"{key} = '{value_to_update}'")
+
+    if not set_clauses:
+        return None
+
+    safe_emp_code = _escape_oracle_string(employee_code)
 
     sql = f"""
 		UPDATE {table_name}
 		SET
 			{", ".join(set_clauses)}
 		WHERE
-			ACC_CODE = '{employee_code}'
+			TRIM(TO_CHAR(ACC_CODE)) = TRIM('{safe_emp_code}')
 	"""
 
     return sql

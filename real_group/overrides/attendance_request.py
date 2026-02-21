@@ -19,6 +19,7 @@ class AttendanceRequestOverride(AttendanceRequest):
         attendance_name = self.get_attendance_record(date)
         status = self.get_attendance_status(date)
         attendance = None
+        old_status = None
         if attendance_name:
             old_status = frappe.db.get_value("Attendance", attendance_name, "status")
 
@@ -34,10 +35,13 @@ class AttendanceRequestOverride(AttendanceRequest):
         else:
             doc = frappe.new_doc("Attendance")
 
-        if doc.working_hours:
-            doc.working_hours += self.get_working_hours()
+        request_hours = self.get_working_hours()
+        # Avoid double-counting full-day hours when overwriting an existing attendance.
+        # Keep additive behavior only for half-day + half-day merge use-case.
+        if old_status == "Half Day" and status == "Present" and doc.working_hours:
+            doc.working_hours += request_hours
         else:
-            doc.working_hours = self.get_working_hours()
+            doc.working_hours = request_hours
         doc.update(
             {
                 "employee": self.employee,
@@ -53,6 +57,9 @@ class AttendanceRequestOverride(AttendanceRequest):
 
     def get_working_hours(self):
         delta = get_timedelta(self.custom_to_time) - get_timedelta(self.custom_from_time)
+        if delta.total_seconds() < 0:
+            # Cross-midnight request (e.g. 19:56 -> 08:15 next day)
+            delta += timedelta(days=1)
         return convert_time_to_hours(delta)
 
     def get_working_hours_time(self, hours: float):

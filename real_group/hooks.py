@@ -150,6 +150,7 @@ override_doctype_class = {
     "Leave Allocation": "real_group.overrides.leave_allocation.LeaveAllocationOverride",
     "Attendance Request": "real_group.overrides.attendance_request.AttendanceRequestOverride",
     "Employee Transfer": "real_group.overrides.employee_transfer.EmployeeTransferOverride",
+    "Salary Slip": "real_group.overrides.salary_slip.SalarySlipOverride",
 }
 
 # Document Events
@@ -172,7 +173,10 @@ doc_events = {
             "real_group.doc_events.employee.after_insert",
             "real_group.real_group.integration.update_employee",
         ],
-        "on_update": ["real_group.doc_events.employee.on_update"],
+        "on_update": [
+            "real_group.doc_events.employee.on_update",
+            "real_group.real_group.integration.enqueue_update_employee",
+        ],
         "validate": ["real_group.doc_events.employee.validate"],
     },
     "Holiday List": {

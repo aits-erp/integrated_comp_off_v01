@@ -156,16 +156,10 @@ def validate_date(doc):
 def validate_attendance(doc):
     if frappe.flags.in_reprocess_attendance:
         return
-    if frappe.db.exists(
-        "Attendance",
-        {
-            "employee": doc.employee,
-            "attendance_date": ["between", [doc.from_date, doc.to_date]],
-            "status": "Present",
-            "docstatus": ["!=", 2],
-        },
-    ):
-        frappe.throw(frappe._("Attendance is already marked for the Employee {0}").format(doc.employee))
+    # Attendance Request override supports overwriting existing attendance
+    # by cancelling and recreating attendance rows on submit.
+    # Leave/request overlap checks are already handled in validate_date().
+    return
 
 
 def validate_change_request_day(doc):

@@ -32,8 +32,27 @@ def process():
                 continue
             holiday = is_holiday_for_employee(emp.name, add_days(today(), -1))
             filters = [["employee", "=", emp.name], ["time", ">=", start_time], ["time", "<", end_time]]
-            emp_checkin = frappe.db.count("Employee Checkin", filters)
-            if holiday:
+            checkins = frappe.get_all(
+                "Employee Checkin", filters=filters, fields=["name", "shift_start", "log_type"], order_by="shift_start asc"
+            )
+            emp_checkin = len(checkins)
+            has_valid_in_out = any(c.get("log_type") == "IN" for c in checkins) and any(
+                c.get("log_type") == "OUT" for c in checkins
+            )
+            if holiday and has_valid_in_out:
+                attendance = frappe.get_doc(
+                    {
+                        "doctype": "Attendance",
+                        "employee": emp.name,
+                        "attendance_date": add_days(today(), -1),
+                        "status": "Present",
+                        "company": emp.company,
+                        "custom_attendance_tag": "POW" if holiday.get("is_weekly_off") else "POH",
+                    }
+                )
+                attendance.insert(ignore_permissions=True)
+                attendance.submit()
+            elif holiday:
                 attendance = frappe.get_doc(
                     {
                         "doctype": "Attendance",
@@ -42,19 +61,6 @@ def process():
                         "status": "Present",
                         "company": emp.company,
                         "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
-                    }
-                )
-                attendance.insert(ignore_permissions=True)
-                attendance.submit()
-            elif holiday and emp_checkin and emp_checkin > 0:
-                attendance = frappe.get_doc(
-                    {
-                        "doctype": "Attendance",
-                        "employee": emp.name,
-                        "attendance_date": add_days(today(), -1),
-                        "status": "Present",
-                        "company": emp.company,
-                        "custom_attendance_tag": "POH",
                     }
                 )
                 attendance.insert(ignore_permissions=True)
@@ -75,8 +81,7 @@ def process():
                     attendance.submit()
 
                 else:
-                    checkins = frappe.get_all("Employee Checkin", filters=filters, pluck="name")
-                    shift_date = getdate(checkins[0].get("shift_start"))
+                    shift_date = getdate(checkins[0].get("shift_start")) if checkins[0].get("shift_start") else add_days(today(), -1)
                     attendance = frappe.get_doc(
                         {
                             "doctype": "Attendance",
@@ -90,7 +95,7 @@ def process():
                     attendance.insert(ignore_permissions=True)
                     attendance.submit()
                     for checkin in checkins:
-                        frappe.db.set_value("Employee Checkin", checkin, "attendance", attendance.name)
+                        frappe.db.set_value("Employee Checkin", checkin.get("name"), "attendance", attendance.name)
             attendance.add_tag("Single Check in Required")
             frappe.db.commit()  # Commit after each successful attendance creation, so that in case of failure, previous records are saved.
         except Exception:

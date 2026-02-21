@@ -127,7 +127,7 @@ def process_employee_checkin(logs):
                     for_date = getdate(log.punch_date)
                     allowed_shifts = get_employee_allowed_shifts(emp, for_date)
                     closest_shift = find_closest_shift_from_punch_time(
-                        allowed_shifts, log.punch_time
+                        allowed_shifts, punch_dt, date=for_date, log_type="IN"
                     )
 
                     shift_info = fetch_shift_details(closest_shift, punch_dt, grade)
@@ -207,27 +207,44 @@ def process_employee_checkout(logs):
                     )
                     continue
 
-                first_checkin_shift = get_first_checkin_for_the_day(
+                owning_shift_data = get_first_checkin_for_the_day(
                     emp, for_date=punch_dt, for_checkout=True
                 )
 
-                if first_checkin_shift:
-                    shift_info = fetch_shift_details(
-                        first_checkin_shift, punch_dt, grade, is_checkout=True
-                    )
+                if owning_shift_data and owning_shift_data.get("shift"):
+                    shift_name = owning_shift_data.get("shift")
+                    shift_start = owning_shift_data.get("shift_start")
+                    shift_end = owning_shift_data.get("shift_end")
+                    shift_actual_start = owning_shift_data.get("shift_actual_start")
+                    shift_actual_end = owning_shift_data.get("shift_actual_end")
+
+                    if not (
+                        shift_start
+                        and shift_end
+                        and shift_actual_start
+                        and shift_actual_end
+                    ):
+                        shift_info = fetch_shift_details(
+                            shift_name, punch_dt, grade, is_checkout=True
+                        )
+                        shift_start = shift_info.start_datetime
+                        shift_end = shift_info.end_datetime
+                        shift_actual_start = shift_info.actual_start
+                        shift_actual_end = shift_info.actual_end
+
                     doc = frappe.get_doc(
                         {
                             "doctype": "Employee Checkin",
                             "employee": emp,
                             "time": punch_dt,
-                            "shift": first_checkin_shift,
+                            "shift": shift_name,
                             "log_type": "OUT",
                             "custom_bio_log_id": log.name,
                             "device_id": log.terminal_id,
-                            "shift_start": shift_info.start_datetime,
-                            "shift_end": shift_info.end_datetime,
-                            "shift_actual_start": shift_info.actual_start,
-                            "shift_actual_end": shift_info.actual_end,
+                            "shift_start": shift_start,
+                            "shift_end": shift_end,
+                            "shift_actual_start": shift_actual_start,
+                            "shift_actual_end": shift_actual_end,
                         }
                     )
                     doc.flags.is_shift_fetch_required = False
@@ -237,11 +254,11 @@ def process_employee_checkout(logs):
                     for_date = getdate(log.punch_date)
                     allowed_shifts = get_employee_allowed_shifts(emp, for_date)
                     closest_shift = find_closest_shift_from_punch_time(
-                        allowed_shifts, log.punch_time
+                        allowed_shifts, punch_dt, date=for_date, log_type="OUT"
                     )
 
                     shift_info = fetch_shift_details(
-                        closest_shift, punch_dt, grade, is_checkout=False
+                        closest_shift, punch_dt, grade, is_checkout=True
                     )
                     doc = frappe.get_doc(
                         {
@@ -290,34 +307,224 @@ def process_employee_checkout(logs):
 
 
 def find_closest_shift_from_punch_time(
-    allowed_shifts: list[str], punch_time: str | timedelta, date=None
+    allowed_shifts: list[str],
+    punch_time: str | timedelta | datetime,
+    date=None,
+    log_type: str = "IN",
 ):
-    # Use a fixed reference date to convert time-only values to datetime for accurate comparison
-    reference_date = getdate(frappe.utils.now_datetime())
+    if not allowed_shifts:
+        return None
 
-    punch_time_dt = datetime.combine(reference_date, get_time(punch_time))
+    reference_date = getdate(date) if date else getdate(frappe.utils.now_datetime())
+
+    punch_dt = (
+        get_datetime(punch_time)
+        if isinstance(punch_time, datetime)
+        else datetime.combine(reference_date, get_time(punch_time))
+    )
 
     shifts = frappe.db.get_all(
         "Shift Type",
         filters={"name": ["in", allowed_shifts]},
-        fields=["name", "start_time"],
+        fields=[
+            "name",
+            "start_time",
+            "end_time",
+            "custom_early_entry_grace_period",
+            "custom_late_exit_grace_period",
+        ],
     )
 
-    shift_timings = [
-        {
-            "name": s["name"],
-            "start_time": datetime.combine(reference_date, get_time(s["start_time"])),
-        }
-        for s in shifts
-        if s["start_time"]
+    shift_candidates = []
+    for shift in shifts:
+        if not shift.get("start_time") or not shift.get("end_time"):
+            continue
+
+        start_datetime, end_datetime = get_shift_timings(
+            frappe._dict(shift), punch_dt, grade=None, is_checkout=False
+        )
+        actual_start = start_datetime - timedelta(
+            minutes=convert_time_to_minutes(shift.get("custom_early_entry_grace_period"))
+        )
+        actual_end = end_datetime + timedelta(
+            minutes=convert_time_to_minutes(shift.get("custom_late_exit_grace_period"))
+        )
+        shift_candidates.append(
+            {
+                "name": shift.get("name"),
+                "start_datetime": start_datetime,
+                "end_datetime": end_datetime,
+                "actual_start": actual_start,
+                "actual_end": actual_end,
+            }
+        )
+
+    in_window_candidates = [
+        s for s in shift_candidates if s["actual_start"] <= punch_dt <= s["actual_end"]
+    ]
+    if not shift_candidates:
+        return None
+
+    # Boundary-safe tolerances for transition punches.
+    start_end_tolerance = timedelta(minutes=120)
+
+    near_start_candidates = [
+        s
+        for s in shift_candidates
+        if abs((punch_dt - s["actual_start"]).total_seconds())
+        <= start_end_tolerance.total_seconds()
+    ]
+    near_end_candidates = [
+        s
+        for s in shift_candidates
+        if abs((punch_dt - s["actual_end"]).total_seconds())
+        <= start_end_tolerance.total_seconds()
     ]
 
-    closest_shift = min(
-        shift_timings,
-        key=lambda s: abs((punch_time_dt - s["start_time"]).total_seconds()),
-    )
+    if log_type == "OUT":
+        if near_end_candidates:
+            closest_shift = min(
+                near_end_candidates,
+                key=lambda s: abs((punch_dt - s["actual_end"]).total_seconds()),
+            )
+        elif in_window_candidates:
+            closest_shift = min(
+                in_window_candidates,
+                key=lambda s: abs((punch_dt - s["actual_end"]).total_seconds()),
+            )
+        else:
+            closest_shift = min(
+                shift_candidates,
+                key=lambda s: abs((punch_dt - s["end_datetime"]).total_seconds()),
+            )
+    else:
+        if near_start_candidates:
+            closest_shift = min(
+                near_start_candidates,
+                key=lambda s: abs((punch_dt - s["actual_start"]).total_seconds()),
+            )
+        elif in_window_candidates:
+            closest_shift = min(
+                in_window_candidates,
+                key=lambda s: abs((punch_dt - s["actual_start"]).total_seconds()),
+            )
+        else:
+            closest_shift = min(
+                shift_candidates,
+                key=lambda s: abs((punch_dt - s["start_datetime"]).total_seconds()),
+            )
 
     return closest_shift["name"]
+
+
+def should_recalculate_shift_for_boundary_switch(
+    employee: str, punch_dt: datetime, existing_shift_data: dict
+) -> bool:
+    """
+    Guard for long cross-day (typically 12h) shift switches.
+
+    If an employee already punched OUT in the current cross-day window and the new IN
+    is very close to another allowed shift start, prefer recalculating shift instead of
+    reusing the previous day's shift.
+    """
+    shift_name = existing_shift_data.get("shift")
+    shift_start = existing_shift_data.get("shift_start")
+    shift_end = existing_shift_data.get("shift_end")
+    last_in_time = existing_shift_data.get("time")
+
+    if not (shift_name and shift_start and shift_end and last_in_time):
+        return False
+
+    shift_start = get_datetime(shift_start)
+    shift_end = get_datetime(shift_end)
+
+    # Apply only to cross-day windows.
+    if getdate(shift_start) == getdate(shift_end):
+        return False
+
+    # Keep this guard focused on long cross-day (12h-like) shifts.
+    shift_hours = (shift_end - shift_start).total_seconds() / 3600
+    if shift_hours < 11 or shift_hours > 13:
+        return False
+
+    # Boundary condition: punch on the second day of that cross-day shift.
+    if getdate(punch_dt) != getdate(shift_end):
+        return False
+
+    # Prefer existing checkout if already created.
+    existing_out = frappe.db.get_value(
+        "Employee Checkin",
+        filters={
+            "employee": employee,
+            "log_type": "OUT",
+            "time": ["between", [last_in_time, punch_dt]],
+        },
+        fieldname="time",
+        order_by="time desc",
+    )
+    if not existing_out:
+        # In this flow IN logs are processed before OUT logs, so checkout might not yet exist.
+        # Use raw bio OUT punches as supporting evidence for shift switch.
+        from_dt = get_datetime(last_in_time)
+        to_dt = get_datetime(punch_dt)
+        start_date = getdate(from_dt)
+        end_date = getdate(to_dt)
+
+        out_logs = frappe.db.sql(
+            """
+            SELECT
+                name, punch_date, punch_time, punch_date_backup
+            FROM
+                `tabbioattendancelog`
+            WHERE
+                employee_id = %s
+                AND punch_direction = 'O'
+                AND punch_date >= %s
+                AND punch_date <= %s
+            ORDER BY
+                punch_date ASC, punch_time ASC
+            """,
+            (employee, str(start_date), str(end_date)),
+            as_dict=True,
+        )
+
+        has_out_punch_between = False
+        for out_log in out_logs:
+            out_dt = None
+            if out_log.get("punch_date_backup"):
+                out_dt = get_datetime(out_log.get("punch_date_backup"))
+            elif out_log.get("punch_date") and out_log.get("punch_time"):
+                out_dt = datetime.combine(
+                    getdate(out_log.get("punch_date")),
+                    get_time(out_log.get("punch_time")),
+                )
+
+            if out_dt and from_dt <= out_dt <= to_dt:
+                has_out_punch_between = True
+                break
+
+        if not has_out_punch_between:
+            return False
+
+    # Recalculate only when another allowed shift starts near this punch.
+    for_date = getdate(punch_dt)
+    allowed_shifts = get_employee_allowed_shifts(employee, for_date)
+    for allowed_shift in allowed_shifts:
+        if allowed_shift == shift_name:
+            continue
+
+        candidate_shift = get_shift_type(allowed_shift)
+        if not candidate_shift or not candidate_shift.start_time:
+            continue
+
+        candidate_start = (
+            datetime.combine(for_date, datetime.min.time()) + candidate_shift.start_time
+        )
+        delta_minutes = abs((punch_dt - candidate_start).total_seconds()) / 60
+        if delta_minutes <= 180:
+            return True
+
+    return False
 
 
 def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
@@ -348,8 +555,15 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
                 "log_type": "IN",
                 "time": ["between", [previous_day_start, punch_dt]],
             },
-            fieldname="shift",
+            fieldname=[
+                "shift",
+                "shift_start",
+                "shift_end",
+                "shift_actual_start",
+                "shift_actual_end",
+            ],
             order_by="time desc",
+            as_dict=True,
         )
 
     # ----------------------------------
@@ -362,7 +576,7 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
             "log_type": "IN",  # 🔑 CRITICAL
             "time": ["<=", punch_dt],
         },
-        fieldname=["shift", "shift_end"],
+        fieldname=["shift", "shift_start", "shift_end", "time"],
         order_by="time desc",
         as_dict=True,
     )
@@ -372,6 +586,12 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
 
         # ❌ Do NOT reuse if shift already ended
         if shift_end and punch_dt > get_datetime(shift_end):
+            existing_shift_data = None
+
+    if existing_shift_data:
+        if should_recalculate_shift_for_boundary_switch(
+            employee=employee, punch_dt=punch_dt, existing_shift_data=existing_shift_data
+        ):
             existing_shift_data = None
 
     if existing_shift_data:
@@ -391,6 +611,7 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
         allowed_shifts=allowed_shifts,
         punch_time=punch_dt,
         date=punch_date,
+        log_type="IN",
     )
 
     if not shift_name:

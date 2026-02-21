@@ -11,7 +11,13 @@ from frappe.utils import (
 from real_group.helper.attendance_helper import create_attendance
 
 
-def process(from_date=None, employee_names: list | None = None, reprocess_ref=None):
+def process(
+    from_date=None,
+    employee_names: list | None = None,
+    reprocess_ref=None,
+    process_day_shift: bool = True,
+    process_night_shift: bool = True,
+):
     start_date = add_days(getdate(from_date), -1)
     end_date = getdate(from_date)
     start_date_for_night_shift = add_days(getdate(from_date), -2)
@@ -31,50 +37,52 @@ def process(from_date=None, employee_names: list | None = None, reprocess_ref=No
     else:
         employees = employee_names
 
-    day_shift_checkins = frappe.get_all(
-        "Employee Checkin",
-        filters={
-            "employee": ["in", employees],
-            "shift_start": [">=", get_datetime(start_date)],
-            "shift_end": ["<=", get_datetime(end_date)],
-            "attendance": ["is", "not set"],
-        },
-        order_by="time",
-        fields=["*"],
-    )
+    if process_day_shift:
+        day_shift_checkins = frappe.get_all(
+            "Employee Checkin",
+            filters={
+                "employee": ["in", employees],
+                "shift_start": [">=", get_datetime(start_date)],
+                "shift_end": ["<=", get_datetime(end_date)],
+                "attendance": ["is", "not set"],
+            },
+            order_by="time",
+            fields=["*"],
+        )
 
-    logs = sorted(day_shift_checkins, key=lambda x: (x["employee"], x["time"]))
+        logs = sorted(day_shift_checkins, key=lambda x: (x["employee"], x["time"]))
 
-    # Group logs by employee
-    logs_by_employee = {}
-    for employee, group in groupby(logs, key=lambda x: x["employee"]):
-        logs_by_employee[employee] = list(group)
+        # Group logs by employee
+        logs_by_employee = {}
+        for employee, group in groupby(logs, key=lambda x: x["employee"]):
+            logs_by_employee[employee] = list(group)
 
-    # Process all employees, including those without logs
-    for employee in employees:
-        group = logs_by_employee.get(employee, [])
-        create_attendance(employee, start_date, group, reprocess_ref)
+        # Process all employees, including those without logs
+        for employee in employees:
+            group = logs_by_employee.get(employee, [])
+            create_attendance(employee, start_date, group, reprocess_ref)
 
-    # Processing Night Shift Employees
-    night_shift_checkins = frappe.get_all(
-        "Employee Checkin",
-        filters={
-            "employee": ["in", employees],
-            "shift_start": [">=", get_datetime(start_date_for_night_shift)],
-            "shift_end": ["<=", datetime.combine(end_date_for_night_shift, time(23, 59, 59))],
-            "attendance": ["is", "not set"],
-        },
-        order_by="time",
-        fields=["*"],
-    )
-    night_logs = sorted(night_shift_checkins, key=lambda x: (x["employee"], x["time"]))
+    if process_night_shift:
+        # Processing Night Shift Employees
+        night_shift_checkins = frappe.get_all(
+            "Employee Checkin",
+            filters={
+                "employee": ["in", employees],
+                "shift_start": [">=", get_datetime(start_date_for_night_shift)],
+                "shift_end": ["<=", datetime.combine(end_date_for_night_shift, time(23, 59, 59))],
+                "attendance": ["is", "not set"],
+            },
+            order_by="time",
+            fields=["*"],
+        )
+        night_logs = sorted(night_shift_checkins, key=lambda x: (x["employee"], x["time"]))
 
-    # Group night logs by employee
-    night_logs_by_employee = {}
-    for employee, group in groupby(night_logs, key=lambda x: x["employee"]):
-        night_logs_by_employee[employee] = list(group)
+        # Group night logs by employee
+        night_logs_by_employee = {}
+        for employee, group in groupby(night_logs, key=lambda x: x["employee"]):
+            night_logs_by_employee[employee] = list(group)
 
-    # Process all employees for night shift, including those without logs
-    for employee in employees:
-        group = night_logs_by_employee.get(employee, [])
-        create_attendance(employee, start_date_for_night_shift, group, reprocess_ref)
+        # Process all employees for night shift, including those without logs
+        for employee in employees:
+            group = night_logs_by_employee.get(employee, [])
+            create_attendance(employee, start_date_for_night_shift, group, reprocess_ref)

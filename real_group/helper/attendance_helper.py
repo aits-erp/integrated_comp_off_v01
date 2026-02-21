@@ -25,6 +25,20 @@ from real_group.utils import (
 )
 
 
+def has_valid_in_out_pair(logs) -> bool:
+    has_in = False
+    has_out = False
+    for log in logs or []:
+        log_type = log.get("log_type") if hasattr(log, "get") else getattr(log, "log_type", None)
+        if log_type == "IN":
+            has_in = True
+        elif log_type == "OUT":
+            has_out = True
+        if has_in and has_out:
+            return True
+    return False
+
+
 # Main function to create or update attendance
 def create_attendance(employee: str, date: str | date, logs: list[dict] | None, reprocess_ref=None) -> None:
     employee_doc = frappe.get_cached_doc("Employee", employee)
@@ -63,9 +77,13 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
             # If the Attendance was first created as Absent (no logs yet) and logs arrive later
             # (night shift / delayed sync), update the actual status and timings.
             if existing_attendance.status == "Absent":
+                final_status = attendance_status
+                if holiday and holiday.get("is_holiday") and not holiday.get("is_half_day"):
+                    # On full holidays/weekly-offs, low hours should not keep status as Absent.
+                    final_status = "Present"
                 existing_attendance.db_set(
                     {
-                        "status": attendance_status,
+                        "status": final_status,
                         "working_hours": working_hours,
                         "shift": shift,
                         "late_entry": late_entry,
@@ -171,6 +189,8 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
         mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance)
     elif logs and holiday:
         is_half_day_holiday = holiday.get("is_half_day")
+        is_weekly_off = holiday.get("is_weekly_off")
+        base_holiday_tag = "WO" if is_weekly_off else "HO"
         if is_half_day_holiday:
             doc = frappe.get_doc(
                 {
@@ -178,7 +198,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                     "employee": employee,
                     "attendance_date": date,
                     "status": "Half Day",
-                    "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
+                    "custom_attendance_tag": base_holiday_tag,
                     "custom_reprocess_reference": reprocess_ref,
                 }
             ).insert(ignore_permissions=True)
@@ -189,7 +209,7 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                     "employee": employee,
                     "attendance_date": date,
                     "status": "Present",
-                    "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
+                    "custom_attendance_tag": base_holiday_tag,
                     "custom_reprocess_reference": reprocess_ref,
                 }
             ).insert(ignore_permissions=True)
@@ -204,17 +224,30 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
             out_time,
         ) = get_attendance(logs, employee_doc.grade, shift)
 
+        final_status = attendance_status
+        final_tag = base_holiday_tag
+
         if attendance_status == "Half Day" and is_half_day_holiday:
-            attendance_status = "Present"
+            final_status = "Present"
+
+        if not is_half_day_holiday:
+            # For full holiday/weekly-off:
+            # - keep status as Present
+            # - mark POW/POH only if both IN and OUT punches exist
+            final_status = "Present"
+            if has_valid_in_out_pair(logs):
+                final_tag = "POW" if is_weekly_off else "POH"
+
         doc.update(
             {
-                "status": attendance_status,
+                "status": final_status,
                 "working_hours": working_hours,
                 "shift": shift,
                 "late_entry": late_entry,
                 "early_exit": early_exit,
                 "in_time": in_time,
                 "out_time": out_time,
+                "custom_attendance_tag": final_tag,
                 "custom_reprocess_reference": reprocess_ref,
             }
         )

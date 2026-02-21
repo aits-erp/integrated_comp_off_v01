@@ -243,8 +243,27 @@ class ReprocessAttendance(Document):
                 ["shift_start", ">=", start_time],
                 ["shift_end", "<", end_time],
             ]
-            emp_checkin = frappe.db.count("Employee Checkin", filters)
-            if holiday:
+            checkins = frappe.get_all(
+                "Employee Checkin", filters=filters, fields=["name", "shift_start", "log_type"], order_by="shift_start asc"
+            )
+            emp_checkin = len(checkins)
+            has_valid_in_out = any(c.get("log_type") == "IN" for c in checkins) and any(
+                c.get("log_type") == "OUT" for c in checkins
+            )
+            if holiday and has_valid_in_out:
+                attendance = frappe.get_doc(
+                    {
+                        "doctype": "Attendance",
+                        "employee": self.employee,
+                        "attendance_date": start_date,
+                        "status": "Present",
+                        "custom_attendance_tag": "POW" if holiday.get("is_weekly_off") else "POH",
+                        "custom_reprocess_reference": self.name,
+                    }
+                )
+                attendance.insert(ignore_permissions=True)
+                attendance.submit()
+            elif holiday:
                 attendance = frappe.get_doc(
                     {
                         "doctype": "Attendance",
@@ -252,19 +271,6 @@ class ReprocessAttendance(Document):
                         "attendance_date": start_date,
                         "status": "Present",
                         "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
-                        "custom_reprocess_reference": self.name,
-                    }
-                )
-                attendance.insert(ignore_permissions=True)
-                attendance.submit()
-            elif holiday and emp_checkin and emp_checkin > 0:
-                attendance = frappe.get_doc(
-                    {
-                        "doctype": "Attendance",
-                        "employee": self.employee,
-                        "attendance_date": start_date,
-                        "status": "Present",
-                        "custom_attendance_tag": "POH",
                         "custom_reprocess_reference": self.name,
                     }
                 )
@@ -286,8 +292,7 @@ class ReprocessAttendance(Document):
                     attendance.submit()
 
                 else:
-                    checkins = frappe.get_all("Employee Checkin", filters=filters, pluck="name")
-                    shift_date = getdate(checkins[0].get("shift_start"))
+                    shift_date = getdate(checkins[0].get("shift_start")) if checkins[0].get("shift_start") else start_date
                     attendance = frappe.get_doc(
                         {
                             "doctype": "Attendance",
@@ -301,7 +306,7 @@ class ReprocessAttendance(Document):
                     attendance.insert(ignore_permissions=True)
                     attendance.submit()
                     for checkin in checkins:
-                        frappe.db.set_value("Employee Checkin", checkin, "attendance", attendance.name)
+                        frappe.db.set_value("Employee Checkin", checkin.get("name"), "attendance", attendance.name)
             attendance.add_tag("Single Check in Required")
             # frappe.db.commit()  # nosemgrep
             start_date = add_days(start_date, 1)
@@ -320,6 +325,25 @@ class ReprocessAttendance(Document):
                     frappe.get_traceback(), f"Error in Reprocess Attendance: {self.name} for date {start_date}"
                 )
             start_date = add_days(start_date, 1)
+
+        # Process one additional cycle for the tail night-shift window.
+        # For selected to_date = D, night shifts that start on D are resolved when process() is
+        # called with from_date = D + 2.
+        tail_night_cycle_date = add_days(end_date, 2)
+        try:
+            frappe.flags.in_reprocess_attendance = True
+            _process_attendance(
+                from_date=tail_night_cycle_date,
+                employee_names=[self.employee],
+                reprocess_ref=self.name,
+                process_day_shift=False,
+                process_night_shift=True,
+            )
+        except Exception:
+            frappe.log_error(
+                frappe.get_traceback(),
+                f"Error in Reprocess Attendance: {self.name} for tail night cycle {tail_night_cycle_date}",
+            )
 
         self.process_leave_and_requests(from_date, to_date)
 
@@ -353,35 +377,29 @@ class ReprocessAttendance(Document):
         for request in requests:
             try:
                 doc = frappe.get_doc("Attendance Request", request)
-                start_date = getdate(doc.from_date)
-                end_date = getdate(doc.to_date)
-                half_day_date = getdate(doc.half_day_date) if doc.half_day_date else None
-                while start_date <= end_date:
-                    try:
-                        frappe.flags.in_install = "frappe"
-                        new_request = frappe.copy_doc(doc)
-                        new_request.from_date = start_date
-                        new_request.to_date = start_date
-                        if doc.half_day:
-                            new_request.half_day = 1
-                            if (half_day_date == start_date) or (doc.from_date == doc.to_date):
-                                new_request.half_day_date = start_date
-                        else:
-                            new_request.half_day = 0
-                            new_request.half_day_date = None
-                        new_request.status = "Approved"
-                        workflow_name = new_request.meta.get_workflow()
-                        field_name = get_workflow_state_field(workflow_name)
-                        new_request.update({field_name: "Approved"})
-                        new_request.name = None
-                        new_request.insert(ignore_permissions=True)
-                        new_request.submit()
-                    except Exception:
-                        frappe.log_error(
-                            frappe.get_traceback(),
-                            f"Error in Reprocess Attendance : {self.name}",
-                        )
-                    start_date = add_days(start_date, 1)
+                try:
+                    frappe.flags.in_install = "frappe"
+                    new_request = frappe.copy_doc(doc)
+                    new_request.from_date = doc.from_date
+                    new_request.to_date = doc.to_date
+                    if doc.half_day:
+                        new_request.half_day = 1
+                        new_request.half_day_date = doc.half_day_date
+                    else:
+                        new_request.half_day = 0
+                        new_request.half_day_date = None
+                    new_request.status = "Approved"
+                    workflow_name = new_request.meta.get_workflow()
+                    field_name = get_workflow_state_field(workflow_name)
+                    new_request.update({field_name: "Approved"})
+                    new_request.name = None
+                    new_request.insert(ignore_permissions=True)
+                    new_request.submit()
+                except Exception:
+                    frappe.log_error(
+                        frappe.get_traceback(),
+                        f"Error in Reprocess Attendance : {self.name}",
+                    )
             except Exception:
                 frappe.log_error(
                     frappe.get_traceback(),

@@ -119,6 +119,13 @@ def update_attendance_status(doc):
         frappe.db.set_value("Attendance", doc.name, "status", doc.status)
 
 
+def has_valid_holiday_in_out_pair(doc):
+    log_types = frappe.get_all("Employee Checkin", filters={"attendance": doc.name}, pluck="log_type")
+    if not log_types:
+        return False
+    return "IN" in log_types and "OUT" in log_types
+
+
 def update_attendance_tag(doc):
     status = ""
 
@@ -161,8 +168,7 @@ def update_attendance_tag(doc):
     elif doc.status == "Absent":
         status = "A"
     elif is_holiday and is_holiday.get("is_holiday"):
-        checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
-        if checkins and checkins > 0:
+        if has_valid_holiday_in_out_pair(doc):
             if is_holiday.get("is_weekly_off"):
                 status = "POW"
             else:

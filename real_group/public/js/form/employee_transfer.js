@@ -1,14 +1,4 @@
 frappe.ui.form.on("Employee Transfer", {
-  onload(frm) {
-    frm.fields_dict["custom_employee_leave"].grid.get_field("new_leave_type").get_query = function (doc, cdt, cdn) {
-      const row = locals[cdt][cdn];
-      return {
-        filters: {
-          name: ["!=", row.existing_leave_type],
-        },
-      };
-    };
-  },
   refresh: function (frm) {
     frm.fields_dict.custom_employee_leave.grid.grid_buttons.hide();
   },

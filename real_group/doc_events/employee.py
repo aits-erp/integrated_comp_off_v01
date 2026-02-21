@@ -113,21 +113,23 @@ def validate_aadhar(doc):
 
 
 def validate_employee_data(doc):
-    if " " in doc.first_name:
+    if " " in (doc.first_name or ""):
         frappe.throw(frappe._("Spaces not allowed in First Name"))
 
     allocation_percentage = 0
 
-    for n in doc.custom_nominee:
-        allocation_percentage = allocation_percentage + n.allocation_percentage
+    for n in (doc.custom_nominee or []):
+        allocation_percentage = allocation_percentage + (n.allocation_percentage or 0)
 
     if allocation_percentage != 100:
         frappe.throw(frappe._("Incorrect Nominee Allocation Percentage, It shoud be 100% only."))
 
-    if len(doc.custom_aadhar_number) != 12:
+    aadhar_number = (doc.custom_aadhar_number or "").strip()
+
+    if len(aadhar_number) != 12:
         frappe.throw(frappe._("Aadhar Number should have 12 digits"))
 
-    if not doc.custom_aadhar_number.isdigit():
+    if not aadhar_number.isdigit():
         frappe.throw(frappe._("Aadhar Number should have only digits"))
 
 
