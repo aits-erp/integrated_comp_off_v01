@@ -2,6 +2,59 @@ import frappe
 from frappe.utils import flt, today
 
 
+def get_total_comp_off_outflow(employee: str) -> float:
+    """Total consumed/expired C-off leaves to distribute FIFO across requests."""
+
+    outflow = frappe.db.sql(
+        """
+        SELECT IFNULL(SUM(-leaves), 0)
+        FROM `tabLeave Ledger Entry`
+        WHERE employee=%s
+          AND leave_type='Compensatory Off'
+          AND docstatus=1
+          AND leaves < 0
+          AND (
+                transaction_type='Leave Application'
+                OR (
+                    transaction_type='Leave Allocation'
+                    AND is_expired=1
+                    AND is_carry_forward=0
+                )
+              )
+        """,
+        (employee,),
+    )[0][0]
+    return flt(outflow)
+
+
+def get_fifo_request_balances(employee: str) -> dict[str, float]:
+    """
+    Compute request-wise remaining balance in FIFO order.
+
+    This prevents an old, already consumed C-off request from expiring
+    a newer request in the same leave allocation pool.
+    """
+
+    requests = frappe.get_all(
+        "Compensatory Leave Request",
+        filters={"employee": employee, "docstatus": 1},
+        fields=["name", "credit", "work_end_date", "work_from_date", "creation"],
+        order_by="work_end_date asc, work_from_date asc, creation asc",
+    )
+
+    outflow_remaining = get_total_comp_off_outflow(employee)
+    request_balances: dict[str, float] = {}
+
+    for req in requests:
+        credit = flt(req.credit or 0)
+        consumed = min(credit, outflow_remaining)
+        request_balance = max(0.0, credit - consumed)
+        request_balances[req.name] = request_balance
+        outflow_remaining = max(0.0, outflow_remaining - consumed)
+
+    return request_balances
+
+
 def create_comp_off_expiry_ledger(
     employee,
     employee_name,
@@ -66,11 +119,16 @@ def mark_request_expired(
     frappe.db.set_value("Compensatory Leave Request", request_name, "status", "Expired")
 
     if has_custom_is_expired:
-        frappe.db.set_value("Compensatory Leave Request", request_name, "custom_is_expired", 1)
+        frappe.db.set_value(
+            "Compensatory Leave Request", request_name, "custom_is_expired", 1
+        )
 
     if has_custom_expired_leaves and expired_qty > 0:
         existing_expired = flt(
-            frappe.db.get_value("Compensatory Leave Request", request_name, "custom_expired_leaves") or 0
+            frappe.db.get_value(
+                "Compensatory Leave Request", request_name, "custom_expired_leaves"
+            )
+            or 0
         )
         frappe.db.set_value(
             "Compensatory Leave Request",
@@ -80,7 +138,9 @@ def mark_request_expired(
         )
 
     if has_custom_balance:
-        frappe.db.set_value("Compensatory Leave Request", request_name, "custom_balance", 0)
+        frappe.db.set_value(
+            "Compensatory Leave Request", request_name, "custom_balance", 0
+        )
 
 
 def expire_unused_comp_off():
@@ -93,16 +153,35 @@ def expire_unused_comp_off():
     requests = frappe.get_all(
         "Compensatory Leave Request",
         filters={
+            # Expire on configured expiry date.
             "expiry": today_date,
+            "docstatus": 1,
             "status": ["!=", "Expired"],
         },
-        fields=["name", "employee", "credit", "leave_allocation"],
+        fields=[
+            "name",
+            "employee",
+            "credit",
+            "leave_allocation",
+            "expiry",
+            "work_end_date",
+            "creation",
+        ],
+        order_by="employee asc, expiry asc, work_end_date asc, creation asc",
     )
+
+    fifo_balances_by_employee: dict[str, dict[str, float]] = {}
 
     for req in requests:
         employee = req.employee
+
+        if employee not in fifo_balances_by_employee:
+            fifo_balances_by_employee[employee] = get_fifo_request_balances(employee)
+
         if has_custom_is_expired:
-            is_already_expired = frappe.db.get_value("Compensatory Leave Request", req.name, "custom_is_expired")
+            is_already_expired = frappe.db.get_value(
+                "Compensatory Leave Request", req.name, "custom_is_expired"
+            )
             if is_already_expired:
                 mark_request_expired(
                     req.name,
@@ -112,9 +191,23 @@ def expire_unused_comp_off():
                 )
                 continue
 
-        request_balance = flt(req.credit or 0)
+        # Use FIFO-derived per-request balance so old consumed requests
+        # don't expire newer request balances.
+        request_balance = flt(
+            fifo_balances_by_employee.get(employee, {}).get(req.name, req.credit or 0)
+        )
+
         if has_custom_balance:
-            request_balance = flt(frappe.db.get_value("Compensatory Leave Request", req.name, "custom_balance") or 0)
+            custom_balance = flt(
+                frappe.db.get_value(
+                    "Compensatory Leave Request", req.name, "custom_balance"
+                )
+                or 0
+            )
+            # Guard against stale custom balance defaults (0 on many sites).
+            # Only use it when it carries a positive value.
+            if custom_balance > 0:
+                request_balance = min(request_balance, custom_balance)
 
         if request_balance <= 0:
             mark_request_expired(
@@ -148,7 +241,13 @@ def expire_unused_comp_off():
             )
             continue
 
-        expire_qty = min(allocation_balance, request_balance)
+        # Rule:
+        # If expiry date is today, expire only when available C-Off balance
+        # is enough to cover this request's remaining expiry balance.
+        if allocation_balance < request_balance:
+            continue
+
+        expire_qty = request_balance
         if expire_qty <= 0:
             mark_request_expired(
                 req.name,

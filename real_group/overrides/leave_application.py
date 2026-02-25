@@ -106,9 +106,16 @@ class LeaveApplicationOverride(LeaveApplication):
         if attendance_name:
             # update existing attendance, change absent to on leave
             doc = frappe.get_doc("Attendance", attendance_name)
+            final_status = status
+
+            # Match Attendance Request behavior for half-day merge:
+            # existing half-day attendance + half-day leave => present.
+            if doc.status == "Half Day" and status == "Half Day":
+                final_status = "Present"
+
             doc.db_set(
                 {
-                    "status": status,
+                    "status": final_status,
                     "leave_type": self.leave_type,
                     "leave_application": self.name,
                     "custom_half_type": self.custom_half_type

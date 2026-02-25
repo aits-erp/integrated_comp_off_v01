@@ -344,7 +344,9 @@ def find_closest_shift_from_punch_time(
             frappe._dict(shift), punch_dt, grade=None, is_checkout=False
         )
         actual_start = start_datetime - timedelta(
-            minutes=convert_time_to_minutes(shift.get("custom_early_entry_grace_period"))
+            minutes=convert_time_to_minutes(
+                shift.get("custom_early_entry_grace_period")
+            )
         )
         actual_end = end_datetime + timedelta(
             minutes=convert_time_to_minutes(shift.get("custom_late_exit_grace_period"))
@@ -421,7 +423,7 @@ def should_recalculate_shift_for_boundary_switch(
     employee: str, punch_dt: datetime, existing_shift_data: dict
 ) -> bool:
     """
-    Guard for long cross-day (typically 12h) shift switches.
+    Guard for cross-day shift switches.
 
     If an employee already punched OUT in the current cross-day window and the new IN
     is very close to another allowed shift start, prefer recalculating shift instead of
@@ -440,11 +442,6 @@ def should_recalculate_shift_for_boundary_switch(
 
     # Apply only to cross-day windows.
     if getdate(shift_start) == getdate(shift_end):
-        return False
-
-    # Keep this guard focused on long cross-day (12h-like) shifts.
-    shift_hours = (shift_end - shift_start).total_seconds() / 3600
-    if shift_hours < 11 or shift_hours > 13:
         return False
 
     # Boundary condition: punch on the second day of that cross-day shift.
@@ -590,7 +587,9 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
 
     if existing_shift_data:
         if should_recalculate_shift_for_boundary_switch(
-            employee=employee, punch_dt=punch_dt, existing_shift_data=existing_shift_data
+            employee=employee,
+            punch_dt=punch_dt,
+            existing_shift_data=existing_shift_data,
         ):
             existing_shift_data = None
 
