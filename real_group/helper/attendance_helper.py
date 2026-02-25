@@ -30,12 +30,17 @@ from real_group.utils import (
 # Helpers
 # --------------------------------------------------------
 
+
 def has_valid_in_out_pair(logs) -> bool:
     has_in = False
     has_out = False
 
     for log in logs or []:
-        log_type = log.get("log_type") if hasattr(log, "get") else getattr(log, "log_type", None)
+        log_type = (
+            log.get("log_type")
+            if hasattr(log, "get")
+            else getattr(log, "log_type", None)
+        )
         if log_type == "IN":
             has_in = True
         elif log_type == "OUT":
@@ -57,7 +62,11 @@ def update_time(checkins: list):
 def has_attendance(employee, attendance_date):
     return frappe.db.exists(
         "Attendance",
-        {"employee": employee, "attendance_date": attendance_date, "docstatus": ["<", 2]},
+        {
+            "employee": employee,
+            "attendance_date": attendance_date,
+            "docstatus": ["<", 2],
+        },
     )
 
 
@@ -65,7 +74,10 @@ def has_attendance(employee, attendance_date):
 # Main Attendance Engine
 # --------------------------------------------------------
 
-def create_attendance(employee: str, date: str | date, logs: list | None, reprocess_ref=None):
+
+def create_attendance(
+    employee: str, date: str | date, logs: list | None, reprocess_ref=None
+):
 
     employee_doc = frappe.get_cached_doc("Employee", employee)
 
@@ -118,7 +130,10 @@ def create_attendance(employee: str, date: str | date, logs: list | None, reproc
                     }
                 )
 
-            elif existing_attendance.status == "Half Day" and existing_attendance.leave_application:
+            elif (
+                existing_attendance.status == "Half Day"
+                and existing_attendance.leave_application
+            ):
                 if status == "Half Day":
                     status = "Present"
                 if status == "Absent":
@@ -127,7 +142,8 @@ def create_attendance(employee: str, date: str | date, logs: list | None, reproc
                 existing_attendance.db_set(
                     {
                         "status": status,
-                        "working_hours": hours + (existing_attendance.working_hours or 0),
+                        "working_hours": hours
+                        + (existing_attendance.working_hours or 0),
                         "shift": shift,
                         "late_entry": late,
                         "early_exit": early,
@@ -139,13 +155,16 @@ def create_attendance(employee: str, date: str | date, logs: list | None, reproc
             else:
                 existing_attendance.db_set(
                     {
-                        "working_hours": hours + (existing_attendance.working_hours or 0),
+                        "working_hours": hours
+                        + (existing_attendance.working_hours or 0),
                         "shift": existing_attendance.shift or shift,
                         "custom_reprocess_reference": reprocess_ref,
                     }
                 )
 
-            update_attendance_in_checkins([c.name for c in logs], existing_attendance.name)
+            update_attendance_in_checkins(
+                [c.name for c in logs], existing_attendance.name
+            )
 
             try:
                 from real_group.doc_events.attendance import (
@@ -282,6 +301,7 @@ def create_attendance(employee: str, date: str | date, logs: list | None, reproc
 # Core Attendance Computation (unchanged — was correct)
 # --------------------------------------------------------
 
+
 def get_attendance(logs, grade, shift_type):
 
     if len(logs) < 2:
@@ -320,7 +340,9 @@ def get_attendance(logs, grade, shift_type):
         and out_time
         and out_time
         < logs[0].shift_end
-        - timedelta(minutes=convert_time_to_minutes(shift.custom_early_exit_grace_period))
+        - timedelta(
+            minutes=convert_time_to_minutes(shift.custom_early_exit_grace_period)
+        )
     ):
         early_exit = True
 
@@ -330,9 +352,15 @@ def get_attendance(logs, grade, shift_type):
         end = get_timedelta(format_time(get_time(req.punch_time)))
         total_working_hours += convert_time_to_hours(abs(end - start))
 
-    working_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_present)
-    half_day_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_half_day)
-    absent_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_absent)
+    working_threshold = convert_time_to_hours(
+        shift.custom_working_hours_threshold_for_present
+    )
+    half_day_threshold = convert_time_to_hours(
+        shift.custom_working_hours_threshold_for_half_day
+    )
+    absent_threshold = convert_time_to_hours(
+        shift.custom_working_hours_threshold_for_absent
+    )
 
     if working_threshold and total_working_hours >= working_threshold:
         status = "Present"
@@ -360,7 +388,9 @@ def get_short_leaves(employee, date):
     )
 
 
-def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance):
+def mark_half_day_based_on_deduction_cycle(
+    employee, allowed_late_day, deduction_cycle, attendance
+):
 
     if not allowed_late_day or not deduction_cycle:
         return
@@ -392,4 +422,6 @@ def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction
 
     if late_count > allowed_late_day and late_count % deduction_cycle == 0:
         frappe.db.set_value("Attendance", attendance.name, "status", "Half Day")
-        frappe.db.set_value("Attendance", attendance.name, "custom_attendance_tag", "HD")
+        frappe.db.set_value(
+            "Attendance", attendance.name, "custom_attendance_tag", "HD"
+        )
