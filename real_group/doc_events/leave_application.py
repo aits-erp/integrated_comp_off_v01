@@ -1,22 +1,8 @@
 import frappe
 from frappe import _
-from frappe.utils import (
-    add_days,
-    cint,
-    date_diff,
-    formatdate,
-    get_link_to_form,
-    getdate,
-)
+from frappe.utils import add_days, cint, date_diff, formatdate, get_link_to_form, getdate
 
 from real_group.utils import is_holiday_for_employee
-
-try:
-    from real_group.utils import SandwichPolicyError
-except ImportError:
-    # Backward compatibility for deployments where this exception class is absent.
-    class SandwichPolicyError(frappe.ValidationError):
-        pass
 
 
 def validate(doc, method=None):
@@ -43,12 +29,7 @@ def before_cancel(doc, method=None):
             "docstatus": 1,
         },
     ):
-        frappe.throw(
-            frappe._(
-                "Cannot cancel: Salary for this period has already been submitted."
-            ),
-            SandwichPolicyError,
-        )
+        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."), SandwichPolicyError)
 
 
 def before_delete(doc, method=None):
@@ -61,11 +42,7 @@ def before_delete(doc, method=None):
             "docstatus": 1,
         },
     ):
-        frappe.throw(
-            frappe._(
-                "Cannot delete: Salary for this period has already been submitted."
-            )
-        )
+        frappe.throw(frappe._("Cannot delete: Salary for this period has already been submitted."))
 
 
 def validate_compensation_leave(doc):
@@ -74,17 +51,11 @@ def validate_compensation_leave(doc):
         and frappe.db.get_value("Leave Type", doc.leave_type, "is_compensatory")
         and doc.from_date != doc.to_date
     ):
-        frappe.throw(
-            frappe._("You may apply for Compensatory Off Leave one day at a time!")
-        )
+        frappe.throw(frappe._("You may apply for Compensatory Off Leave one day at a time!"))
 
 
 def validate_workflow_state(doc):
-    if doc.workflow_state in (
-        "Rejected by HOD",
-        "Rejected by HR",
-        "Rejected at Gate",
-    ) and (
+    if doc.workflow_state in ("Rejected by HOD", "Rejected by HR", "Rejected at Gate") and (
         doc.custom_reason_for_rejection == "" or doc.custom_reason_for_rejection is None
     ):
         frappe.throw(frappe._("Kindly set the reason for rejection"))
@@ -105,9 +76,9 @@ def validate_attendance(doc):
         )
         if att_exist:
             frappe.throw(
-                frappe._(
-                    "Attendance is already marked for the Employee {0} on {1}"
-                ).format(doc.employee, format_display_date(doc.from_date))
+                frappe._("Attendance is already marked for the Employee {0} on {1}").format(
+                    doc.employee, format_display_date(doc.from_date)
+                )
             )
     else:
         att_dates = []
@@ -127,9 +98,9 @@ def validate_attendance(doc):
             )
             if att_exist:
                 frappe.throw(
-                    frappe._(
-                        "Attendance is already marked for the Employee {0} on {1}"
-                    ).format(doc.employee, format_display_date(date))
+                    frappe._("Attendance is already marked for the Employee {0} on {1}").format(
+                        doc.employee, format_display_date(date)
+                    )
                 )
 
 
@@ -142,52 +113,20 @@ def validate_cross_month_leave(doc):
 
 
 def validate_cl(doc):
-    from erpnext.setup.doctype.employee.employee import get_holiday_list_for_employee
-
     leave_type = doc.leave_type
-    is_restrict_adjacent_holiday_enabled = cint(
-        frappe.db.get_value(
-            "Leave Type", leave_type, "custom_restrict_leave_adjacent_to_holiday"
-        )
+    is_based_on_working_days = frappe.db.get_value(
+        "Leave Type", leave_type, "custom_restrict_leave_adjacent_to_holiday"
     )
-    if not is_restrict_adjacent_holiday_enabled:
-        return
+    if is_based_on_working_days:
+        prev_day = add_days(doc.from_date, -1)
+        next_day = add_days(doc.to_date, 1)
 
-    prev_day = add_days(doc.from_date, -1)
-    next_day = add_days(doc.to_date, 1)
-
-    prev_day_info = is_holiday_for_employee(doc.employee, prev_day) or {}
-    next_day_info = is_holiday_for_employee(doc.employee, next_day) or {}
-    helper_holiday_block = (
-        prev_day_info and not prev_day_info.get("is_weekly_off")
-    ) or (next_day_info and not next_day_info.get("is_weekly_off"))
-
-    holiday_lists = {
-        frappe.db.get_value("Employee", doc.employee, "holiday_list"),
-        get_holiday_list_for_employee(doc.employee),
-    }
-    holiday_lists = [d for d in holiday_lists if d]
-
-    db_holiday_block = False
-    if holiday_lists:
-        db_holiday_block = bool(
-            frappe.db.exists(
-                "Holiday",
-                {
-                    "parent": ["in", holiday_lists],
-                    "holiday_date": ["in", [getdate(prev_day), getdate(next_day)]],
-                    "parenttype": "Holiday List",
-                    "parentfield": "holidays",
-                },
+        if is_holiday_for_employee(doc.employee, prev_day) or is_holiday_for_employee(doc.employee, next_day):
+            frappe.throw(
+                frappe._(
+                    "Casual Leave cannot be applied before or after a holiday or weekly off. Please adjust your leave dates."
+                )
             )
-        )
-
-    if helper_holiday_block or db_holiday_block:
-        frappe.throw(
-            frappe._(
-                "Casual Leave cannot be applied before or after a holiday. Please adjust your leave dates."
-            )
-        )
 
 
 def validate_el_and_cl(doc):
@@ -206,20 +145,10 @@ def validate_el_and_cl(doc):
         filters={
             "employee": doc.employee,
             "docstatus": ["!=", 2],
-            "workflow_state": [
-                "not in",
-                ["Cancelled", "Rejected by HOD", "Rejected by HR"],
-            ],
+            "workflow_state": ["not in", ["Cancelled", "Rejected by HOD", "Rejected by HR"]],
             "name": ["!=", doc.name],
         },
-        fields=[
-            "name",
-            "leave_type",
-            "from_date",
-            "to_date",
-            "half_day",
-            "half_day_date",
-        ],
+        fields=["name", "leave_type", "from_date", "to_date", "half_day", "half_day_date"],
     )
     doc_from = getdate(doc.from_date)
     doc_to = getdate(doc.to_date)
@@ -251,30 +180,20 @@ def validate_el_and_cl(doc):
         if doc_from <= other_to and other_from <= doc_to:
             # Only treat it as violation if actual date intersection (not range overlap logic)
             # means one of the dates is exactly same
-            if (
-                doc_from == other_from
-                or doc_from == other_to
-                or doc_to == other_from
-                or doc_to == other_to
-            ):
+            if doc_from == other_from or doc_from == other_to or doc_to == other_from or doc_to == other_to:
                 frappe.throw(
-                    _(
-                        "EL and CL cannot be applied on the same date. One Present day is mandatory between EL and CL."
-                    )
+                    _("EL and CL cannot be applied on the same date. One Present day is mandatory between EL and CL.")
                 )
 
         # ---- 2️⃣ ADJACENT (Continuation) ----
         earlier_end = min(doc_to, other_to)
         later_start = max(doc_from, other_from)
 
-        if (other_is_cl or other_is_el) and not has_present_day_between(
-            doc.employee, earlier_end, later_start
-        ):
+        if (other_is_cl or other_is_el) and not has_present_day_between(doc.employee, earlier_end, later_start):
             frappe.throw(
                 _(
                     "EL and CL cannot be applied. One Present day is mandatory between EL and CL from {0} to {1}.".format(
-                        format_display_date(earlier_end),
-                        format_display_date(later_start),
+                        format_display_date(earlier_end), format_display_date(later_start)
                     )
                 )
             )
@@ -282,11 +201,7 @@ def validate_el_and_cl(doc):
 
 def validate_change_request_day(doc):
     roles = frappe.get_roles()
-    if (
-        "HR Manager" in roles
-        or "HR User" in roles
-        or any("Payroll" in r for r in roles)
-    ):
+    if "HR Manager" in roles or "HR User" in roles or any("Payroll" in r for r in roles):
         return
     branch = frappe.get_value("Employee", doc.employee, "branch")
     allowed_days = frappe.get_value("Branch", branch, "custom_change_request")
@@ -295,11 +210,7 @@ def validate_change_request_day(doc):
 
     diff = date_diff(getdate(), doc.from_date)
     if diff > allowed_days:
-        frappe.throw(
-            frappe._("You can only change attendance request within {0} days.").format(
-                allowed_days
-            )
-        )
+        frappe.throw(frappe._("You can only change attendance request within {0} days.").format(allowed_days))
 
 
 def validate_el_cl_gap_non_working_day(doc):
@@ -315,10 +226,7 @@ def validate_el_cl_gap_non_working_day(doc):
         filters={
             "employee": doc.employee,
             "docstatus": ["!=", 2],
-            "workflow_state": [
-                "not in",
-                ["Cancelled", "Rejected by HOD", "Rejected by HR"],
-            ],
+            "workflow_state": ["not in", ["Cancelled", "Rejected by HOD", "Rejected by HR"]],
             "name": ["!=", doc.name],
         },
         fields=["leave_type", "from_date", "to_date"],
@@ -359,11 +267,7 @@ def validate_el_cl_gap_non_working_day(doc):
 
         reason = get_non_working_gap_reason(doc.employee, gap_date)
         if reason:
-            frappe.throw(
-                frappe._(
-                    "EL and CL must be separated by a Present working day. {0}"
-                ).format(reason)
-            )
+            frappe.throw(frappe._("EL and CL must be separated by a Present working day. {0}").format(reason))
 
 
 def format_display_date(value):
@@ -384,16 +288,12 @@ def get_non_working_gap_reason(employee, gap_date):
     )
 
     if attendance_status in ("Absent"):
-        return frappe._("Attendance on {0} is marked {1}.").format(
-            format_display_date(gap_date), attendance_status
-        )
+        return frappe._("Attendance on {0} is marked {1}.").format(format_display_date(gap_date), attendance_status)
 
     holiday = is_holiday_for_employee(employee, gap_date)
     if holiday:
         if holiday.get("is_weekly_off"):
-            return frappe._("{0} is a Weekly Off.").format(
-                format_display_date(gap_date)
-            )
+            return frappe._("{0} is a Weekly Off.").format(format_display_date(gap_date))
         return frappe._("{0} is a Holiday.").format(format_display_date(gap_date))
 
     return None
@@ -407,25 +307,9 @@ def validate_attendance_request(doc):
             "from_date": ["<=", doc.to_date],
             "to_date": [">=", doc.from_date],
             "docstatus": ["!=", 2],
-            "workflow_state": [
-                "not in",
-                [
-                    "Rejected",
-                    "Cancelled",
-                    "Reject by HOD",
-                    "Reject by HR",
-                    "Reject at Gate",
-                ],
-            ],
+            "workflow_state": ["not in", ["Rejected", "Cancelled", "Reject by HOD", "Reject by HR", "Reject at Gate"]],
         },
-        fields=[
-            "name",
-            "from_date",
-            "to_date",
-            "half_day_date",
-            "custom_half_type",
-            "half_day",
-        ],
+        fields=["name", "from_date", "to_date", "half_day_date", "custom_half_type", "half_day"],
     )
 
     if requests:
@@ -433,9 +317,9 @@ def validate_attendance_request(doc):
             # Full-day attendance exists
             if not r.half_day:
                 frappe.throw(
-                    _(
-                        "Attendance Request {0} exists for the selected date range. Cannot apply leave."
-                    ).format(get_link_to_form("Attendance Request", r.name))
+                    _("Attendance Request {0} exists for the selected date range. Cannot apply leave.").format(
+                        get_link_to_form("Attendance Request", r.name)
+                    )
                 )
 
             # Half-day attendance exists
@@ -448,18 +332,14 @@ def validate_attendance_request(doc):
                     and r.custom_half_type == doc.custom_half_type
                 ):
                     frappe.throw(
-                        _(
-                            "Attendance Request {0} exists for the selected half day. Cannot apply leave."
-                        ).format(get_link_to_form("Attendance Request", r.name))
+                        _("Attendance Request {0} exists for the selected half day. Cannot apply leave.").format(
+                            get_link_to_form("Attendance Request", r.name)
+                        )
                     )
 
                 # Full-day leave conflicts with existing half-day attendance
                 if not getattr(doc, "half_day", False) and r.half_day_date:
-                    if (
-                        getdate(doc.from_date)
-                        <= getdate(r.half_day_date)
-                        <= getdate(doc.to_date)
-                    ):
+                    if getdate(doc.from_date) <= getdate(r.half_day_date) <= getdate(doc.to_date):
                         frappe.throw(
                             _(
                                 "Attendance Request {0} already exists for a half day within this range. Full-day leave cannot be applied."
@@ -479,21 +359,10 @@ def validate_leave_overlap(self):
             "from_date": ["<=", self.to_date],
             "to_date": [">=", self.from_date],
             "docstatus": ["!=", 2],
-            "workflow_state": [
-                "not in",
-                ["Cancelled", "Rejected by HOD", "Rejected by HR"],
-            ],
+            "workflow_state": ["not in", ["Cancelled", "Rejected by HOD", "Rejected by HR"]],
             "name": ["!=", self.name],
         },
-        fields=[
-            "name",
-            "from_date",
-            "to_date",
-            "half_day_date",
-            "custom_half_type",
-            "half_day",
-            "leave_type",
-        ],
+        fields=["name", "from_date", "to_date", "half_day_date", "custom_half_type", "half_day", "leave_type"],
     )
 
     if requests:
@@ -503,9 +372,7 @@ def validate_leave_overlap(self):
 
             elif cint(r.half_day):
                 is_same_date = (
-                    r.half_day_date
-                    and self.half_day_date
-                    and getdate(r.half_day_date) == getdate(self.half_day_date)
+                    r.half_day_date and self.half_day_date and getdate(r.half_day_date) == getdate(self.half_day_date)
                 )
 
                 if is_same_date and r.custom_half_type == self.custom_half_type:
@@ -515,25 +382,15 @@ def validate_leave_overlap(self):
                     continue
 
                 if not cint(self.half_day) and r.half_day_date:
-                    if (
-                        getdate(self.from_date)
-                        <= getdate(r.half_day_date)
-                        <= getdate(self.to_date)
-                    ):
+                    if getdate(self.from_date) <= getdate(r.half_day_date) <= getdate(self.to_date):
                         self.throw_overlap_error(r)
 
 
 def throw_overlap_error(self, d):
     # Use the existing error function from Leave Application Doctype
     form_link = get_link_to_form("Leave Application", d.name)
-    msg = _(
-        "Employee {0} has already applied for {1} between {2} and {3} : {4}"
-    ).format(
-        self.employee,
-        d["leave_type"],
-        formatdate(d["from_date"]),
-        formatdate(d["to_date"]),
-        form_link,
+    msg = _("Employee {0} has already applied for {1} between {2} and {3} : {4}").format(
+        self.employee, d["leave_type"], formatdate(d["from_date"]), formatdate(d["to_date"]), form_link
     )
     frappe.throw(msg, OverlapError)
 
@@ -589,4 +446,7 @@ def validate_leave_balance(doc):
 
 
 class OverlapError(frappe.ValidationError):
+    pass
+
+class SandwichPolicyError(frappe.ValidationError):
     pass

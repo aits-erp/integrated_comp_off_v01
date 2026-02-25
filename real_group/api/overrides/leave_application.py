@@ -1,7 +1,6 @@
 import datetime
 
 import frappe
-from frappe.query_builder.functions import Sum
 from frappe.utils import add_days, cint, date_diff, flt, getdate, nowdate
 from hrms.hr.doctype.leave_application.leave_application import (
     get_allocation_expiry_for_cf_leaves,
@@ -178,17 +177,12 @@ def get_leave_balance_on(
     allocation_records = get_leave_allocation_records(employee, date, leave_type)
     allocation = allocation_records.get(leave_type, frappe._dict())
 
-    if not allocation:
-        empty_balance = frappe._dict(leave_balance=0.0, leave_balance_for_consumption=0.0)
-        return empty_balance if for_consumption else 0.0
-
     end_date = allocation.to_date if cint(consider_all_leaves_in_the_allocation_period) else date
     cf_expiry = get_allocation_expiry_for_cf_leaves(employee, leave_type, to_date, allocation.from_date)
 
     leaves_taken = get_leaves_for_period(employee, leave_type, allocation.from_date, end_date)
 
-    # Only count manual expiry entries up to the balance reference date.
-    manually_expired_leaves = get_manually_expired_leaves(employee, leave_type, allocation.from_date, date)
+    manually_expired_leaves = get_manually_expired_leaves(employee, leave_type, allocation.from_date, end_date)
 
     remaining_leaves = get_remaining_leaves(allocation, leaves_taken, date, cf_expiry, manually_expired_leaves)
 
@@ -254,12 +248,9 @@ def get_remaining_leaves(
 def get_manually_expired_leaves(employee: str, leave_type: str, from_date: datetime.date, end_date: datetime.date):
     ledger = frappe.qb.DocType("Leave Ledger Entry")
 
-    if not (from_date and end_date):
-        return 0.0
-
     leaves = (
         frappe.qb.from_(ledger)
-        .select(Sum(ledger.leaves).as_("expired_leaves"))
+        .select(ledger.leaves)
         .where(
             (ledger.docstatus == 1)
             & (ledger.employee == employee)
@@ -270,4 +261,4 @@ def get_manually_expired_leaves(employee: str, leave_type: str, from_date: datet
             & ((ledger.is_expired == 1) & (ledger.is_carry_forward == 0))
         )
     ).run()
-    return flt(leaves[0][0]) if leaves and leaves[0][0] else 0.0
+    return leaves[0][0] if leaves else 0.0
