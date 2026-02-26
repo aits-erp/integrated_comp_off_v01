@@ -5,7 +5,6 @@ from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getda
 
 from real_group.helper.attendance_helper import create_attendance
 from real_group.utils import (
-    SandwichPolicyError,
     convert_time_to_hours,
     get_holiday_dates_for_employee,
     get_weekly_off_based_on_date,
@@ -119,13 +118,6 @@ def update_attendance_status(doc):
         frappe.db.set_value("Attendance", doc.name, "status", doc.status)
 
 
-def has_valid_holiday_in_out_pair(doc):
-    log_types = frappe.get_all("Employee Checkin", filters={"attendance": doc.name}, pluck="log_type")
-    if not log_types:
-        return False
-    return "IN" in log_types and "OUT" in log_types
-
-
 def update_attendance_tag(doc):
     status = ""
 
@@ -168,7 +160,8 @@ def update_attendance_tag(doc):
     elif doc.status == "Absent":
         status = "A"
     elif is_holiday and is_holiday.get("is_holiday"):
-        if has_valid_holiday_in_out_pair(doc):
+        checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
+        if checkins and checkins > 0:
             if is_holiday.get("is_weekly_off"):
                 status = "POW"
             else:
@@ -751,3 +744,8 @@ def get_mark_to_absent(employee, for_date):
         current = add_days(block_end, 1)
 
     return list(to_mark_absent)
+
+
+class SandwichPolicyError(frappe.ValidationError):
+    pass
+
