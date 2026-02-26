@@ -274,8 +274,27 @@ class ReprocessAttendance(Document):
                 ["shift_start", ">=", start_time],
                 ["shift_end", "<", end_time],
             ]
-            emp_checkin = frappe.db.count("Employee Checkin", filters)
-            if holiday:
+            checkins = frappe.get_all(
+                "Employee Checkin", filters=filters, fields=["name", "shift_start", "log_type"], order_by="shift_start asc"
+            )
+            emp_checkin = len(checkins)
+            has_valid_in_out = any(c.get("log_type") == "IN" for c in checkins) and any(
+                c.get("log_type") == "OUT" for c in checkins
+            )
+            if holiday and has_valid_in_out:
+                attendance = frappe.get_doc(
+                    {
+                        "doctype": "Attendance",
+                        "employee": self.employee,
+                        "attendance_date": start_date,
+                        "status": "Present",
+                        "custom_attendance_tag": "POW" if holiday.get("is_weekly_off") else "POH",
+                        "custom_reprocess_reference": self.name,
+                    }
+                )
+                attendance.insert(ignore_permissions=True)
+                attendance.submit()
+            elif holiday:
                 attendance = frappe.get_doc(
                     {
                         "doctype": "Attendance",
@@ -285,19 +304,6 @@ class ReprocessAttendance(Document):
                         "custom_attendance_tag": (
                             "HO" if not holiday.get("is_weekly_off") else "WO"
                         ),
-                        "custom_reprocess_reference": self.name,
-                    }
-                )
-                attendance.insert(ignore_permissions=True)
-                attendance.submit()
-            elif holiday and emp_checkin and emp_checkin > 0:
-                attendance = frappe.get_doc(
-                    {
-                        "doctype": "Attendance",
-                        "employee": self.employee,
-                        "attendance_date": start_date,
-                        "status": "Present",
-                        "custom_attendance_tag": "POH",
                         "custom_reprocess_reference": self.name,
                     }
                 )
@@ -319,10 +325,7 @@ class ReprocessAttendance(Document):
                     attendance.submit()
 
                 else:
-                    checkins = frappe.get_all(
-                        "Employee Checkin", filters=filters, pluck="name"
-                    )
-                    shift_date = getdate(checkins[0].get("shift_start"))
+                    shift_date = getdate(checkins[0].get("shift_start")) if checkins[0].get("shift_start") else start_date
                     attendance = frappe.get_doc(
                         {
                             "doctype": "Attendance",
@@ -337,7 +340,7 @@ class ReprocessAttendance(Document):
                     attendance.submit()
                     for checkin in checkins:
                         frappe.db.set_value(
-                            "Employee Checkin", checkin, "attendance", attendance.name
+                            "Employee Checkin", checkin.get("name"), "attendance", attendance.name
                         )
             attendance.add_tag("Single Check in Required")
             # frappe.db.commit()  # nosemgrep

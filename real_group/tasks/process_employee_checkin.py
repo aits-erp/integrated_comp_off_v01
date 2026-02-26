@@ -211,7 +211,11 @@ def process_employee_checkout(logs):
                     emp, for_date=punch_dt, for_checkout=True
                 )
 
-                if owning_shift_data and owning_shift_data.get("shift"):
+                use_owning_shift = bool(
+                    owning_shift_data and owning_shift_data.get("shift")
+                )
+
+                if use_owning_shift:
                     shift_name = owning_shift_data.get("shift")
                     shift_start = owning_shift_data.get("shift_start")
                     shift_end = owning_shift_data.get("shift_end")
@@ -232,25 +236,30 @@ def process_employee_checkout(logs):
                         shift_actual_start = shift_info.actual_start
                         shift_actual_end = shift_info.actual_end
 
-                    doc = frappe.get_doc(
-                        {
-                            "doctype": "Employee Checkin",
-                            "employee": emp,
-                            "time": punch_dt,
-                            "shift": shift_name,
-                            "log_type": "OUT",
-                            "custom_bio_log_id": log.name,
-                            "device_id": log.terminal_id,
-                            "shift_start": shift_start,
-                            "shift_end": shift_end,
-                            "shift_actual_start": shift_actual_start,
-                            "shift_actual_end": shift_actual_end,
-                        }
-                    )
-                    doc.flags.is_shift_fetch_required = False
-                    doc.insert()
-                    frappe.db.commit()
-                else:
+                    # Guard: do not reuse stale previous-day IN shift for current checkout.
+                    if shift_actual_end and punch_dt <= get_datetime(shift_actual_end):
+                        doc = frappe.get_doc(
+                            {
+                                "doctype": "Employee Checkin",
+                                "employee": emp,
+                                "time": punch_dt,
+                                "shift": shift_name,
+                                "log_type": "OUT",
+                                "custom_bio_log_id": log.name,
+                                "device_id": log.terminal_id,
+                                "shift_start": shift_start,
+                                "shift_end": shift_end,
+                                "shift_actual_start": shift_actual_start,
+                                "shift_actual_end": shift_actual_end,
+                            }
+                        )
+                        doc.flags.is_shift_fetch_required = False
+                        doc.insert()
+                        frappe.db.commit()
+                    else:
+                        use_owning_shift = False
+
+                if not use_owning_shift:
                     for_date = getdate(log.punch_date)
                     allowed_shifts = get_employee_allowed_shifts(emp, for_date)
                     closest_shift = find_closest_shift_from_punch_time(
@@ -258,7 +267,7 @@ def process_employee_checkout(logs):
                     )
 
                     shift_info = fetch_shift_details(
-                        closest_shift, punch_dt, grade, is_checkout=True
+                        closest_shift, punch_dt, grade, is_checkout=False
                     )
                     doc = frappe.get_doc(
                         {
