@@ -221,6 +221,7 @@ def process_employee_checkout(logs):
                     shift_end = owning_shift_data.get("shift_end")
                     shift_actual_start = owning_shift_data.get("shift_actual_start")
                     shift_actual_end = owning_shift_data.get("shift_actual_end")
+                    checkout_delay_tolerance = timedelta(minutes=10)
 
                     if not (
                         shift_start
@@ -237,7 +238,11 @@ def process_employee_checkout(logs):
                         shift_actual_end = shift_info.actual_end
 
                     # Guard: do not reuse stale previous-day IN shift for current checkout.
-                    if shift_actual_end and punch_dt <= get_datetime(shift_actual_end):
+                    # Small tolerance handles biometric sync delays around shift end
+                    # (e.g. 06:03 OUT for a 06:00 night shift).
+                    if shift_actual_end and punch_dt <= (
+                        get_datetime(shift_actual_end) + checkout_delay_tolerance
+                    ):
                         doc = frappe.get_doc(
                             {
                                 "doctype": "Employee Checkin",
