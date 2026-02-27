@@ -121,10 +121,16 @@ def validate_cl(doc):
         prev_day = add_days(doc.from_date, -1)
         next_day = add_days(doc.to_date, 1)
 
-        if is_holiday_for_employee(doc.employee, prev_day) or is_holiday_for_employee(doc.employee, next_day):
+        prev_day_info = is_holiday_for_employee(doc.employee, prev_day) or {}
+        next_day_info = is_holiday_for_employee(doc.employee, next_day) or {}
+
+        is_prev_day_holiday = bool(prev_day_info) and not prev_day_info.get("is_weekly_off")
+        is_next_day_holiday = bool(next_day_info) and not next_day_info.get("is_weekly_off")
+
+        if is_prev_day_holiday or is_next_day_holiday:
             frappe.throw(
                 frappe._(
-                    "Casual Leave cannot be applied before or after a holiday or weekly off. Please adjust your leave dates."
+                    "Casual Leave cannot be applied before or after a holiday. Please adjust your leave dates."
                 )
             )
 
@@ -425,20 +431,35 @@ def has_present_day_between(employee, start_date, end_date):
 
 
 def validate_leave_balance(doc):
+    # Apply this lock check only while the leave application is in draft/open flow.
+    # This prevents users from over-applying while another request is pending approval.
+    if doc.docstatus != 0 or doc.status != "Open":
+        return
+
     leave_details = frappe.call(
         "hrms.hr.doctype.leave_application.leave_application.get_leave_details",
         employee=doc.employee,
         date=doc.from_date,
     )
     if leave_details and "leave_allocation" in leave_details:
-        if doc.workflow_state != "Draft":
-            return
         leave_allocation = leave_details["leave_allocation"]
         if doc.leave_type in ["Leave Without Pay", "Auto Leave Without Pay"]:
             return
         if doc.leave_type not in leave_allocation:
             return
-        pending = leave_allocation[doc.leave_type]["leaves_pending_approval"]
+        pending = leave_allocation[doc.leave_type]["leaves_pending_approval"] or 0
+
+        # Avoid double counting this same document when it already exists in Open state.
+        if not doc.is_new():
+            existing = frappe.db.get_value(
+                "Leave Application",
+                doc.name,
+                ["docstatus", "status", "total_leave_days"],
+                as_dict=True,
+            )
+            if existing and existing.docstatus == 0 and existing.status == "Open":
+                pending = max(0, pending - (existing.total_leave_days or 0))
+
         remaining = leave_allocation[doc.leave_type]["remaining_leaves"]
         total_available = remaining - pending
         if doc.total_leave_days > total_available:
