@@ -42,6 +42,21 @@ def mark_bio_log(log_name: str, status: str, message: str):
     frappe.db.commit()
 
 
+def is_cross_day_shift_type(shift_type: dict | frappe._dict | None) -> bool:
+    if not shift_type:
+        return False
+
+    if shift_type.get("custom_is_cross_day"):
+        return True
+
+    start_time = shift_type.get("start_time")
+    end_time = shift_type.get("end_time")
+    if not (start_time and end_time):
+        return False
+
+    return get_time(start_time) > get_time(end_time)
+
+
 def process():
     logs = frappe.get_all(
         "bioattendancelog",
@@ -96,7 +111,7 @@ def process_employee_checkin(logs):
                     continue
 
                 first_checkin_shift = get_first_checkin_for_the_day(
-                    emp, for_date=punch_dt
+                    emp, for_date=punch_dt, punch_direction=log.punch_direction
                 )
                 # If we have a existing checkin, we don't need to calculate which shift to assign
                 # Just use shift from last checkin
@@ -325,8 +340,10 @@ def process_employee_checkout(logs):
                         direction_hint=log.punch_direction,
                     )
 
+                    shift_type = get_shift_type(closest_shift)
+                    is_cross_day = is_cross_day_shift_type(shift_type)
                     shift_info = fetch_shift_details(
-                        closest_shift, punch_dt, grade, is_checkout=True
+                        closest_shift, punch_dt, grade, is_checkout=is_cross_day
                     )
                     doc = frappe.get_doc(
                         {
@@ -399,6 +416,7 @@ def find_closest_shift_from_punch_time(
             "name",
             "start_time",
             "end_time",
+            "custom_is_cross_day",
             "custom_early_entry_grace_period",
             "custom_late_exit_grace_period",
         ],
@@ -410,11 +428,15 @@ def find_closest_shift_from_punch_time(
         if not shift.get("start_time") or not shift.get("end_time"):
             continue
 
+        is_cross_day = is_cross_day_shift_type(shift)
         start_datetime, end_datetime = get_shift_timings(
             frappe._dict(shift),
             punch_dt,
             grade=None,
-            is_checkout=is_checkout_context,
+            # For OUT fallback:
+            # - cross-day shifts should resolve on T-1 window
+            # - normal shifts should stay on date T to avoid stale previous-day mapping
+            is_checkout=(is_checkout_context and is_cross_day),
         )
         actual_start = start_datetime - timedelta(
             minutes=convert_time_to_minutes(
@@ -453,6 +475,13 @@ def find_closest_shift_from_punch_time(
         s
         for s in shift_candidates
         if abs((punch_dt - s["actual_end"]).total_seconds())
+        <= start_end_tolerance.total_seconds()
+    ]
+    upcoming_start_candidates = [
+        s
+        for s in shift_candidates
+        if 0
+        <= (s["start_datetime"] - punch_dt).total_seconds()
         <= start_end_tolerance.total_seconds()
     ]
 
@@ -497,7 +526,17 @@ def find_closest_shift_from_punch_time(
             )
     else:
         prefer_start = direction == "I"
-        if prefer_start and near_start_candidates:
+        # For IN near a shift boundary, prefer the earliest upcoming shift start
+        # over a previous shift that is still in grace window.
+        if prefer_start and upcoming_start_candidates:
+            closest_shift = min(
+                upcoming_start_candidates,
+                key=lambda s: (
+                    (s["start_datetime"] - punch_dt).total_seconds(),
+                    s["start_datetime"],
+                ),
+            )
+        elif prefer_start and near_start_candidates:
             closest_shift = min(
                 near_start_candidates,
                 key=lambda s: (
@@ -638,7 +677,9 @@ def should_recalculate_shift_for_boundary_switch(
     return False
 
 
-def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
+def get_first_checkin_for_the_day(
+    employee: str, for_date, for_checkout=False, punch_direction: str | None = None
+):
     """
     Stable shift resolver.
 
@@ -725,6 +766,7 @@ def get_first_checkin_for_the_day(employee: str, for_date, for_checkout=False):
         punch_time=punch_dt,
         date=punch_date,
         log_type="IN",
+        direction_hint=punch_direction,
     )
 
     if not shift_name:
@@ -897,6 +939,7 @@ def get_shift_type(shift_type_name: str) -> dict:
             "name",
             "start_time",
             "end_time",
+            "custom_is_cross_day",
             "custom_early_entry_grace_period",
             "custom_late_exit_grace_period",
             "custom_late_entry_grace_period",

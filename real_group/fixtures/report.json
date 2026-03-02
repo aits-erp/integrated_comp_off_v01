@@ -618,7 +618,7 @@
   "modified": "2025-10-31 19:03:54.361030",
   "module": "Real Group",
   "name": "[New] Day Wise Attendance",
-  "prepared_report": 0,
+  "prepared_report": 1,
   "query": null,
   "ref_doctype": "Attendance",
   "reference_report": null,

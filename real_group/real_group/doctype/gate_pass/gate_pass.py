@@ -28,6 +28,7 @@ class GatePass(Document):
     # end: auto-generated types
     def validate(self):
         self.validate_total_gate_pass_per_day()
+        self.validate_checkout_before_approval()
 
     def before_insert(self):
         self.validate_date()
@@ -79,6 +80,24 @@ class GatePass(Document):
         skip_gate_pass = frappe.db.get_value("Branch", branch, "custom_skip_gate_pass")
         if skip_gate_pass == 1:
             frappe.throw(frappe._("Branch doesn't allow gate pass."))
+
+    def validate_checkout_before_approval(self):
+        is_approved_state = False
+        if self.meta.has_field("workflow_state"):
+            is_approved_state = self.workflow_state == "Approved"
+        else:
+            is_approved_state = self.status == "Approved"
+
+        if not is_approved_state or not self.employee or not self.date:
+            return
+
+        latest_checkout = get_latest_checkout_time(self.employee, str(self.date))
+        if not latest_checkout:
+            frappe.throw(
+                frappe._("Employee has not checked out yet. Gate Pass cannot be approved before checkout.")
+            )
+
+        self.checkout_time = latest_checkout
 
 
 def get_in_log_count(employee: str, date: str) -> int:
