@@ -197,6 +197,38 @@ def process_employee_checkin(logs):
 
 
 def get_valid_owning_shift_for_checkout(employee: str, punch_dt: datetime, grade: str):
+    def _get_shift_data_from_candidate(candidate):
+        shift_name = candidate.get("shift")
+        if not shift_name:
+            return None
+
+        shift_start = candidate.get("shift_start")
+        shift_end = candidate.get("shift_end")
+        shift_actual_start = candidate.get("shift_actual_start")
+        shift_actual_end = candidate.get("shift_actual_end")
+
+        if not (shift_start and shift_end and shift_actual_start and shift_actual_end):
+            shift_info = fetch_shift_details(
+                shift_name, punch_dt, grade, is_checkout=True
+            )
+            shift_start = shift_info.start_datetime
+            shift_end = shift_info.end_datetime
+            shift_actual_start = shift_info.actual_start
+            shift_actual_end = shift_info.actual_end
+
+        if not (shift_actual_start and shift_actual_end):
+            return None
+
+        return frappe._dict(
+            {
+                "shift": shift_name,
+                "shift_start": shift_start,
+                "shift_end": shift_end,
+                "shift_actual_start": get_datetime(shift_actual_start),
+                "shift_actual_end": get_datetime(shift_actual_end),
+            }
+        )
+
     previous_day_start = datetime.combine(
         getdate(punch_dt) - timedelta(days=1), datetime.min.time()
     )
@@ -223,45 +255,47 @@ def get_valid_owning_shift_for_checkout(employee: str, punch_dt: datetime, grade
     if not candidate_checkins:
         return None
 
+    # Applies to both cross-day and same-day shifts:
+    # prefer latest unmatched IN shift for checkout to keep session shift stable.
+    latest_checkout_time = frappe.db.get_value(
+        "Employee Checkin",
+        filters={
+            "employee": employee,
+            "log_type": "OUT",
+            "time": ["<=", punch_dt],
+        },
+        fieldname="time",
+        order_by="time desc",
+    )
+    latest_checkout_time = (
+        get_datetime(latest_checkout_time) if latest_checkout_time else None
+    )
+
+    for candidate in candidate_checkins:
+        candidate_time = candidate.get("time")
+        if not candidate_time:
+            continue
+
+        candidate_time = get_datetime(candidate_time)
+        if latest_checkout_time and candidate_time <= latest_checkout_time:
+            continue
+
+        shift_data = _get_shift_data_from_candidate(candidate)
+        if shift_data:
+            return shift_data
+
     checkout_delay_tolerance = timedelta(minutes=15)
     for candidate in candidate_checkins:
-        shift_name = candidate.get("shift")
-        if not shift_name:
+        shift_data = _get_shift_data_from_candidate(candidate)
+        if not shift_data:
             continue
 
-        shift_start = candidate.get("shift_start")
-        shift_end = candidate.get("shift_end")
-        shift_actual_start = candidate.get("shift_actual_start")
-        shift_actual_end = candidate.get("shift_actual_end")
-
-        if not (shift_start and shift_end and shift_actual_start and shift_actual_end):
-            shift_info = fetch_shift_details(
-                shift_name, punch_dt, grade, is_checkout=True
-            )
-            shift_start = shift_info.start_datetime
-            shift_end = shift_info.end_datetime
-            shift_actual_start = shift_info.actual_start
-            shift_actual_end = shift_info.actual_end
-
-        if not (shift_actual_start and shift_actual_end):
-            continue
-
-        shift_actual_start = get_datetime(shift_actual_start)
-        shift_actual_end = get_datetime(shift_actual_end)
         if (
-            shift_actual_start
+            shift_data.shift_actual_start
             <= punch_dt
-            <= (shift_actual_end + checkout_delay_tolerance)
+            <= (shift_data.shift_actual_end + checkout_delay_tolerance)
         ):
-            return frappe._dict(
-                {
-                    "shift": shift_name,
-                    "shift_start": shift_start,
-                    "shift_end": shift_end,
-                    "shift_actual_start": shift_actual_start,
-                    "shift_actual_end": shift_actual_end,
-                }
-            )
+            return shift_data
 
     return None
 

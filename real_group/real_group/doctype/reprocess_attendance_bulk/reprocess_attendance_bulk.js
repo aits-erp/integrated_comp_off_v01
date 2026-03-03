@@ -9,9 +9,9 @@ frappe.ui.form.on("Reprocess Attendance Bulk", {
     frm.trigger("validateDate");
   },
   validateDate(frm) {
-    const dayDiff = Math.abs(parseInt(frappe.datetime.get_day_diff(frm.doc.to_date, frappe.datetime.get_today())));
-    if (dayDiff < 3) {
-      frappe.msgprint(__("To Date must be at least 2 days before today's date"));
+    const dayDiff = frappe.datetime.get_day_diff(frappe.datetime.get_today(), frm.doc.to_date);
+    if (dayDiff < 1) {
+      frappe.msgprint(__("To Date must be at least 1 day before today's date"));
       frappe.validated = false;
     }
   },

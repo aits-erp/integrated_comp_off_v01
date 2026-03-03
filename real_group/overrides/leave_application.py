@@ -1,11 +1,12 @@
 import frappe
 from erpnext.buying.doctype.supplier_scorecard.supplier_scorecard import daterange
 from frappe import _
-from frappe.utils import add_days, format_date, getdate
+from frappe.utils import add_days, date_diff, format_date, getdate
 from hrms.hr.doctype.leave_application.leave_application import (
     AttendanceAlreadyMarkedError,
     InsufficientLeaveBalanceError,
     LeaveApplication,
+    get_approved_leaves_for_period,
     get_leave_balance_on,
     get_number_of_leave_days,
     is_lwp,
@@ -27,6 +28,47 @@ class LeaveApplicationOverride(LeaveApplication):
             frappe.throw(
                 _("Leave cannot be applied before employee's joining date: {0}").format(format_date(joining_date))
             )
+
+    def validate_applicable_after(self):
+        if not self.leave_type:
+            return
+
+        leave_type = frappe.get_doc("Leave Type", self.leave_type)
+        if leave_type.applicable_after <= 0:
+            return
+
+        date_of_joining = frappe.db.get_value("Employee", self.employee, "date_of_joining")
+        if not date_of_joining:
+            return
+
+        leave_days = get_approved_leaves_for_period(self.employee, False, date_of_joining, self.from_date)
+        number_of_days = date_diff(getdate(self.from_date), date_of_joining)
+        if number_of_days < 0:
+            return
+
+        holidays = 0
+        if not leave_type.include_holiday:
+            holidays = self.get_public_holidays(date_of_joining, self.from_date)
+
+        number_of_days = number_of_days - leave_days - holidays
+        if number_of_days < leave_type.applicable_after:
+            frappe.throw(_("{0} applicable after {1} working days").format(self.leave_type, leave_type.applicable_after))
+
+    def get_public_holidays(self, from_date, to_date):
+        holiday_list = frappe.db.get_value("Employee", self.employee, "holiday_list")
+        if not holiday_list:
+            return 0
+
+        holidays = frappe.get_all(
+            "Holiday",
+            filters={
+                "parent": holiday_list,
+                "holiday_date": ["between", [from_date, to_date]],
+            },
+            fields=["weekly_off"],
+        )
+
+        return sum(1 for holiday in holidays if not holiday.get("weekly_off"))
 
     def process_jobs_after_update(self, doc):
         frappe.enqueue(update_attendance_tag, doc=doc, queue="long", enqueue_after_commit=True)
