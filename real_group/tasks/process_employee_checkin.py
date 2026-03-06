@@ -206,11 +206,11 @@ def get_valid_owning_shift_for_checkout(employee: str, punch_dt: datetime, grade
         shift_end = candidate.get("shift_end")
         shift_actual_start = candidate.get("shift_actual_start")
         shift_actual_end = candidate.get("shift_actual_end")
+        candidate_time = candidate.get("time")
+        candidate_dt = get_datetime(candidate_time) if candidate_time else punch_dt
 
         if not (shift_start and shift_end and shift_actual_start and shift_actual_end):
-            shift_info = fetch_shift_details(
-                shift_name, punch_dt, grade, is_checkout=True
-            )
+            shift_info = fetch_shift_details(shift_name, candidate_dt, grade)
             shift_start = shift_info.start_datetime
             shift_end = shift_info.end_datetime
             shift_actual_start = shift_info.actual_start
@@ -229,34 +229,8 @@ def get_valid_owning_shift_for_checkout(employee: str, punch_dt: datetime, grade
             }
         )
 
-    previous_day_start = datetime.combine(
-        getdate(punch_dt) - timedelta(days=1), datetime.min.time()
-    )
-    candidate_checkins = frappe.get_all(
-        "Employee Checkin",
-        filters={
-            "employee": employee,
-            "log_type": "IN",
-            "time": ["between", [previous_day_start, punch_dt]],
-        },
-        fields=[
-            "name",
-            "shift",
-            "shift_start",
-            "shift_end",
-            "shift_actual_start",
-            "shift_actual_end",
-            "time",
-        ],
-        order_by="time desc",
-        limit_page_length=10,
-    )
-
-    if not candidate_checkins:
-        return None
-
-    # Applies to both cross-day and same-day shifts:
-    # prefer latest unmatched IN shift for checkout to keep session shift stable.
+    # Strict shift lock for OUT:
+    # always pick latest unmatched IN (same-day, cross-day, overtime included).
     latest_checkout_time = frappe.db.get_value(
         "Employee Checkin",
         filters={
@@ -271,33 +245,33 @@ def get_valid_owning_shift_for_checkout(employee: str, punch_dt: datetime, grade
         get_datetime(latest_checkout_time) if latest_checkout_time else None
     )
 
-    for candidate in candidate_checkins:
-        candidate_time = candidate.get("time")
-        if not candidate_time:
-            continue
+    in_filters = [
+        ["employee", "=", employee],
+        ["log_type", "=", "IN"],
+        ["time", "<=", punch_dt],
+    ]
+    if latest_checkout_time:
+        in_filters.append(["time", ">", latest_checkout_time])
 
-        candidate_time = get_datetime(candidate_time)
-        if latest_checkout_time and candidate_time <= latest_checkout_time:
-            continue
+    candidate_checkins = frappe.get_all(
+        "Employee Checkin",
+        filters=in_filters,
+        fields=[
+            "name",
+            "shift",
+            "shift_start",
+            "shift_end",
+            "shift_actual_start",
+            "shift_actual_end",
+            "time",
+        ],
+        order_by="time desc",
+        limit_page_length=1,
+    )
+    if not candidate_checkins:
+        return None
 
-        shift_data = _get_shift_data_from_candidate(candidate)
-        if shift_data:
-            return shift_data
-
-    checkout_delay_tolerance = timedelta(minutes=15)
-    for candidate in candidate_checkins:
-        shift_data = _get_shift_data_from_candidate(candidate)
-        if not shift_data:
-            continue
-
-        if (
-            shift_data.shift_actual_start
-            <= punch_dt
-            <= (shift_data.shift_actual_end + checkout_delay_tolerance)
-        ):
-            return shift_data
-
-    return None
+    return _get_shift_data_from_candidate(candidate_checkins[0])
 
 
 def process_employee_checkout(logs):
@@ -437,6 +411,18 @@ def find_closest_shift_from_punch_time(
 
     reference_date = getdate(date) if date else getdate(frappe.utils.now_datetime())
 
+    # Nearest-shift resolver with direction awareness:
+    # - IN  -> nearest shift start
+    # - OUT -> nearest shift end
+    resolved_log_type = (log_type or "").upper()
+    direction = (direction_hint or "").upper()
+    if direction == "I":
+        resolved_log_type = "IN"
+    elif direction == "O":
+        resolved_log_type = "OUT"
+    if resolved_log_type not in {"IN", "OUT"}:
+        resolved_log_type = "IN"
+
     punch_dt = (
         get_datetime(punch_time)
         if isinstance(punch_time, datetime)
@@ -457,7 +443,7 @@ def find_closest_shift_from_punch_time(
     )
 
     shift_candidates = []
-    is_checkout_context = log_type == "OUT"
+    is_checkout_context = resolved_log_type == "OUT"
     for shift in shifts:
         if not shift.get("start_time") or not shift.get("end_time"):
             continue
@@ -467,141 +453,28 @@ def find_closest_shift_from_punch_time(
             frappe._dict(shift),
             punch_dt,
             grade=None,
-            # For OUT fallback:
-            # - cross-day shifts should resolve on T-1 window
-            # - normal shifts should stay on date T to avoid stale previous-day mapping
+            # OUT fallback should resolve cross-day shifts on T-1 window.
             is_checkout=(is_checkout_context and is_cross_day),
         )
-        actual_start = start_datetime - timedelta(
-            minutes=convert_time_to_minutes(
-                shift.get("custom_early_entry_grace_period")
-            )
-        )
-        actual_end = end_datetime + timedelta(
-            minutes=convert_time_to_minutes(shift.get("custom_late_exit_grace_period"))
-        )
+        anchor_datetime = end_datetime if is_checkout_context else start_datetime
+
         shift_candidates.append(
             {
                 "name": shift.get("name"),
                 "start_datetime": start_datetime,
-                "end_datetime": end_datetime,
-                "actual_start": actual_start,
-                "actual_end": actual_end,
+                "anchor_datetime": anchor_datetime,
             }
         )
-
-    in_window_candidates = [
-        s for s in shift_candidates if s["actual_start"] <= punch_dt <= s["actual_end"]
-    ]
     if not shift_candidates:
         return None
 
-    # Boundary-safe tolerances for transition punches.
-    start_end_tolerance = timedelta(minutes=120)
-
-    near_start_candidates = [
-        s
-        for s in shift_candidates
-        if abs((punch_dt - s["actual_start"]).total_seconds())
-        <= start_end_tolerance.total_seconds()
-    ]
-    near_end_candidates = [
-        s
-        for s in shift_candidates
-        if abs((punch_dt - s["actual_end"]).total_seconds())
-        <= start_end_tolerance.total_seconds()
-    ]
-    upcoming_start_candidates = [
-        s
-        for s in shift_candidates
-        if 0
-        <= (s["start_datetime"] - punch_dt).total_seconds()
-        <= start_end_tolerance.total_seconds()
-    ]
-
-    direction = (direction_hint or "").upper()
-
-    if log_type == "OUT":
-        # Direction is a weighted preference, not a hard rule:
-        # - O prefers nearest shift end
-        # - missing/invalid direction prefers in-window first
-        prefer_end = direction == "O"
-        if prefer_end and near_end_candidates:
-            closest_shift = min(
-                near_end_candidates,
-                key=lambda s: (
-                    abs((punch_dt - s["actual_end"]).total_seconds()),
-                    s["start_datetime"],
-                ),
-            )
-        elif in_window_candidates:
-            closest_shift = min(
-                in_window_candidates,
-                key=lambda s: (
-                    abs((punch_dt - s["actual_end"]).total_seconds()),
-                    s["start_datetime"],
-                ),
-            )
-        elif near_end_candidates:
-            closest_shift = min(
-                near_end_candidates,
-                key=lambda s: (
-                    abs((punch_dt - s["actual_end"]).total_seconds()),
-                    s["start_datetime"],
-                ),
-            )
-        else:
-            closest_shift = min(
-                shift_candidates,
-                key=lambda s: (
-                    abs((punch_dt - s["end_datetime"]).total_seconds()),
-                    s["start_datetime"],
-                ),
-            )
-    else:
-        prefer_start = direction == "I"
-        # For IN near a shift boundary, prefer the earliest upcoming shift start
-        # over a previous shift that is still in grace window.
-        if prefer_start and upcoming_start_candidates:
-            closest_shift = min(
-                upcoming_start_candidates,
-                key=lambda s: (
-                    (s["start_datetime"] - punch_dt).total_seconds(),
-                    s["start_datetime"],
-                ),
-            )
-        elif prefer_start and near_start_candidates:
-            closest_shift = min(
-                near_start_candidates,
-                key=lambda s: (
-                    abs((punch_dt - s["actual_start"]).total_seconds()),
-                    s["start_datetime"],
-                ),
-            )
-        elif in_window_candidates:
-            closest_shift = min(
-                in_window_candidates,
-                key=lambda s: (
-                    abs((punch_dt - s["actual_start"]).total_seconds()),
-                    s["start_datetime"],
-                ),
-            )
-        elif near_start_candidates:
-            closest_shift = min(
-                near_start_candidates,
-                key=lambda s: (
-                    abs((punch_dt - s["actual_start"]).total_seconds()),
-                    s["start_datetime"],
-                ),
-            )
-        else:
-            closest_shift = min(
-                shift_candidates,
-                key=lambda s: (
-                    abs((punch_dt - s["start_datetime"]).total_seconds()),
-                    s["start_datetime"],
-                ),
-            )
+    closest_shift = min(
+        shift_candidates,
+        key=lambda s: (
+            abs((punch_dt - s["anchor_datetime"]).total_seconds()),
+            s["start_datetime"],
+        ),
+    )
 
     return closest_shift["name"]
 
