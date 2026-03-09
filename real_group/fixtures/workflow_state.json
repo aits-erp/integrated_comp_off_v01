@@ -75,15 +75,6 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-05-14 18:46:53.948112",
-  "name": "Draft",
-  "style": "",
-  "workflow_state_name": "Draft"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
-  "icon": "",
   "modified": "2024-05-14 18:45:31.837011",
   "name": "Pending at HR",
   "style": "",
@@ -106,5 +97,14 @@
   "name": "Pending at HOD",
   "style": "",
   "workflow_state_name": "Pending at HOD"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2024-05-14 18:46:53.948112",
+  "name": "Draft",
+  "style": "",
+  "workflow_state_name": "Draft"
  }
 ]

@@ -1,6 +1,8 @@
+from unittest.mock import patch
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from frappe.utils import get_year_ending, get_year_start, getdate
+from frappe.utils import add_days, get_year_ending, get_year_start, getdate
 
 from erpnext.setup.doctype.employee.test_employee import make_employee
 
@@ -10,6 +12,7 @@ from hrms.payroll.doctype.salary_slip.test_salary_slip import make_holiday_list
 from real_group.patches.fix_cross_day_attendance_request_hours import (
     execute as fix_cross_day_attendance_request_hours,
 )
+from real_group.api.attendance_request import closest_shift_for_time
 
 
 test_dependencies = ["Employee"]
@@ -54,6 +57,12 @@ class TestAttendanceRequestOverride(FrappeTestCase):
             end_time="18:00:00",
             custom_is_cross_day=0,
         )
+        self.early_day_shift = self.make_shift(
+            shift_name="RG Test Early Day Shift",
+            start_time="06:00:00",
+            end_time="14:00:00",
+            custom_is_cross_day=0,
+        )
 
     def make_shift(self, shift_name: str, **kwargs):
         if frappe.db.exists("Shift Type", shift_name):
@@ -85,12 +94,64 @@ class TestAttendanceRequestOverride(FrappeTestCase):
         )
         return frappe.get_doc("Attendance", attendance_name)
 
+    def get_request_attendances(self, attendance_request):
+        attendance_names = frappe.get_all(
+            "Attendance",
+            filters={"attendance_request": attendance_request.name, "docstatus": 1},
+            pluck="name",
+            order_by="attendance_date asc",
+        )
+        return [frappe.get_doc("Attendance", attendance_name) for attendance_name in attendance_names]
+
     def test_cross_day_attendance_request_marks_positive_working_hours(self):
         attendance_request = self.make_attendance_request()
         attendance = self.get_request_attendance(attendance_request)
 
         self.assertEqual(attendance.status, "Present")
         self.assertAlmostEqual(attendance.working_hours, 8.0)
+
+    def test_multi_day_day_shift_request_marks_per_day_working_hours(self):
+        attendance_request = self.make_attendance_request(
+            shift=self.day_shift.name,
+            from_date=getdate(),
+            to_date=add_days(getdate(), 2),
+            custom_from_time="09:00:00",
+            custom_to_time="18:00:00",
+        )
+
+        attendances = self.get_request_attendances(attendance_request)
+
+        self.assertEqual(len(attendances), 3)
+        for attendance in attendances:
+            self.assertEqual(attendance.status, "Present")
+            self.assertAlmostEqual(attendance.working_hours, 9.0)
+
+    def test_multi_day_cross_day_request_marks_per_day_working_hours(self):
+        attendance_request = self.make_attendance_request(
+            from_date=getdate(),
+            to_date=add_days(getdate(), 1),
+        )
+
+        attendances = self.get_request_attendances(attendance_request)
+
+        self.assertEqual(len(attendances), 2)
+        for attendance in attendances:
+            self.assertEqual(attendance.status, "Present")
+            self.assertAlmostEqual(attendance.working_hours, 8.0)
+
+    def test_closest_shift_prefers_cross_day_overlap_for_early_morning_request(self):
+        with patch(
+            "real_group.api.attendance_request.get_employee_allowed_shifts",
+            return_value=[self.early_day_shift.name, self.cross_day_shift.name],
+        ):
+            shift_name = closest_shift_for_time(
+                from_time="02:00:00",
+                to_time="06:00:00",
+                date=getdate(),
+                employee=self.employee_name,
+            )
+
+        self.assertEqual(shift_name, self.cross_day_shift.name)
 
     def test_non_cross_day_request_rejects_reverse_time_window(self):
         with self.assertRaises(frappe.ValidationError):

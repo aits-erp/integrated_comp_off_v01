@@ -74,6 +74,21 @@ def calculate_request_working_hours(
     return convert_time_to_hours(end_dt - start_dt)
 
 
+def calculate_request_working_hours_for_date(
+    attendance_date,
+    from_time,
+    to_time,
+    shift_name: str | None = None,
+) -> float:
+    return calculate_request_working_hours(
+        attendance_date,
+        attendance_date,
+        from_time,
+        to_time,
+        shift_name,
+    )
+
+
 def get_working_hours_timedelta(hours: float) -> timedelta:
     total_seconds = round(hours * 3600 / 60) * 60
     return timedelta(seconds=total_seconds)
@@ -91,17 +106,13 @@ class AttendanceRequestOverride(AttendanceRequest):
         if not (self.custom_from_time and self.custom_to_time and self.from_date and self.to_date):
             return
 
-        start_dt, end_dt = get_request_datetime_window(
+        working_hours = calculate_request_working_hours_for_date(
             self.from_date,
-            self.to_date,
             self.custom_from_time,
             self.custom_to_time,
             self.shift,
         )
-        if not (start_dt and end_dt):
-            return
-
-        if end_dt <= start_dt:
+        if working_hours <= 0:
             frappe.throw(
                 _(
                     "To Time must be after From Time. Use a cross-day shift or a later To Date for overnight requests."
@@ -111,7 +122,7 @@ class AttendanceRequestOverride(AttendanceRequest):
     def create_or_update_attendance(self, date: str):
         attendance_name = self.get_attendance_record(date)
         status = self.get_attendance_status(date)
-        request_working_hours = self.get_working_hours()
+        request_working_hours = self.get_working_hours(date)
         attendance = None
         if attendance_name:
             old_status = frappe.db.get_value("Attendance", attendance_name, "status")
@@ -145,10 +156,10 @@ class AttendanceRequestOverride(AttendanceRequest):
         doc.insert(ignore_permissions=True)
         doc.submit()
 
-    def get_working_hours(self):
-        return calculate_request_working_hours(
-            self.from_date,
-            self.to_date,
+    def get_working_hours(self, attendance_date=None):
+        attendance_date = attendance_date or self.from_date
+        return calculate_request_working_hours_for_date(
+            attendance_date,
             self.custom_from_time,
             self.custom_to_time,
             self.shift,

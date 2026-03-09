@@ -1,7 +1,7 @@
 import frappe
 
 from real_group.overrides.attendance_request import (
-    calculate_request_working_hours,
+    calculate_request_working_hours_for_date,
     get_working_hours_timedelta,
 )
 
@@ -13,8 +13,7 @@ def execute():
         SELECT
             att.name,
             att.attendance_request,
-            ar.from_date,
-            ar.to_date,
+            att.attendance_date,
             ar.custom_from_time,
             ar.custom_to_time,
             COALESCE(ar.shift, att.shift) AS shift_name
@@ -33,9 +32,8 @@ def execute():
 
     for record in records:
         try:
-            working_hours = calculate_request_working_hours(
-                record.from_date,
-                record.to_date,
+            working_hours = calculate_request_working_hours_for_date(
+                record.attendance_date,
                 record.custom_from_time,
                 record.custom_to_time,
                 record.shift_name,

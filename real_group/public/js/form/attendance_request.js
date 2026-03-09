@@ -151,10 +151,6 @@ async function applyShiftTimePrefill(frm) {
   frm.__attendance_request_prefill_in_progress = false;
 }
 
-function setShiftReadonly(frm, readOnly) {
-  frm.set_df_property("shift", "read_only", readOnly ? 1 : 0);
-}
-
 async function syncHalfDayDate(frm) {
   if (frm.doc.half_day && frm.doc.from_date && frm.doc.to_date && frm.doc.from_date === frm.doc.to_date) {
     if (frm.doc.half_day_date !== frm.doc.from_date) {
@@ -181,7 +177,8 @@ function fetchClosestShiftForTime(frm) {
   frappe.call({
     method: "real_group.api.attendance_request.closest_shift_for_time",
     args: {
-      time: frm.doc.custom_from_time,
+      from_time: frm.doc.custom_from_time,
+      to_time: frm.doc.custom_to_time,
       date: frm.doc.from_date,
       employee: frm.doc.employee,
     },
@@ -190,7 +187,6 @@ function fetchClosestShiftForTime(frm) {
         frm.__attendance_request_shift_set_from_time = true;
         await frm.set_value("shift", r.message);
         frm.__attendance_request_shift_set_from_time = false;
-        setShiftReadonly(frm, true);
         await validateRequestTimeWindow(frm);
       }
     },
@@ -222,7 +218,6 @@ frappe.ui.form.on("Attendance Request", {
     }
 
     if (!frm.__attendance_request_shift_set_from_time) {
-      setShiftReadonly(frm, false);
       await applyShiftTimePrefill(frm);
     }
 
@@ -253,6 +248,7 @@ frappe.ui.form.on("Attendance Request", {
     await validateRequestTimeWindow(frm);
   },
   custom_to_time: async (frm) => {
+    fetchClosestShiftForTime(frm);
     await validateRequestTimeWindow(frm);
   },
   before_workflow_action: (frm) => {
@@ -331,11 +327,7 @@ frappe.ui.form.on("Attendance Request", {
     await validateRequestTimeWindow(frm);
   },
   refresh: (frm) => {
-    if (!frm.is_new() && frm.doc.shift) {
-      setShiftReadonly(frm, frm.get_df("shift").read_only);
-    } else {
-      setShiftReadonly(frm, false);
-    }
+    frm.set_df_property("shift", "read_only", 0);
 
     if (frm.doc.from_date && frm.doc.to_date && frm.doc.employee) {
       frappe.call({
