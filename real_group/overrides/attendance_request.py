@@ -1,8 +1,8 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, format_date, get_timedelta, getdate
+from frappe.utils import add_days, date_diff, format_date, get_time, getdate
 from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequest
 
 from real_group.helper.attendance_helper import (
@@ -11,13 +11,107 @@ from real_group.helper.attendance_helper import (
 from real_group.utils import convert_time_to_hours, has_absent_attendance, is_holiday_for_employee
 
 
+def is_cross_day_shift(shift_name: str | None) -> bool:
+    if not shift_name:
+        return False
+
+    shift = frappe.db.get_value(
+        "Shift Type",
+        shift_name,
+        ["custom_is_cross_day", "start_time", "end_time"],
+        as_dict=True,
+    )
+    if not shift:
+        return False
+
+    if shift.get("custom_is_cross_day"):
+        return True
+
+    start_time = shift.get("start_time")
+    end_time = shift.get("end_time")
+    if not (start_time and end_time):
+        return False
+
+    return get_time(start_time) > get_time(end_time)
+
+
+def get_request_datetime_window(
+    from_date,
+    to_date,
+    from_time,
+    to_time,
+    shift_name: str | None = None,
+) -> tuple[datetime | None, datetime | None]:
+    if not (from_date and to_date and from_time and to_time):
+        return None, None
+
+    start_dt = datetime.combine(getdate(from_date), get_time(from_time))
+    end_dt = datetime.combine(getdate(to_date), get_time(to_time))
+
+    if is_cross_day_shift(shift_name) and end_dt <= start_dt:
+        end_dt += timedelta(days=1)
+
+    return start_dt, end_dt
+
+
+def calculate_request_working_hours(
+    from_date,
+    to_date,
+    from_time,
+    to_time,
+    shift_name: str | None = None,
+) -> float:
+    start_dt, end_dt = get_request_datetime_window(
+        from_date,
+        to_date,
+        from_time,
+        to_time,
+        shift_name,
+    )
+    if not (start_dt and end_dt):
+        return 0.0
+
+    return convert_time_to_hours(end_dt - start_dt)
+
+
+def get_working_hours_timedelta(hours: float) -> timedelta:
+    total_seconds = round(hours * 3600 / 60) * 60
+    return timedelta(seconds=total_seconds)
+
+
 class AttendanceRequestOverride(AttendanceRequest):
+    def validate(self):
+        super().validate()
+        self.validate_working_hours_window()
+
     def validate_request_overlap(self):
         return  # Overriding the base method to disable overlap validation
+
+    def validate_working_hours_window(self):
+        if not (self.custom_from_time and self.custom_to_time and self.from_date and self.to_date):
+            return
+
+        start_dt, end_dt = get_request_datetime_window(
+            self.from_date,
+            self.to_date,
+            self.custom_from_time,
+            self.custom_to_time,
+            self.shift,
+        )
+        if not (start_dt and end_dt):
+            return
+
+        if end_dt <= start_dt:
+            frappe.throw(
+                _(
+                    "To Time must be after From Time. Use a cross-day shift or a later To Date for overnight requests."
+                )
+            )
 
     def create_or_update_attendance(self, date: str):
         attendance_name = self.get_attendance_record(date)
         status = self.get_attendance_status(date)
+        request_working_hours = self.get_working_hours()
         attendance = None
         if attendance_name:
             old_status = frappe.db.get_value("Attendance", attendance_name, "status")
@@ -35,9 +129,9 @@ class AttendanceRequestOverride(AttendanceRequest):
             doc = frappe.new_doc("Attendance")
 
         if doc.working_hours:
-            doc.working_hours += self.get_working_hours()
+            doc.working_hours += request_working_hours
         else:
-            doc.working_hours = self.get_working_hours()
+            doc.working_hours = request_working_hours
         doc.update(
             {
                 "employee": self.employee,
@@ -52,12 +146,16 @@ class AttendanceRequestOverride(AttendanceRequest):
         doc.submit()
 
     def get_working_hours(self):
-        delta = get_timedelta(self.custom_to_time) - get_timedelta(self.custom_from_time)
-        return convert_time_to_hours(delta)
+        return calculate_request_working_hours(
+            self.from_date,
+            self.to_date,
+            self.custom_from_time,
+            self.custom_to_time,
+            self.shift,
+        )
 
     def get_working_hours_time(self, hours: float):
-        total_seconds = round(hours * 3600 / 60) * 60
-        return timedelta(seconds=total_seconds)
+        return get_working_hours_timedelta(hours)
 
     def should_mark_attendance(self, attendance_date: str) -> bool:
         # 1. Check if attendance_date is a holiday or weekly off

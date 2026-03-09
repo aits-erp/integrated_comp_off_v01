@@ -22,3 +22,4 @@ real_group.patches.remove_fields
 real_group.patches.remove_custom_state
 real_group.patches.fix_employee_validations_server_script
 real_group.patches.fix_salary_structure_before_delete_server_script
+real_group.patches.fix_cross_day_attendance_request_hours

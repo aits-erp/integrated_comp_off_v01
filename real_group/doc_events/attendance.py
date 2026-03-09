@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import frappe
+from frappe import _
 from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getdate
 
 from real_group.helper.attendance_helper import create_attendance
@@ -13,6 +14,9 @@ from real_group.utils import (
 
 
 def validate(doc, method=None):
+    if doc.working_hours is not None and doc.working_hours < 0:
+        frappe.throw(_("Working hours cannot be negative."))
+
     doc.custom_working_hours = None
     if doc.working_hours and doc.working_hours > 0:
         total_seconds = round(doc.working_hours * 3600 / 60) * 60
