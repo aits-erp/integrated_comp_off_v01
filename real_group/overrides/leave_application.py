@@ -55,20 +55,7 @@ class LeaveApplicationOverride(LeaveApplication):
             frappe.throw(_("{0} applicable after {1} working days").format(self.leave_type, leave_type.applicable_after))
 
     def get_public_holidays(self, from_date, to_date):
-        holiday_list = frappe.db.get_value("Employee", self.employee, "holiday_list")
-        if not holiday_list:
-            return 0
-
-        holidays = frappe.get_all(
-            "Holiday",
-            filters={
-                "parent": holiday_list,
-                "holiday_date": ["between", [from_date, to_date]],
-            },
-            fields=["weekly_off"],
-        )
-
-        return sum(1 for holiday in holidays if not holiday.get("weekly_off"))
+        return len(get_holiday_dates_for_employee(self.employee, from_date, to_date))
 
     def process_jobs_after_update(self, doc):
         frappe.enqueue(update_attendance_tag, doc=doc, queue="long", enqueue_after_commit=True)

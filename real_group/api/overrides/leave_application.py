@@ -5,13 +5,14 @@ from frappe.query_builder.functions import Sum
 from frappe.utils import add_days, cint, date_diff, flt, getdate, nowdate
 from hrms.hr.doctype.leave_application.leave_application import (
     get_allocation_expiry_for_cf_leaves,
+    get_leave_details as _get_leave_details,
     get_leave_allocation_records,
     get_leaves_for_period,
     get_new_and_cf_leaves_taken,
 )
 from hrms.hr.doctype.leave_application.leave_application import get_holidays as _get_holidays
 
-from real_group.utils import has_absent_attendance, is_holiday_for_employee
+from real_group.utils import is_holiday_for_employee
 
 
 @frappe.whitelist()
@@ -31,6 +32,17 @@ def get_holidays(employee, from_date, to_date, holiday_list=None):
 
 
 @frappe.whitelist()
+def get_leave_details(employee, date):
+    leave_details = _get_leave_details(employee, getdate(date))
+    leave_allocation = leave_details.get("leave_allocation") or {}
+
+    for details in leave_allocation.values():
+        details["available_leaves"] = flt(details.get("remaining_leaves")) - flt(details.get("leaves_pending_approval"))
+
+    return leave_details
+
+
+@frappe.whitelist()
 def get_number_of_leave_days(
     employee: str,
     leave_type: str,
@@ -47,10 +59,10 @@ def get_number_of_leave_days(
       - sandwich leave logic (only if enabled in Employee Grade)
 
     Rules:
-    - Full-day holiday counted as leave only if it lies between *two full* leave days (sandwich).
-    - Half-day holidays always count as 0.5 day unless sandwiched.
-    - Half-day leave at either end breaks sandwich.
-    - Holidays on from/to dates are excluded.
+    - With sandwich enabled, every day in the selected range is counted.
+    - Full holidays / weekly offs count as 1 day when sandwich is enabled.
+    - Half-day holidays count as 0.5 day.
+    - Without sandwich, full holidays / weekly offs are excluded.
     """
 
     from_date = getdate(from_date)
@@ -63,87 +75,24 @@ def get_number_of_leave_days(
     if grade:
         apply_sandwich = frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag") == 1
 
-    # Build date range
-    all_dates = []
+    total = 0.0
     current = from_date
     while current <= to_date:
-        all_dates.append(current)
-        current = add_days(current, 1)
-
-    # Preload holiday info for all dates
-    holiday_info = {}
-    for d in all_dates:
-        info = is_holiday_for_employee(employee, d) or {}
-        absent_marked = has_absent_attendance(employee, d)
-        holiday_info[d] = {
-            "is_holiday": bool(info.get("is_holiday")),
-            "is_half_day": bool(info.get("is_half_day")),
-            # If a non-working day is already marked Absent (e.g. sandwich policy),
-            # treat it as a leave-eligible working day for counting purposes.
-            "treat_as_working": bool(absent_marked),
-        }
-
-    # Assign status per date
-    status = {}
-    for d in all_dates:
-        if is_half_day and half_day_date == d:
-            status[d] = "half_leave"
-        elif holiday_info[d]["is_holiday"] and not holiday_info[d]["treat_as_working"]:
-            status[d] = "half_holiday" if holiday_info[d]["is_half_day"] else "full_holiday"
-        else:
-            status[d] = "full_leave"
-
-    # Holidays on start or end are never counted in sandwich
-    if status.get(from_date, "").startswith("full_holiday"):
-        status[from_date] = "excluded"
-    if status.get(to_date, "").startswith("full_holiday"):
-        status[to_date] = "excluded"
-
-    total = 0.0
-    i = 0
-    n = len(all_dates)
-
-    while i < n:
-        current_date = all_dates[i]
-        current_status = status[current_date]
-
-        # --- FULL LEAVE ---
-        if current_status == "full_leave":
-            total += 1
-            i += 1
-            continue
-
-        # --- HALF LEAVE ---
-        if current_status == "half_leave":
+        if is_half_day and half_day_date == current:
             total += 0.5
-            i += 1
+            current = add_days(current, 1)
             continue
 
-        # --- HALF HOLIDAY ---
-        if current_status == "half_holiday":
-            total += 0.5  # always counts half
-            i += 1
-            continue
+        holiday_info = is_holiday_for_employee(employee, current) or {}
+        if holiday_info.get("is_holiday"):
+            if holiday_info.get("is_half_day"):
+                total += 0.5
+            elif apply_sandwich:
+                total += 1
+        else:
+            total += 1
 
-        # --- FULL HOLIDAY(S) BLOCK ---
-        if current_status == "full_holiday":
-            block_start = i
-            while i < n and status[all_dates[i]] == "full_holiday":
-                i += 1
-            block_end = i - 1
-
-            # Get previous and next dates
-            prev_date = add_days(all_dates[block_start], -1)
-            next_date = add_days(all_dates[block_end], 1)
-
-            prev_full = prev_date in status and status[prev_date] == "full_leave"
-            next_full = next_date in status and status[next_date] == "full_leave"
-            if apply_sandwich and prev_full and next_full:
-                total += block_end - block_start + 1
-            continue
-
-        # --- EXCLUDED HOLIDAYS ---
-        i += 1
+        current = add_days(current, 1)
 
     return flt(total)
 

@@ -436,6 +436,9 @@ def validate_leave_balance(doc):
     if doc.docstatus != 0 or doc.status != "Open":
         return
 
+    if frappe.db.get_value("Leave Type", doc.leave_type, "allow_negative"):
+        return
+
     leave_details = frappe.call(
         "hrms.hr.doctype.leave_application.leave_application.get_leave_details",
         employee=doc.employee,
@@ -462,8 +465,38 @@ def validate_leave_balance(doc):
 
         remaining = leave_allocation[doc.leave_type]["remaining_leaves"]
         total_available = remaining - pending
-        if doc.total_leave_days > total_available:
-            frappe.throw(_("Insufficient leave balance for {0}").format(doc.leave_type))
+        if doc.total_leave_days <= total_available:
+            return
+
+        emp_grade = frappe.db.get_value("Employee", doc.employee, "grade")
+        advance_leave = (
+            frappe.db.get_value(
+                "Employee Grade",
+                emp_grade,
+                ["custom_allow_advance_leave", "custom_max_no_of_advance_debit", "custom_leave_type"],
+                as_dict=True,
+            )
+            if emp_grade
+            else None
+        )
+
+        if (
+            advance_leave
+            and advance_leave.custom_allow_advance_leave
+            and advance_leave.custom_leave_type == doc.leave_type
+            and abs(advance_leave.custom_max_no_of_advance_debit or 0)
+        ):
+            projected_balance = total_available - (doc.total_leave_days or 0)
+            if projected_balance >= -abs(advance_leave.custom_max_no_of_advance_debit):
+                return
+
+            frappe.throw(
+                _("Insufficient leave balance for {0}, You have reached maximum allowed advance leave").format(
+                    doc.leave_type
+                )
+            )
+
+        frappe.throw(_("Insufficient leave balance for {0}").format(doc.leave_type))
 
 
 class OverlapError(frappe.ValidationError):
