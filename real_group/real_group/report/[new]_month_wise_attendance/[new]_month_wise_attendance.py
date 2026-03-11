@@ -102,9 +102,6 @@ def execute(filters=None):
             max_pairs, dates
         )
         hours_worked = {"sr": "N Work"}
-        rows_requiring_summary = [info, *row_keys, hours_worked, extra_worked, status, shift]
-        rows_requiring_summary.append(processed_status)
-
         total_present = 0
         total_absent = 0
         total_hours = 0.0
@@ -216,8 +213,6 @@ def execute(filters=None):
         data.append(info)
         data.extend(row_keys)
         data.append(hours_worked)
-        data.append(extra_worked)
-        data.append(status)
         if include_processed_status:
             data.append(processed_status)
         data.append(shift)
