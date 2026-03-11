@@ -133,8 +133,9 @@ def resolve_half_type(attendance_on_date, attendance_requests_map, employee_name
     attendance_doc = attendance_on_date[0] if attendance_on_date else None
     half_type = _extract_half_type(attendance_doc)
 
-    if not half_type and attendance_doc and attendance_doc.leave_application:
-        half_type = frappe.get_cached_value("Leave Application", attendance_doc.leave_application, "custom_half_type")
+    leave_application = _get_field(attendance_doc, "leave_application")
+    if not half_type and leave_application:
+        half_type = frappe.get_cached_value("Leave Application", leave_application, "custom_half_type")
 
     if half_type:
         return half_type
@@ -153,12 +154,18 @@ def resolve_half_type(attendance_on_date, attendance_requests_map, employee_name
 
 
 def _extract_half_type(source):
+    return _get_field(source, "custom_half_type")
+
+
+def _get_field(source, fieldname, default=None):
     if not source:
-        return None
+        return default
     try:
-        return source.custom_half_type
+        return source.get(fieldname, default)
+    except TypeError:
+        return getattr(source, fieldname, default)
     except AttributeError:
-        return None
+        return getattr(source, fieldname, default)
 
 
 def _normalize_half_type(raw_value):
@@ -381,6 +388,8 @@ def infer_presence_halves(checkins):
 
 
 def rebalance_presence_halves(pair, presence_first_half, force_order=False):
+    if not pair:
+        return "", ""
     if force_order:
         return pair
     presence_codes = {"P", "POH", "POW", "POD", "PHO", "PEL", "PCL", "PCO", "OD"}
@@ -404,6 +413,15 @@ def map_half_day_leave(leave_code, presence_first_half, presence_second_half, de
     if half_type_code == "SECOND":
         return ("P" if presence_first_half else default_other_half), leave_code
 
+    fallback_other_half = "P" if (presence_first_half or presence_second_half or default_present_first) else "A"
+    if presence_first_half and not presence_second_half:
+        return fallback_other_half, leave_code
+    if presence_second_half and not presence_first_half:
+        return leave_code, fallback_other_half
+    if default_present_first:
+        return fallback_other_half, leave_code
+    return leave_code, fallback_other_half
+
 
 def map_optional_leave_half(leave_code, presence_first_half, presence_second_half, half_type=None):
     half_type_code = _normalize_half_type(half_type)
@@ -411,6 +429,12 @@ def map_optional_leave_half(leave_code, presence_first_half, presence_second_hal
         return leave_code, ("P" if presence_second_half else "HO")
     if half_type_code == "SECOND":
         return ("P" if presence_first_half else "HO"), leave_code
+
+    if presence_first_half and not presence_second_half:
+        return "P", leave_code
+    if presence_second_half and not presence_first_half:
+        return leave_code, "P"
+    return leave_code, ("P" if (presence_first_half or presence_second_half) else "HO")
 
 
 def map_optional_special(code, presence_first_half, presence_second_half):
