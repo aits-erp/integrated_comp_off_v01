@@ -192,7 +192,7 @@ def get_dates(month: str, year: int):
 
 
 def get_employees(company, branch, division=None, department=None, employee=None):
-    filters = {"company": company, "branch": branch, "status": "Active"}
+    filters = {"company": company, "branch": branch, "status": ["in", ["Active", "Left"]]}
     if division:
         filters["custom_division"] = division
     if department:
