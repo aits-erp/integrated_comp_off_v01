@@ -111,6 +111,12 @@ def execute(filters=None):
 
         for _date in dates:
             date_str = format_date(_date)
+            if day_wise_attendance.is_outside_service_period(employee, _date):
+                status[date_str] = None
+                processed_status[date_str] = None
+                shift[date_str] = None
+                continue
+
             emp_date_data = emp_data.get(date_str, {})
             checkins_on_date = emp_date_data.get("checkins", [])
             emp_checkins = sorted(checkins_on_date, key=lambda x: x.time)
