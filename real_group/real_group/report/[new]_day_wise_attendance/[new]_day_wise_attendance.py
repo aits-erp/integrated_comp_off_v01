@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from datetime import time as dt_time
 
 import frappe
-from frappe.utils import add_days, cint, format_date, get_datetime, get_time, getdate
+from frappe.utils import add_days, cint, cstr, format_date, get_datetime, get_time, getdate
 from frappe.utils.caching import redis_cache
 
 from real_group.utils import convert_time_to_hours, is_holiday_for_employee
@@ -207,7 +207,15 @@ def get_employees(company, branch, division=None, department=None, employee=None
     if employee:
         filters["name"] = employee
 
-    return frappe.get_all("Employee", filters=filters, fields=["*"])
+    employees = frappe.get_all("Employee", filters=filters, fields=["*"])
+    return sorted(employees, key=get_employee_sort_key)
+
+
+def get_employee_sort_key(employee):
+    employee_id = cstr(employee.get("name") or "").strip()
+    if employee_id.isdigit():
+        return (0, int(employee_id))
+    return (1, employee_id.lower())
 
 
 def is_outside_service_period(employee, current_date: date) -> bool:
