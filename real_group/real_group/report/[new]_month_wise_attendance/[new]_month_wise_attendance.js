@@ -15,16 +15,80 @@
 
   const years = getYears();
 
+  const updateCompanyFilterState = (report) => {
+    const companyFilter = report.get_filter("company");
+    if (!companyFilter) {
+      return;
+    }
+
+    companyFilter.df.reqd = report.get_filter_value("all_company") ? 0 : 1;
+    companyFilter.df.mandatory = 0;
+
+    if (companyFilter.set_required) {
+      companyFilter.set_required();
+    }
+
+    if (companyFilter.set_mandatory) {
+      companyFilter.set_mandatory(companyFilter.get_value());
+    }
+  };
+
+  const refreshReport = (report) => {
+    if (report.prepared_report) {
+      report.reset_report_view();
+      return;
+    }
+
+    if (!report._no_refresh) {
+      report.refresh(true);
+    }
+  };
+
   frappe.query_reports["[New] Month Wise Attendance"] = {
+    onload: function (report) {
+      updateCompanyFilterState(report);
+    },
     filters: [
+      {
+        fieldname: "all_company",
+        fieldtype: "Check",
+        label: "All Company",
+        default: 0,
+        on_change: function (report) {
+          const hadEmployee = !!report.get_filter_value("employee");
+          updateCompanyFilterState(report);
+
+          report._updating_all_company = true;
+          try {
+            if (report.get_filter_value("all_company")) {
+              report.set_filter_value({ company: null, employee: null });
+            } else {
+              report.set_filter_value("employee", null);
+            }
+          } finally {
+            report._updating_all_company = false;
+          }
+
+          if (!hadEmployee) {
+            refreshReport(report);
+          }
+        },
+      },
       {
         fieldname: "company",
         fieldtype: "Link",
         options: "Company",
         label: "Company",
         reqd: 1,
-        on_change: function () {
-          frappe.query_report.set_filter_value("employee", null);
+        depends_on: "eval:!doc.all_company",
+        on_change: function (report) {
+          const hadEmployee = !!report.get_filter_value("employee");
+          updateCompanyFilterState(report);
+          report.set_filter_value("employee", null);
+
+          if (!report._updating_all_company && !hadEmployee) {
+            refreshReport(report);
+          }
         },
       },
       {
@@ -41,8 +105,12 @@
         label: "Department",
         get_query: function () {
           var company = frappe.query_report.get_filter_value("company");
-          if (!company) {
+          var all_company = frappe.query_report.get_filter_value("all_company");
+          if (!all_company && !company) {
             frappe.throw(__("Please select a company first"));
+          }
+          if (all_company) {
+            return {};
           }
           return {
             filters: [["Department", "company", "=", company]],
@@ -62,12 +130,19 @@
         label: "Employee",
         get_query: function () {
           var company = frappe.query_report.get_filter_value("company");
-          if (!company) {
+          var branch = frappe.query_report.get_filter_value("branch");
+          var all_company = frappe.query_report.get_filter_value("all_company");
+          if (!all_company && !company) {
             frappe.throw(__("Please select a company first"));
           }
-          return {
-            filters: [["Employee", "company", "=", company]],
-          };
+          var filters = [];
+          if (branch) {
+            filters.push(["Employee", "branch", "=", branch]);
+          }
+          if (!all_company && company) {
+            filters.push(["Employee", "company", "=", company]);
+          }
+          return { filters: filters };
         },
       },
       {

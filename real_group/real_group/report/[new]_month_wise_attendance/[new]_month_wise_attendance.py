@@ -73,6 +73,7 @@ def execute(filters=None):
     month = filters.get("month")
     year = cint(filters.get("year"))
     include_processed_status = bool(cint(filters.get("processed_attendance")))
+    all_company = bool(cint(filters.get("all_company")))
     columns = day_wise_attendance.get_columns(month, year)
     append_summary_columns(columns)
     data = []
@@ -81,7 +82,7 @@ def execute(filters=None):
     division = filters.get("division")
     department = filters.get("department")
     employee = filters.get("employee")
-    employees = day_wise_attendance.get_employees(company, branch, division, department, employee)
+    employees = get_employees(company, branch, division, department, employee, all_company=all_company)
     dates = day_wise_attendance.get_dates(month, year)
     employee_names = [emp.name for emp in employees]
     attendance_map = day_wise_attendance.get_attendance(employee_names, dates[0], dates[-1], month, year)
@@ -218,6 +219,24 @@ def execute(filters=None):
         data.append(shift)
 
     return columns, data
+
+
+def get_employees(company, branch, division=None, department=None, employee=None, all_company=False):
+    if not all_company and not company:
+        return []
+
+    filters = {"branch": branch, "status": ["in", ["Active", "Left"]]}
+    if not all_company and company:
+        filters["company"] = company
+    if division:
+        filters["custom_division"] = division
+    if department:
+        filters["department"] = department
+    if employee:
+        filters["name"] = employee
+
+    employees = frappe.get_all("Employee", filters=filters, fields=["*"])
+    return sorted(employees, key=day_wise_attendance.get_employee_sort_key)
 
 
 def append_summary_columns(columns):
