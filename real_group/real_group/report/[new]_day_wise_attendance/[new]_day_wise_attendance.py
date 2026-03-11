@@ -48,6 +48,13 @@ def execute(filters=None):
 
         for _date in dates:
             date_str = format_date(_date)
+            if is_outside_service_period(employee, _date):
+                if include_processed_status:
+                    processed_status[date_str] = None
+                status[date_str] = None
+                shift[date_str] = None
+                continue
+
             emp_date_data = emp_data.get(date_str, {})
             checkins_on_date = emp_date_data.get("checkins", [])
             emp_checkins = sorted(checkins_on_date, key=lambda x: x.time)
@@ -201,6 +208,16 @@ def get_employees(company, branch, division=None, department=None, employee=None
         filters["name"] = employee
 
     return frappe.get_all("Employee", filters=filters, fields=["*"])
+
+
+def is_outside_service_period(employee, current_date: date) -> bool:
+    doj = getdate(employee.get("date_of_joining")) if employee.get("date_of_joining") else None
+    dor = getdate(employee.get("relieving_date")) if employee.get("relieving_date") else None
+    if doj and current_date < doj:
+        return True
+    if dor and current_date > dor:
+        return True
+    return False
 
 
 def get_attendance(employees: list, start_date: date, end_date: date, month: str, year: int):
