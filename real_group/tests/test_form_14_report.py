@@ -1,13 +1,34 @@
-from datetime import datetime
+from datetime import date, datetime
 from importlib import import_module
 from types import SimpleNamespace
 from unittest import TestCase
+from unittest.mock import patch
 
 
 form_14 = import_module("real_group.real_group.report.[new]_form_14.[new]_form_14")
 
 
 class TestForm14Report(TestCase):
+    @patch.object(form_14.frappe, "get_all")
+    def test_get_employees_for_period_sorts_by_numeric_employee_id(self, mock_get_all):
+        mock_get_all.return_value = [
+            {"name": "12292", "date_of_joining": None, "relieving_date": None},
+            {"name": "2", "date_of_joining": None, "relieving_date": None},
+            {"name": "11941", "date_of_joining": None, "relieving_date": None},
+        ]
+
+        employees = form_14.get_employees_for_period(
+            company="Real Ispat and Power Ltd",
+            branch="Corporate Office",
+            division=None,
+            department=None,
+            employee=None,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+        )
+
+        self.assertEqual([employee["name"] for employee in employees], ["2", "11941", "12292"])
+
     def test_processed_half_day_leave_without_half_type_uses_presence_side(self):
         checkins = [SimpleNamespace(time=datetime(2026, 1, 8, 14, 5, 26))]
 

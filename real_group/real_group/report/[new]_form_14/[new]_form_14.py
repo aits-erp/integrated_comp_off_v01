@@ -542,7 +542,7 @@ def get_employees_for_period(company, branch, division, department, employee, st
         if dor and dor < start_date:
             continue
         in_period.append(emp)
-    return in_period
+    return sorted(in_period, key=dw.get_employee_sort_key)
 
 
 def is_outside_service_period(employee, current_date: date) -> bool:

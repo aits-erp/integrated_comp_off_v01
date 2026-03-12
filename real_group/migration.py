@@ -3,11 +3,15 @@ import frappe
 
 INDEX_SPECS = (
     ("Employee", "idx_emp_branch_status_company", ("branch", "status", "company")),
+    ("Employee", "idx_emp_company_branch_status_dept", ("company", "branch", "status", "department")),
+    ("Employee", "idx_emp_company_branch_status_div", ("company", "branch", "status", "custom_division")),
     ("Employee Checkin", "idx_ec_attendance", ("attendance",)),
+    ("Employee Checkin", "idx_ec_emp_attendance", ("employee", "attendance")),
     ("Employee Checkin", "idx_ec_emp_time", ("employee", "time")),
     ("Employee Checkin", "idx_ec_emp_shift_start", ("employee", "shift_start")),
     ("Attendance", "idx_att_emp_date_doc", ("employee", "attendance_date", "docstatus")),
     ("Attendance Request", "idx_ar_emp_doc_from_to", ("employee", "docstatus", "from_date", "to_date")),
+    ("Attendance Request", "idx_ar_emp_doc_to_from", ("employee", "docstatus", "to_date", "from_date")),
     ("Holiday", "idx_holiday_parent_date", ("parent", "holiday_date")),
     ("Weekly Off Holiday", "idx_woh_parent_date", ("parent", "holiday_date")),
     ("Weekly Holiday Update Request", "idx_whur_emp_doc_valid", ("employee", "docstatus", "valid_from")),
