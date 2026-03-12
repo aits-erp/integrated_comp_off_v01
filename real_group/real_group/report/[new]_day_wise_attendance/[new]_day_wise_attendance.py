@@ -583,6 +583,45 @@ def get_leave_code(leave_type_doc):
     return None
 
 
+def is_approved_leave_application(leave_application):
+    if not leave_application:
+        return False
+
+    if isinstance(leave_application, dict):
+        status = leave_application.get("status")
+        docstatus = leave_application.get("docstatus")
+    else:
+        status = getattr(leave_application, "status", None)
+        docstatus = getattr(leave_application, "docstatus", None)
+
+    return (cstr(status).strip().lower() == "approved") and cint(docstatus) == 1
+
+
+def get_approved_half_day_leave_applications(employee, target_date, exclude_name=None):
+    if not employee or not target_date:
+        return []
+
+    filters = {
+        "employee": employee,
+        "status": "Approved",
+        "docstatus": 1,
+        "from_date": ["<=", target_date],
+        "to_date": [">=", target_date],
+        "half_day": 1,
+        "half_day_date": target_date,
+    }
+    if exclude_name:
+        filters["name"] = ["!=", exclude_name]
+
+    leave_applications = frappe.get_all(
+        "Leave Application",
+        filters=filters,
+        fields=["name", "leave_type", "custom_half_type", "status", "docstatus"],
+    )
+
+    return [leave for leave in leave_applications if is_approved_leave_application(leave)]
+
+
 def get_full_day_code_if_other_half_leave_approved(employee, target_date, primary_application, primary_leave_type):
     if not employee or not target_date or not primary_application or not primary_leave_type:
         return None
@@ -600,20 +639,7 @@ def get_full_day_code_if_other_half_leave_approved(employee, target_date, primar
 
     primary_half_type = (getattr(primary_application, "custom_half_type", None) or "").strip()
 
-    other_leaves = frappe.get_all(
-        "Leave Application",
-        filters={
-            "employee": employee,
-            "status": "Approved",
-            "docstatus": ["!=", 2],
-            "from_date": ["<=", target_date],
-            "to_date": [">=", target_date],
-            "half_day": 1,
-            "half_day_date": target_date,
-            "name": ["!=", primary_application.name],
-        },
-        fields=["name", "leave_type", "custom_half_type"],
-    )
+    other_leaves = get_approved_half_day_leave_applications(employee, target_date, primary_application.name)
 
     for other in other_leaves:
         other_half_type = (getattr(other, "custom_half_type", None) or "").strip()
@@ -640,18 +666,7 @@ def get_half_day_combo_status(employee, target_date, primary_application, primar
     if primary_code not in {"EL", "CO", "CL"}:
         return None
 
-    other_half_leaves = frappe.get_all(
-        "Leave Application",
-        filters={
-            "employee": employee,
-            "docstatus": ["!=", 2],
-            "from_date": ["<=", target_date],
-            "to_date": [">=", target_date],
-            "half_day_date": target_date,
-            "name": ["!=", primary_application.name],
-        },
-        fields=["name", "leave_type"],
-    )
+    other_half_leaves = get_approved_half_day_leave_applications(employee, target_date, primary_application.name)
 
     for other in other_half_leaves:
         other_leave_type = frappe.get_cached_doc("Leave Type", other.leave_type)
@@ -719,19 +734,7 @@ def get_optional_combo_from_other_leave(employee, target_date, primary_applicati
     if not primary_application_name:
         return None
 
-    other_half_leaves = frappe.get_all(
-        "Leave Application",
-        filters={
-            "employee": employee,
-            "docstatus": ["!=", 2],
-            "from_date": ["<=", target_date],
-            "to_date": [">=", target_date],
-            "half_day": 1,
-            "half_day_date": target_date,
-            "name": ["!=", primary_application_name],
-        },
-        fields=["name", "leave_type"],
-    )
+    other_half_leaves = get_approved_half_day_leave_applications(employee, target_date, primary_application_name)
 
     mapping = {"EL": "ELHO", "CL": "CLHO", "CO": "COHO", "LW": "LWHO"}
     for other in other_half_leaves:
