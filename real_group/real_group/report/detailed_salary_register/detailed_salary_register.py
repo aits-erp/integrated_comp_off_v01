@@ -293,8 +293,6 @@ def get_columns(sst_name_for_order=None):
         "Special Allowances": ("special_pay_actual", "SPECIAL"),
         "Local Transport Allowance": ("transport_allowance_actual", "TRANS"),
         "Children Hostel Allowance": ("children_allowance_actual", "CHILD"),
-        "Over Time": ("over_time_actual", "OT"),
-        "Incentives": ("incentive_actual", "INCT"),
         "Miscellaneous": ("misc_actual", "MISC"),
     }
 
@@ -504,7 +502,9 @@ def get_data(filters):
 
     where_sql = " AND ".join(where)
 
-    # ✅ FIX: latest effective salary structure assignment for that salary slip period
+    # Use the structure stored on the slip when available. This preserves the exact
+    # structure used to generate the slip and avoids missing mid-month joiners whose
+    # assignment starts after the slip start date.
     sql = frappe.db.sql(
         f"""
         SELECT
@@ -526,8 +526,8 @@ def get_data(filters):
             e.company,
             e.holiday_list,
 
-            ssa.base as gross_pay_alotted,
-            ssa.salary_structure as sst_name,
+            st.total_earning as gross_pay_alotted,
+            COALESCE(ss.salary_structure, ssa.salary_structure) as sst_name,
 
             ss.payment_days as paid_days,
             (ss.leave_without_pay + ss.absent_days) absent,
@@ -564,16 +564,20 @@ def get_data(filters):
             `tabEmployee` e ON e.name = ss.employee
         LEFT JOIN
             `tabSalary Structure Assignment` ssa
-            ON ssa.employee = ss.employee
-            AND ssa.docstatus = 1
-            AND ssa.from_date = (
-            SELECT MAX(ssa2.from_date)
-            FROM `tabSalary Structure Assignment` ssa2
-            WHERE ssa2.employee = ss.employee
-            AND ssa2.company = ss.company
-            AND ssa2.docstatus = 1
-            AND ssa2.from_date <= ss.start_date
-             )
+            ON ssa.name = (
+                SELECT ssa2.name
+                FROM `tabSalary Structure Assignment` ssa2
+                WHERE ssa2.employee = ss.employee
+                  AND ssa2.company = ss.company
+                  AND ssa2.docstatus = 1
+                  AND (COALESCE(ss.salary_structure, '') = '' OR ssa2.salary_structure = ss.salary_structure)
+                  AND ssa2.from_date <= ss.end_date
+                ORDER BY ssa2.from_date DESC, ssa2.creation DESC
+                LIMIT 1
+            )
+        LEFT JOIN
+            `tabSalary Structure` st
+            ON st.name = COALESCE(ss.salary_structure, ssa.salary_structure)
 
         LEFT JOIN
             `tabSalary Detail` sd ON sd.parent = ss.name
@@ -614,23 +618,6 @@ def get_data(filters):
 
 # ---------------- Salary Structure helpers ----------------
 def apply_salary_structure_allotted(res):
-    sst_name = res.get("sst_name")
-    if not sst_name:
-        return
-
-    # pull Salary Detail for Salary Structure in the order they appear (idx)
-    rows = frappe.db.sql(
-        """
-        SELECT salary_component, amount
-        FROM `tabSalary Detail`
-        WHERE parenttype = 'Salary Structure'
-          AND parent = %s
-        ORDER BY idx
-        """,
-        (sst_name,),
-        as_dict=True,
-    )
-
     # reset allotted fields
     res.update(
         {
@@ -647,6 +634,24 @@ def apply_salary_structure_allotted(res):
             "transport_allowance_alotted": 0,
             "misc_alotted": 0,
         }
+    )
+
+    sst_name = res.get("sst_name")
+    if not sst_name:
+        res["gross_pay_alotted"] = flt(res.get("gross_pay_alotted"))
+        return
+
+    # pull Salary Detail for Salary Structure in the order they appear (idx)
+    rows = frappe.db.sql(
+        """
+        SELECT salary_component, amount, parentfield
+        FROM `tabSalary Detail`
+        WHERE parenttype = 'Salary Structure'
+          AND parent = %s
+        ORDER BY idx
+        """,
+        (sst_name,),
+        as_dict=True,
     )
 
     # map structure components to your fixed fields
@@ -679,8 +684,9 @@ def apply_salary_structure_allotted(res):
         elif comp in ("Miscellaneous", "MISC"):
             res["misc_alotted"] = amt
 
-    # Gross (prefer Salary Structure total_earning if available)
-    res["gross"] = sum(flt(r.get("amount")) for r in rows)
+    total_earnings = sum(flt(r.get("amount")) for r in rows if r.get("parentfield") == "earnings")
+    res["gross"] = total_earnings
+    res["gross_pay_alotted"] = flt(res.get("gross_pay_alotted")) or total_earnings
 
 
 def get_salary_structure_components_in_order(sst_name):
