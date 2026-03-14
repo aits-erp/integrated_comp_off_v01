@@ -20,7 +20,9 @@ def validate(doc, method=None):
     doc.custom_working_hours = None
     if doc.working_hours and doc.working_hours > 0:
         total_seconds = round(doc.working_hours * 3600 / 60) * 60
-        doc.custom_working_hours = timedelta(seconds=total_seconds)
+        # Time fields cannot store 24h+ durations; keep the numeric hours and leave the display field empty.
+        if total_seconds < 24 * 60 * 60:
+            doc.custom_working_hours = timedelta(seconds=total_seconds)
     else:
         doc.custom_working_hours = None
 
