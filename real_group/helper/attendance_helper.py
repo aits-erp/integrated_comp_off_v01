@@ -42,8 +42,6 @@ def has_valid_in_out_pair(logs) -> bool:
 # Main function to create or update attendance
 def create_attendance(employee: str, date: str | date, logs: list[dict] | None, reprocess_ref=None) -> None:
     employee_doc = frappe.get_cached_doc("Employee", employee)
-    if logs:
-        logs = update_time(logs)
 
     if isinstance(date, str):
         date = getdate(date)
@@ -271,12 +269,29 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
 
 
 def update_time(checkins: list):
-    checkins = sorted(checkins, key=lambda x: x["time"])
-    for checkin in checkins:
-        checkin._backup_time = checkin.time
-        checkin.time = checkin.custom_processed_time
+    processed_checkins = []
+    for checkin in sorted(checkins, key=lambda x: x["time"]):
+        processed_checkin = frappe._dict(checkin.copy())
+        processed_checkin.time = processed_checkin.custom_processed_time
+        processed_checkins.append(processed_checkin)
 
-    return checkins
+    return processed_checkins
+
+
+def calculate_working_hours_for_attendance(logs):
+    original_logs = sorted(logs, key=lambda x: x["time"])
+    processed_logs = update_time(original_logs)
+
+    total_working_hours, in_time, out_time = calculate_working_hours(
+        processed_logs, "Strictly based on Log Type in Employee Checkin", "Every Valid Check-in and Check-out"
+    )
+
+    if total_working_hours < 0:
+        total_working_hours, in_time, out_time = calculate_working_hours(
+            original_logs, "Strictly based on Log Type in Employee Checkin", "Every Valid Check-in and Check-out"
+        )
+
+    return total_working_hours, in_time, out_time
 
 
 def has_attendance(employee, attendance_date):
@@ -291,9 +306,7 @@ def get_attendance(logs, grade, shift_type):
         return "Absent", 0, False, False, None, None
 
     late_entry = early_exit = False
-    total_working_hours, in_time, out_time = calculate_working_hours(
-        logs, "Strictly based on Log Type in Employee Checkin", "Every Valid Check-in and Check-out"
-    )
+    total_working_hours, in_time, out_time = calculate_working_hours_for_attendance(logs)
     grade = frappe.get_cached_doc("Employee Grade", grade)
     shift = frappe.get_cached_doc("Shift Type", shift_type)
     force_half_day_due_to_late = False
