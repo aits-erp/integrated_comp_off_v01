@@ -99,6 +99,10 @@ def send_sms_on_late_checkin(doc):
     if doc.log_type != "IN":
         return
 
+    # Skip backdated checkins recreated during reprocessing/imports.
+    if getdate(doc.time) != getdate():
+        return
+
     sms_gateway = get_sms_creds()
     if not sms_gateway:
         return
