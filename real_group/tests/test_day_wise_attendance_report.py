@@ -8,6 +8,9 @@ from unittest.mock import patch
 day_wise_attendance = import_module(
     "real_group.real_group.report.[new]_day_wise_attendance.[new]_day_wise_attendance"
 )
+month_wise_attendance = import_module(
+    "real_group.real_group.report.[new]_month_wise_attendance.[new]_month_wise_attendance"
+)
 
 
 def get_leave_type_doc(name):
@@ -83,3 +86,59 @@ class TestDayWiseAttendanceReport(TestCase):
                 )
 
         self.assertEqual(result, "ELCO")
+
+    @patch.object(day_wise_attendance.frappe, "get_all")
+    def test_day_wise_get_employees_excludes_records_outside_report_month(self, mock_get_all):
+        mock_get_all.return_value = [
+            {"name": "12500", "date_of_joining": date(2026, 1, 15), "relieving_date": None},
+            {"name": "12501", "date_of_joining": date(2025, 1, 1), "relieving_date": date(2026, 1, 15)},
+            {"name": "12799", "date_of_joining": date(2025, 1, 1), "relieving_date": date(2025, 12, 31)},
+            {"name": "12800", "date_of_joining": date(2026, 2, 1), "relieving_date": None},
+        ]
+
+        employees = day_wise_attendance.get_employees(
+            company="Real Ispat and Power Ltd",
+            branch="Plant Site",
+            division=None,
+            department=None,
+            employee=None,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+        )
+
+        self.assertEqual([employee["name"] for employee in employees], ["12500", "12501"])
+
+    @patch.object(month_wise_attendance.frappe, "get_all")
+    def test_month_wise_get_employees_returns_no_rows_for_future_joining_employee(self, mock_get_all):
+        mock_get_all.return_value = [
+            {"name": "12800", "date_of_joining": date(2026, 2, 1), "relieving_date": None}
+        ]
+
+        employees = month_wise_attendance.get_employees(
+            company="Real Ispat and Power Ltd",
+            branch="Plant Site",
+            division=None,
+            department=None,
+            employee="12800",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            all_company=False,
+        )
+
+        self.assertEqual(employees, [])
+
+    def test_top_row_status_totals_include_new_holiday_weekly_off_leave_and_od_counts(self):
+        totals = day_wise_attendance.init_top_row_status_totals()
+
+        for status_code in ["HO", "WO", "HEL", "ODCL", "POW", "POD", "CLCO", "PHO"]:
+            day_wise_attendance.add_top_row_status_totals(totals, status_code)
+
+        self.assertEqual(
+            totals,
+            {
+                "holiday": 1.5,
+                "weekly_off": 2.0,
+                "leaves": 2.0,
+                "od": 1.0,
+            },
+        )

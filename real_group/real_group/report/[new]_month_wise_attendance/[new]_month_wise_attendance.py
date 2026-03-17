@@ -82,8 +82,8 @@ def execute(filters=None):
     division = filters.get("division")
     department = filters.get("department")
     employee = filters.get("employee")
-    employees = get_employees(company, branch, division, department, employee, all_company=all_company)
     dates = day_wise_attendance.get_dates(month, year)
+    employees = get_employees(company, branch, division, department, employee, dates[0], dates[-1], all_company)
     employee_names = [emp.name for emp in employees]
     attendance_map = day_wise_attendance.get_attendance(employee_names, dates[0], dates[-1], month, year)
     attendance_requests_map = day_wise_attendance.get_attendance_requests(employee_names, dates[0], dates[-1])
@@ -221,7 +221,16 @@ def execute(filters=None):
     return columns, data
 
 
-def get_employees(company, branch, division=None, department=None, employee=None, all_company=False):
+def get_employees(
+    company,
+    branch,
+    division=None,
+    department=None,
+    employee=None,
+    start_date=None,
+    end_date=None,
+    all_company=False,
+):
     if not all_company and not company:
         return []
 
@@ -236,6 +245,7 @@ def get_employees(company, branch, division=None, department=None, employee=None
         filters["name"] = employee
 
     employees = frappe.get_all("Employee", filters=filters, fields=["*"])
+    employees = day_wise_attendance.filter_employees_for_period(employees, start_date, end_date)
     return sorted(employees, key=day_wise_attendance.get_employee_sort_key)
 
 

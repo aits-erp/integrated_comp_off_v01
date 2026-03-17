@@ -13,6 +13,41 @@ from real_group.utils import convert_time_to_hours, is_holiday_for_employee
 
 month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
+top_row_status_split = {
+    "HO": {"holiday": 1},
+    "POH": {"holiday": 1},
+    "PHO": {"holiday": 0.5},
+    "HHO": {"holiday": 0.5},
+    "MHO": {"holiday": 0.5},
+    "WO": {"weekly_off": 1},
+    "POW": {"weekly_off": 1},
+    "EL": {"leaves": 1},
+    "HEL": {"leaves": 0.5},
+    "PEL": {"leaves": 0.5},
+    "CL": {"leaves": 1},
+    "HCL": {"leaves": 0.5},
+    "PCL": {"leaves": 0.5},
+    "CO": {"leaves": 1},
+    "HCO": {"leaves": 0.5},
+    "PCO": {"leaves": 0.5},
+    "LW": {"leaves": 1},
+    "HLW": {"leaves": 0.5},
+    "PLW": {"leaves": 0.5},
+    "ELHO": {"holiday": 0.5, "leaves": 0.5},
+    "CLHO": {"holiday": 0.5, "leaves": 0.5},
+    "COHO": {"holiday": 0.5, "leaves": 0.5},
+    "LWHO": {"holiday": 0.5, "leaves": 0.5},
+    "ELCO": {"leaves": 1},
+    "CLCO": {"leaves": 1},
+    "OD": {"od": 1},
+    "HOD": {"od": 0.5},
+    "POD": {"od": 0.5},
+    "ODHO": {"holiday": 0.5, "od": 0.5},
+    "ODEL": {"leaves": 0.5, "od": 0.5},
+    "ODCL": {"leaves": 0.5, "od": 0.5},
+    "ODCO": {"leaves": 0.5, "od": 0.5},
+}
+
 
 def execute(filters=None):
     month = filters.get("month")
@@ -24,8 +59,8 @@ def execute(filters=None):
     division = filters.get("division")
     department = filters.get("department")
     employee = filters.get("employee")
-    employees = get_employees(company, branch, division, department, employee)
     dates = get_dates(month, year)
+    employees = get_employees(company, branch, division, department, employee, dates[0], dates[-1])
     employee_names = [emp.name for emp in employees]
     attendance_map = get_attendance(employee_names, dates[0], dates[-1], month, year)
     attendance_requests_map = get_attendance_requests(employee_names, dates[0], dates[-1])
@@ -45,6 +80,7 @@ def execute(filters=None):
         total_present = 0
         total_absent = 0
         total_hours = 0.0
+        extra_status_totals = init_top_row_status_totals()
 
         for _date in dates:
             date_str = format_date(_date)
@@ -127,6 +163,7 @@ def execute(filters=None):
             ):  # if theres mispunch status should be mispunch
                 status_value = "MIS"
             status[date_str] = status_value
+            add_top_row_status_totals(extra_status_totals, status_value)
             attendance_doc = attendance_on_date[0] if attendance_on_date else None
             if include_processed_status:
                 processed_status[date_str] = derive_processed_status(
@@ -139,10 +176,10 @@ def execute(filters=None):
                 )
         summary_dates = []
         temp_date = dates[0]
-        for _ in range(8):
+        for _ in range(11):
             summary_dates.append(format_date(temp_date))
             temp_date = add_days(temp_date, days=1)
-        if len(summary_dates) >= 8:
+        if len(summary_dates) >= 11:
             total_time = timedelta(seconds=round(total_hours * 3600 / 60) * 60)
             info[summary_dates[0]] = employee["name"]
             info[summary_dates[1]] = employee["employee_name"]
@@ -151,6 +188,10 @@ def execute(filters=None):
             info[summary_dates[4]] = f"Present: {total_present}"
             info[summary_dates[5]] = f"Absent: {total_absent}"
             info[summary_dates[6]] = f"Hours: {format_time_hhmm(total_time)}"
+            info[summary_dates[7]] = f"Holiday: {format_top_row_status_value(extra_status_totals['holiday'])}"
+            info[summary_dates[8]] = f"Weekly Off: {format_top_row_status_value(extra_status_totals['weekly_off'])}"
+            info[summary_dates[9]] = f"Leaves: {format_top_row_status_value(extra_status_totals['leaves'])}"
+            info[summary_dates[10]] = f"OD: {format_top_row_status_value(extra_status_totals['od'])}"
 
         extra_worked_sub = {"sr": "E Work"}  ## client wants extra work to be empty
         data.append(info)
@@ -198,7 +239,7 @@ def get_dates(month: str, year: int):
     return dates
 
 
-def get_employees(company, branch, division=None, department=None, employee=None):
+def get_employees(company, branch, division=None, department=None, employee=None, start_date=None, end_date=None):
     filters = {"company": company, "branch": branch, "status": ["in", ["Active", "Left"]]}
     if division:
         filters["custom_division"] = division
@@ -208,6 +249,7 @@ def get_employees(company, branch, division=None, department=None, employee=None
         filters["name"] = employee
 
     employees = frappe.get_all("Employee", filters=filters, fields=["*"])
+    employees = filter_employees_for_period(employees, start_date, end_date)
     return sorted(employees, key=get_employee_sort_key)
 
 
@@ -216,6 +258,43 @@ def get_employee_sort_key(employee):
     if employee_id.isdigit():
         return (0, int(employee_id))
     return (1, employee_id.lower())
+
+
+def init_top_row_status_totals():
+    return {"holiday": 0.0, "weekly_off": 0.0, "leaves": 0.0, "od": 0.0}
+
+
+def add_top_row_status_totals(totals, status_code):
+    if not totals or not status_code:
+        return
+
+    contributions = top_row_status_split.get((status_code or "").strip().upper(), {})
+    for key, value in contributions.items():
+        totals[key] = totals.get(key, 0.0) + value
+
+
+def format_top_row_status_value(value):
+    numeric_value = round(float(value or 0), 2)
+    if numeric_value.is_integer():
+        return int(numeric_value)
+    return numeric_value
+
+
+def filter_employees_for_period(employees, start_date=None, end_date=None):
+    if not start_date or not end_date:
+        return employees
+
+    in_period = []
+    for employee in employees:
+        doj = getdate(employee.get("date_of_joining")) if employee.get("date_of_joining") else None
+        dor = getdate(employee.get("relieving_date")) if employee.get("relieving_date") else None
+        if doj and doj > end_date:
+            continue
+        if dor and dor < start_date:
+            continue
+        in_period.append(employee)
+
+    return in_period
 
 
 def is_outside_service_period(employee, current_date: date) -> bool:

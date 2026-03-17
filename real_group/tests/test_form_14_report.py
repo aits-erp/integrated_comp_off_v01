@@ -29,6 +29,45 @@ class TestForm14Report(TestCase):
 
         self.assertEqual([employee["name"] for employee in employees], ["2", "11941", "12292"])
 
+    @patch.object(form_14.frappe, "get_all")
+    def test_get_employees_for_period_excludes_records_outside_report_month(self, mock_get_all):
+        mock_get_all.return_value = [
+            {"name": "12500", "date_of_joining": date(2026, 1, 15), "relieving_date": None},
+            {"name": "12501", "date_of_joining": date(2025, 1, 1), "relieving_date": date(2026, 1, 15)},
+            {"name": "12799", "date_of_joining": date(2025, 1, 1), "relieving_date": date(2025, 12, 31)},
+            {"name": "12800", "date_of_joining": date(2026, 2, 1), "relieving_date": None},
+        ]
+
+        employees = form_14.get_employees_for_period(
+            company="Real Ispat and Power Ltd",
+            branch="Plant Site",
+            division=None,
+            department=None,
+            employee=None,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+        )
+
+        self.assertEqual([employee["name"] for employee in employees], ["12500", "12501"])
+
+    @patch.object(form_14.frappe, "get_all")
+    def test_get_employees_for_period_returns_no_rows_for_future_joining_employee(self, mock_get_all):
+        mock_get_all.return_value = [
+            {"name": "12800", "date_of_joining": date(2026, 2, 1), "relieving_date": None}
+        ]
+
+        employees = form_14.get_employees_for_period(
+            company="Real Ispat and Power Ltd",
+            branch="Plant Site",
+            division=None,
+            department=None,
+            employee="12800",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+        )
+
+        self.assertEqual(employees, [])
+
     def test_processed_half_day_leave_without_half_type_uses_presence_side(self):
         checkins = [SimpleNamespace(time=datetime(2026, 1, 8, 14, 5, 26))]
 
