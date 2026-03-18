@@ -144,7 +144,8 @@ def send_sms_on_late_checkin(doc):
     if shift_start_time > checkin_time:
         return
 
-    difference_in_minutes = int((checkin_time - shift_start_time).total_seconds() / 60)
+    late_seconds = max(0, int((checkin_time - shift_start_time).total_seconds()))
+    difference_in_minutes = late_seconds // 60
 
     # Keep the SMS body aligned with the approved DLT template format.
     message = (
