@@ -1,4 +1,5 @@
 import json
+from urllib.parse import urlencode
 
 import frappe
 from frappe import _
@@ -110,8 +111,13 @@ def send_sms_on_late_checkin(doc):
     url = sms_gateway.get("url")
     api_key = sms_gateway.get("api_key")
     sender_id = sms_gateway.get("sender_id")
+    template_id = sms_gateway.get("template_id") or sms_gateway.get("templateid")
 
-    if not url or not api_key or not sender_id:
+    if not url or not api_key or not sender_id or not template_id:
+        frappe.log_error(
+            "Missing one or more SMS config values: url, api_key, sender_id, template_id",
+            "Late Checkin SMS Config Incomplete",
+        )
         return
 
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
@@ -138,19 +144,33 @@ def send_sms_on_late_checkin(doc):
     if shift_start_time > checkin_time:
         return
 
-    difference_in_minutes = (checkin_time - shift_start_time).total_seconds() / 60
+    difference_in_minutes = int((checkin_time - shift_start_time).total_seconds() / 60)
 
+    # Keep the SMS body aligned with the approved DLT template format.
     message = (
-        f"Hello {doc.employee_name},%0A%0A"
-        f"You have arrived {difference_in_minutes} minutes late at work today.%0A"
-        f"Your clock-in time is {doc.time}.%0A%0A"
-        f"Regards,%0A"
-        f"REAL Group"
+        f"Hello {doc.employee_name}, "
+        f"You have arrived {difference_in_minutes} minutes late at work today and "
+        f"your clock-in time is {doc.time} hours. "
+        f"Regards, REAL Group"
     )
 
-    url = f"{url}?apikey={api_key}&senderid={sender_id}&number={employee.cell_number}&message={message}"
+    query_params = {
+        "apikey": api_key,
+        "senderid": sender_id,
+        "number": employee.cell_number,
+        "message": message,
+        "templateid": template_id,
+    }
+    url = f"{url}?{urlencode(query_params)}"
+    try:
+        sms_response = make_get_request(url)
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            f"Late Checkin SMS Failed for Employee Checkin {doc.name}",
+        )
+        return
 
-    sms_response = make_get_request(url)
     sms_response_log = frappe.new_doc("SMS Response Log")
     sms_response_log.response = json.dumps(sms_response)
     sms_response_log.checkin = doc.name
