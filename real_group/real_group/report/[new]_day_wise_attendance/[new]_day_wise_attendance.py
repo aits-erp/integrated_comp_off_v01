@@ -152,10 +152,9 @@ def execute(filters=None):
                             extra_worked[date_str] = format_time_hhmm(delta)
                 if shift_type and shift_type.custom_shift_time and not worked_hours_value:
                     if holiday_info and holiday_info.get("is_holiday"):
-                        in_time = emp_checkins[0].get("time")
-                        out_time = emp_checkins[-1].get("time")
-                        delta = out_time - in_time
-                        extra_worked[date_str] = format_time_hhmm(delta)
+                        holiday_extra_work = get_holiday_extra_work(emp_checkins)
+                        if holiday_extra_work:
+                            extra_worked[date_str] = holiday_extra_work
             processed_value = get_status(employee.name, _date, emp_date_data, day_status)
             status_value = adjust_status_with_checkins(processed_value, emp_checkins, day_shift_name, shift_map)
             if has_mis_punch_request(
@@ -1074,6 +1073,22 @@ def _calculate_hours_from_checkins(checkins):
             total_seconds += delta.total_seconds()
 
     return total_seconds / 3600 if total_seconds else 0.0
+
+
+def get_holiday_extra_work(checkins):
+    if len(checkins) < 2:
+        return ""
+
+    in_time = get_datetime(checkins[0].get("time")) if checkins[0].get("time") else None
+    out_time = get_datetime(checkins[-1].get("time")) if checkins[-1].get("time") else None
+    if not in_time or not out_time:
+        return ""
+
+    delta = out_time - in_time
+    if delta.total_seconds() <= 0:
+        return ""
+
+    return format_time_hhmm(delta)
 
 
 def _determine_status_from_hours(worked_hours, shift_doc):

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from importlib import import_module
 from types import SimpleNamespace
 from unittest import TestCase
@@ -142,3 +142,14 @@ class TestDayWiseAttendanceReport(TestCase):
                 "od": 1.0,
             },
         )
+
+    def test_holiday_extra_work_returns_empty_when_checkins_are_missing(self):
+        self.assertEqual(day_wise_attendance.get_holiday_extra_work([]), "")
+
+    def test_holiday_extra_work_uses_first_and_last_checkin_when_available(self):
+        checkins = [
+            {"time": datetime(2026, 3, 11, 7, 56, 26)},
+            {"time": datetime(2026, 3, 11, 20, 2, 30)},
+        ]
+
+        self.assertEqual(day_wise_attendance.get_holiday_extra_work(checkins), "12:06")
