@@ -176,10 +176,9 @@ def execute(filters=None):
                             extra_worked[date_str] = format_time_hhmm(delta)
                 if shift_type and shift_type.custom_shift_time and not worked_hours_value:
                     if holiday_info and holiday_info.get("is_holiday"):
-                        in_time = emp_checkins[0].get("time")
-                        out_time = emp_checkins[-1].get("time")
-                        delta = out_time - in_time
-                        extra_worked[date_str] = format_time_hhmm(delta)
+                        holiday_extra_work = day_wise_attendance.get_holiday_extra_work(emp_checkins)
+                        if holiday_extra_work:
+                            extra_worked[date_str] = holiday_extra_work
             processed_value = day_wise_attendance.get_status(employee.name, _date, emp_date_data, day_status)
             status_value = day_wise_attendance.adjust_status_with_checkins(
                 processed_value, emp_checkins, day_shift_name, shift_map

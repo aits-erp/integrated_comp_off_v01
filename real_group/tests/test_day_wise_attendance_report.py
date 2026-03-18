@@ -127,6 +127,83 @@ class TestDayWiseAttendanceReport(TestCase):
 
         self.assertEqual(employees, [])
 
+    def test_month_wise_execute_handles_holiday_without_checkins(self):
+        employee = day_wise_attendance.frappe._dict(
+            {
+                "name": "11742",
+                "employee_name": "Pappu Nishad",
+                "designation": "Electrician",
+                "department": "Electrical - RIPL",
+            }
+        )
+        attendance_map = {
+            "11742": {
+                "max_checkins": 0,
+                "11-03-2026": {
+                    "attendance": [
+                        {
+                            "working_hours": 0.0,
+                            "custom_attendance_tag": "A",
+                            "status": "Absent",
+                            "shift": "N",
+                        }
+                    ],
+                    "checkins": [],
+                },
+            }
+        }
+        summary_metrics = {fieldname: 0.0 for fieldname in month_wise_attendance.fieldnames}
+
+        with (
+            patch.object(month_wise_attendance.day_wise_attendance, "get_columns", return_value=[{"fieldname": "sr"}]),
+            patch.object(month_wise_attendance.day_wise_attendance, "get_dates", return_value=[date(2026, 3, 11)]),
+            patch.object(month_wise_attendance, "format_date", side_effect=lambda value: value.strftime("%d-%m-%Y")),
+            patch.object(month_wise_attendance, "get_employees", return_value=[employee]),
+            patch.object(month_wise_attendance.day_wise_attendance, "get_attendance", return_value=attendance_map),
+            patch.object(month_wise_attendance.day_wise_attendance, "get_attendance_requests", return_value={}),
+            patch.object(
+                month_wise_attendance.day_wise_attendance,
+                "get_shifts",
+                return_value=[SimpleNamespace(name="N", custom_shift_time="12:00:00")],
+            ),
+            patch.object(
+                month_wise_attendance.day_wise_attendance,
+                "get_rows",
+                return_value=(
+                    [],
+                    {"sr": "H Work"},
+                    {"sr": "E Work"},
+                    {"sr": "P Status"},
+                    {"sr": "Status"},
+                    {"sr": "Shift"},
+                ),
+            ),
+            patch.object(month_wise_attendance.day_wise_attendance, "is_outside_service_period", return_value=False),
+            patch.object(month_wise_attendance, "is_holiday_for_employee", return_value={"is_holiday": True}),
+            patch.object(month_wise_attendance.day_wise_attendance, "get_status", return_value="A"),
+            patch.object(month_wise_attendance.day_wise_attendance, "adjust_status_with_checkins", return_value="A"),
+            patch.object(month_wise_attendance.day_wise_attendance, "has_mis_punch_request", return_value=False),
+            patch.object(month_wise_attendance.day_wise_attendance, "derive_processed_status", return_value="A"),
+            patch.object(month_wise_attendance, "calculate_summary_metrics", return_value=summary_metrics),
+            patch.object(month_wise_attendance, "apply_summary_metrics"),
+            patch.object(
+                month_wise_attendance.day_wise_attendance, "get_holiday_extra_work", return_value=""
+            ) as holiday_extra_work_mock,
+        ):
+            columns, data = month_wise_attendance.execute(
+                {
+                    "company": "Real Ispat and Power Ltd",
+                    "branch": "Plant Site",
+                    "month": "Mar",
+                    "year": "2026",
+                    "processed_attendance": 1,
+                }
+            )
+
+        holiday_extra_work_mock.assert_called_once_with([])
+        self.assertTrue(columns)
+        self.assertTrue(data)
+
     def test_top_row_status_totals_include_new_holiday_weekly_off_leave_and_od_counts(self):
         totals = day_wise_attendance.init_top_row_status_totals()
 
