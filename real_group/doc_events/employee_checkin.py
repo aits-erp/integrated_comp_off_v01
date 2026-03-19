@@ -91,9 +91,13 @@ def apply_short_leave_attendance_on_late_checkin(doc):
             short_leave.submit()
             short_leave.add_tag("Auto Created on Late Checkin")
             minutes = int(diff.total_seconds() / 60)
-            short_leave.add_comment(text=f"Created automatically for late check-in: {minutes} minutes late")
+            short_leave.add_comment(
+                text=f"Created automatically for late check-in: {minutes} minutes late"
+            )
         except Exception:
-            frappe.log_error(frappe.get_traceback(), "Auto Attendance Request Creation Failed")
+            frappe.log_error(
+                frappe.get_traceback(), "Auto Attendance Request Creation Failed"
+            )
 
 
 def send_sms_on_late_checkin(doc):
@@ -121,9 +125,12 @@ def send_sms_on_late_checkin(doc):
         return
 
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
-    employee_grade = frappe.get_cached_doc("Employee Grade", employee.grade, for_update=False)
+    employee_grade = frappe.get_cached_doc(
+        "Employee Grade", employee.grade, for_update=False
+    )
     if not employee.cell_number or (
-        employee_grade.custom_single_punch_applicable or employee_grade.custom_no_punch_applicable
+        employee_grade.custom_single_punch_applicable
+        or employee_grade.custom_no_punch_applicable
     ):
         return
 
@@ -149,10 +156,11 @@ def send_sms_on_late_checkin(doc):
 
     # Keep the SMS body aligned with the approved DLT template format.
     message = (
-        f"Hello {doc.employee_name}, "
+        f"Hello {doc.employee_name},\n\n"
         f"You have arrived {difference_in_minutes} minutes late at work today and "
-        f"your clock-in time is {doc.time} hours. "
-        f"Regards, REAL Group"
+        f"your clock-in time is {doc.time} hours.\n\n"
+        f"Regards,\n"
+        f"REAL Group"
     )
 
     query_params = {
@@ -172,10 +180,20 @@ def send_sms_on_late_checkin(doc):
         )
         return
 
-    sms_response_log = frappe.new_doc("SMS Response Log")
-    sms_response_log.response = json.dumps(sms_response)
-    sms_response_log.checkin = doc.name
-    sms_response_log.save()
+    try:
+        sms_response_log = frappe.get_doc(
+            {
+                "doctype": "SMS Response Log",
+                "response": json.dumps(sms_response),
+                "checkin": doc.name,
+            }
+        )
+        sms_response_log.insert(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            f"Late Checkin SMS Response Log Failed for Employee Checkin {doc.name}",
+        )
 
 
 def is_first_checkin(doc):
@@ -183,7 +201,11 @@ def is_first_checkin(doc):
     return (
         frappe.db.count(
             "Employee Checkin",
-            {"employee": doc.employee, "log_type": "IN", "time": ["Between", [for_date, for_date]]},
+            {
+                "employee": doc.employee,
+                "log_type": "IN",
+                "time": ["Between", [for_date, for_date]],
+            },
         )
         < 2
     )
@@ -205,11 +227,15 @@ def set_geolocation(doc):
 def validate_remote_checkin(doc):
     if not doc.employee:
         return
-    posting_location = frappe.db.get_value("Employee", doc.employee, "custom_is_remote_office")
+    posting_location = frappe.db.get_value(
+        "Employee", doc.employee, "custom_is_remote_office"
+    )
     if posting_location:
         if not (doc.custom_latitude and doc.custom_longitude):
             frappe.throw(
-                _("For employees with 'Remote Office' posting location, latitude and longitude are mandatory.")
+                _(
+                    "For employees with 'Remote Office' posting location, latitude and longitude are mandatory."
+                )
             )
 
 
@@ -222,11 +248,15 @@ def assign_closest_shift_on_insert(doc, method=None):
         try:
             allowed_shifts = get_employee_allowed_shifts(doc.employee, punch_date_str)
             if allowed_shifts:
-                closest_shift_name = find_closest_shift_from_punch_time(allowed_shifts, punch_time_str)
+                closest_shift_name = find_closest_shift_from_punch_time(
+                    allowed_shifts, punch_time_str
+                )
                 if closest_shift_name:
                     doc.shift = closest_shift_name
                     shift_info = fetch_shift_details(
-                        shift_type=doc.shift, for_timestamp=doc_time_dt, grade=employee.grade
+                        shift_type=doc.shift,
+                        for_timestamp=doc_time_dt,
+                        grade=employee.grade,
                     )
                     doc.shift_start = shift_info.start_datetime
                     doc.shift_end = shift_info.end_datetime
@@ -234,5 +264,6 @@ def assign_closest_shift_on_insert(doc, method=None):
                     doc.shift_actual_end = shift_info.actual_end
         except Exception as e:
             frappe.log_error(
-                frappe.get_traceback(), f"Failed to auto-assign shift for {doc.employee} on {punch_date_str}: {e}"
+                frappe.get_traceback(),
+                f"Failed to auto-assign shift for {doc.employee} on {punch_date_str}: {e}",
             )
