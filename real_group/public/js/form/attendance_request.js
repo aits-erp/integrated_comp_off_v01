@@ -223,7 +223,7 @@ frappe.ui.form.on("Attendance Request", {
 
     await validateRequestTimeWindow(frm);
   },
-  employee: (frm) => {
+  employee: async (frm) => {
     frappe.call({
       method: "real_group.tasks.process_employee_checkin.get_employee_allowed_shifts",
       args: {
@@ -242,6 +242,8 @@ frappe.ui.form.on("Attendance Request", {
         }
       },
     });
+
+    await frm.trigger("set_custom_attendance_approver");
   },
   custom_from_time: async (frm) => {
     fetchClosestShiftForTime(frm);
@@ -329,6 +331,10 @@ frappe.ui.form.on("Attendance Request", {
   refresh: (frm) => {
     frm.set_df_property("shift", "read_only", 0);
 
+    if (frm.doc.employee && !frm.doc.custom_attendance_approver) {
+      frm.trigger("set_custom_attendance_approver");
+    }
+
     if (frm.doc.from_date && frm.doc.to_date && frm.doc.employee) {
       frappe.call({
         method: "real_group.api.attendance_request.get_leave_on_dates",
@@ -351,5 +357,19 @@ frappe.ui.form.on("Attendance Request", {
         },
       });
     }
+  },
+  set_custom_attendance_approver: async (frm) => {
+    if (!frm.doc.employee || !frm.fields_dict.custom_attendance_approver) {
+      return;
+    }
+
+    const { message } = await frappe.call({
+      method: "hrms.hr.doctype.leave_application.leave_application.get_leave_approver",
+      args: {
+        employee: frm.doc.employee,
+      },
+    });
+
+    await frm.set_value("custom_attendance_approver", message || null);
   },
 });
