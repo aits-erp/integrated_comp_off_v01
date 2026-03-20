@@ -12,7 +12,15 @@
   "shift",
   "column_break_srtf",
   "shift_start_time",
-  "punch_time"
+  "punch_time",
+  "section_break_gved",
+  "company",
+  "column_break_qzyc",
+  "branch",
+  "column_break_lpps",
+  "division",
+  "column_break_jeqc",
+  "department"
  ],
  "fields": [
   {
@@ -61,13 +69,68 @@
    "fieldtype": "Datetime",
    "label": "Punch Time",
    "reqd": 1
+  },
+  {
+   "fieldname": "section_break_gved",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fetch_from": "employee.company",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_qzyc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "employee.branch",
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Branch",
+   "options": "Branch",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_lpps",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "employee.custom_division",
+   "fieldname": "division",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Division",
+   "options": "Division",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_jeqc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "employee.department",
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Department",
+   "options": "Department",
+   "read_only": 1
   }
  ],
- "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-22 16:25:16.155153",
+ "modified": "2026-03-20 17:32:35.332580",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "Short Leave",
@@ -87,7 +150,6 @@
    "write": 1
   }
  ],
- "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

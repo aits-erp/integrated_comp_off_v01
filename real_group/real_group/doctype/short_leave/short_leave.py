@@ -16,12 +16,15 @@ class ShortLeave(Document):
         from frappe.types import DF
 
         amended_from: DF.Link | None
+        branch: DF.Link | None
+        company: DF.Link | None
+        department: DF.Link | None
+        division: DF.Link | None
         employee: DF.Link
         for_date: DF.Date
         punch_time: DF.Datetime
         shift: DF.Link | None
         shift_start_time: DF.Datetime
-
     # end: auto-generated types
     def validate(self):
         self.validate_short_leave_request()
