@@ -331,7 +331,7 @@ frappe.ui.form.on("Attendance Request", {
   refresh: (frm) => {
     frm.set_df_property("shift", "read_only", 0);
 
-    if (frm.doc.employee && !frm.doc.custom_attendance_approver) {
+    if (frm.is_new() && frm.doc.employee && !frm.doc.custom_attendance_approver) {
       frm.trigger("set_custom_attendance_approver");
     }
 
@@ -364,12 +364,33 @@ frappe.ui.form.on("Attendance Request", {
     }
 
     const { message } = await frappe.call({
-      method: "hrms.hr.doctype.leave_application.leave_application.get_leave_approver",
+      method: "hrms.api.get_leave_approval_details",
       args: {
         employee: frm.doc.employee,
       },
     });
 
-    await frm.set_value("custom_attendance_approver", message || null);
+    if (!message) {
+      return;
+    }
+
+    const values = {};
+    if (frm.fields_dict.custom_attendance_approver) {
+      const approver = message.leave_approver || null;
+      if (frm.doc.custom_attendance_approver !== approver) {
+        values.custom_attendance_approver = approver;
+      }
+    }
+
+    if (frm.fields_dict.custom_attendance_approver_name) {
+      const approverName = message.leave_approver_name || null;
+      if (frm.doc.custom_attendance_approver_name !== approverName) {
+        values.custom_attendance_approver_name = approverName;
+      }
+    }
+
+    if (Object.keys(values).length) {
+      await frm.set_value(values);
+    }
   },
 });
