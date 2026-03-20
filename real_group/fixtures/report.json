@@ -728,55 +728,6 @@
   "doctype": "Report",
   "filters": [],
   "is_standard": "No",
-  "javascript": "frappe.query_reports[\"Biometric Attendance Log\"] = {\n    \n    get_datatable_options(options) {\n\t\treturn Object.assign(options, {\n\t\t\tcheckboxColumn: true,\n\t\t});\n\t},\n\t\n\tonload: function(report) {\n\t    report.page.add_action_item(\"Reset Log\", function() {\n\t\t\tlet checked_rows_indexes = report.datatable.rowmanager.getCheckedRows();\n\t\t\tlet checked_rows = checked_rows_indexes.map(i => {\n\t\t\t    frappe.call(\"real_group.real_group.attendance.reset_attendance_log\", {\n\t\t\t        \"bio_id\": report.data[i].name\n\t\t\t    })\n\t\t\t});\n\t\t});\n    },\n\t\n    \"filters\": [\n        {\n            \"fieldname\": \"from_date\",\n            \"fieldtype\": \"Date\",\n            \"default\": frappe.datetime.month_start(),\n            \"reqd\": 1,\n            \"label\": \"From Date\"\n        },\n        {\n            \"fieldname\": \"to_date\",\n            \"fieldtype\": \"Date\",\n            \"default\": frappe.datetime.get_today(),\n            \"reqd\": 1,\n            \"label\": \"To Date\"\n        },\n        {\n            \"fieldname\": \"employee\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Employee\",\n            \"label\": \"Employee\"\n        },\n        {\n            \"fieldname\": \"is_processed\",\n            \"fieldtype\": \"Select\",\n            \"options\": \"\\nYes\\n\\No\\nError\",\n            \"label\": \"Is Processed\"\n        }\n    ]\n}",
-  "json": null,
-  "letter_head": null,
-  "modified": "2025-01-25 10:36:23.706714",
-  "module": "Real Group",
-  "name": "Biometric Attendance Log",
-  "prepared_report": 1,
-  "query": "",
-  "ref_doctype": "Employee Checkin",
-  "reference_report": null,
-  "report_name": "Biometric Attendance Log",
-  "report_script": "from_date = filters.get(\"from_date\")\nto_date = filters.get(\"to_date\")\nemployee = filters.get(\"employee\")\nis_processed = filters.get(\"is_processed\")\n\nif is_processed:\n    if is_processed == \"Yes\":\n        is_processed = \"Y\"\n    if is_processed == \"No\":\n        is_processed = \"N\"\n    if is_processed == \"Error\":\n        is_processed = \"E\"\n\ncolumns = [\n    {\n        \"fieldtype\": \"Link\",\n        \"options\": \"Employee\",\n        \"fieldname\": \"employee_id\",\n        \"label\": \"Employee Id\"\n    },\n    {\n        \"fieldtype\": \"Date\",\n        \"fieldname\": \"punch_date\",\n        \"label\": \"Punch Date\"\n    },\n    {\n        \"fieldtype\": \"Data\",\n        \"fieldname\": \"punch_time\",\n        \"label\": \"Punch Time\"\n    },\n    {\n        \"fieldtype\": \"Data\",\n        \"fieldname\": \"area\",\n        \"label\": \"Area\"\n    },\n    {\n        \"fieldtype\": \"Data\",\n        \"fieldname\": \"terminal_id\",\n        \"label\": \"Machine Id\"\n    },\n    {\n        \"fieldtype\": \"Data\",\n        \"fieldname\": \"punch_direction\",\n        \"label\": \"Punch Direction\"\n    },\n    {\n        \"fieldtype\": \"Data\",\n        \"fieldname\": \"is_processed\",\n        \"label\": \"Is Processed\"\n    },\n    {\n        \"fieldtype\": \"Link\",\n        \"options\": \"Employee Checkin\",\n        \"fieldname\": \"message\",\n        \"label\": \"Message\"\n    }\n    \n]\n\nconditions = \"\"\nemployee_cond = \"\"\nis_processed_cond = \"\"\n\nif employee:\n    employee_cond = f\" AND employee_id = '{employee}'\"\n\nif is_processed:\n    is_processed_cond = f\" AND is_processed = '{is_processed}'\"\n\nconditions = f\"{conditions} {employee_cond} {is_processed_cond}\"\n\nsql = f\"\"\"\n    SELECT\n    name,\n    employee_id,\n    punch_time,\n    punch_date,\n    area,\n    terminal_id,\n    punch_direction,\n    is_processed,\n    message\n    -- shift_type\nFROM\n    bio_attendance_log\nWHERE\n    punch_date between '{from_date}' and '{to_date}' {conditions}\n    AND LENGTH(employee_id) >= 5\n\"\"\"\n\nresult = frappe.db.sql(sql, as_dict=True)\n\ndata = columns, result",
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "Biometric Attendance Log",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
-   },
-   {
-    "parent": "Biometric Attendance Log",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "HR Manager"
-   },
-   {
-    "parent": "Biometric Attendance Log",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "HR User"
-   },
-   {
-    "parent": "Biometric Attendance Log",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Payroll-CREASX"
-   }
-  ],
-  "timeout": 0
- },
- {
-  "add_total_row": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "No",
   "javascript": "frappe.query_reports[\"Custom Salary Register\"] = {\n    filters: [\n        {\n            \"fieldname\": \"company\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Company\",\n            \"label\": \"Company\",\n            \"on_change\": function() {\n                frappe.query_report.set_filter_value('employee', null);\n            }\n        },\n        {\n            \"fieldname\": \"branch\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Branch\",\n            \"label\": \"Branch\"\n        },\n        {\n            \"fieldname\": \"division\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Division\",\n            \"label\": \"Division\"\n        },\n        {\n            \"fieldname\": \"department\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Department\",\n            \"label\": \"Department\",\n            \"get_query\": function() {\n                var company = frappe.query_report.get_filter_value(\"company\");\n                if (!company) {\n                    frappe.throw(__(\"Please select a company first\"));\n                }\n                return {\n                    filters: [\n                        [\"Department\", \"company\", \"=\", company]\n                    ]\n                };\n            }\n        },\n        {\n            \"fieldname\": \"employee\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Employee\",\n            \"label\": \"Employee\",\n            \"get_query\": function() {\n                var company = frappe.query_report.get_filter_value(\"company\");\n                if (!company) {\n                    frappe.throw(__(\"Please select a company first\"));\n                }\n                return {\n                    filters: [\n                        [\"Employee\", \"company\", \"=\", company]\n                    ]\n                };\n            }\n        },\n        {\n            \"fieldname\": \"month\",\n            \"fieldtype\": \"Select\",\n            \"label\": \"Month\",\n            \"options\": [\"Jan\", \"Feb\", \"Mar\", \"Apr\",\"May\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"],\n            \"reqd\": 1\n        },\n        {\n            \"fieldname\": \"year\",\n            \"fieldtype\": \"Select\",\n            \"label\": \"Year\",\n            \"options\": [\"2023\", \"2024\", \"2025\"],\n            \"reqd\": 1\n        }\n    ]\n}\n",
   "json": null,
   "letter_head": null,
