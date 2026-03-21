@@ -17,7 +17,15 @@
   "time_pro_reference_id",
   "present_day",
   "section_break_kplq",
-  "message"
+  "message",
+  "company_details_section",
+  "company",
+  "column_break_tuoa",
+  "branch",
+  "column_break_vjnl",
+  "division",
+  "column_break_ktjq",
+  "department"
  ],
  "fields": [
   {
@@ -106,11 +114,71 @@
    "read_only": 1,
    "reqd": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "no_copy": 1,
+   "options": "Company",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_tuoa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Branch",
+   "no_copy": 1,
+   "options": "Branch",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_vjnl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "division",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Division",
+   "no_copy": 1,
+   "options": "Division",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_ktjq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Department",
+   "no_copy": 1,
+   "options": "Department",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "company_details_section",
+   "fieldtype": "Section Break",
+   "label": "Company Details"
   }
  ],
- "grid_page_length": 50,
  "links": [],
- "modified": "2026-01-27 17:42:38.577190",
+ "modified": "2026-03-21 10:25:14.499757",
  "modified_by": "Administrator",
  "module": "Real Group",
  "name": "bioattendancelog",
@@ -148,7 +216,6 @@
    "role": "Payroll-R"
   }
  ],
- "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

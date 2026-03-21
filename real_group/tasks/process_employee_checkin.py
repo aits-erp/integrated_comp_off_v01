@@ -15,6 +15,18 @@ from frappe.utils import (
 from real_group.utils import convert_time_to_minutes
 
 
+def get_bio_log_filter_values(employee_doc):
+    if not employee_doc:
+        return {}
+
+    return {
+        "company": employee_doc.company,
+        "branch": employee_doc.branch,
+        "division": employee_doc.custom_division,
+        "department": employee_doc.department,
+    }
+
+
 def ensure_punch_datetime(log):
     if getattr(log, "punch_datetime", None):
         punch_dt = get_datetime(log.punch_datetime)
@@ -29,16 +41,32 @@ def ensure_punch_datetime(log):
     return punch_dt
 
 
-def mark_bio_log(log_name: str, status: str, message: str):
-    frappe.db.set_value(
-        "bioattendancelog",
-        log_name,
-        {
-            "is_processed": status,
-            "message": message,
-        },
-        update_modified=False,
-    )
+def mark_bio_log(log_name: str, status: str, message: str, filter_values=None):
+    values = {
+        "is_processed": status,
+        "message": message,
+    }
+
+    if filter_values:
+        values.update(filter_values)
+
+    try:
+        frappe.db.set_value(
+            "bioattendancelog",
+            log_name,
+            values,
+            update_modified=False,
+        )
+    except Exception:
+        frappe.db.set_value(
+            "bioattendancelog",
+            log_name,
+            {
+                "is_processed": status,
+                "message": message,
+            },
+            update_modified=False,
+        )
     frappe.db.commit()
 
 
@@ -98,6 +126,7 @@ def process_employee_checkin(logs):
             continue
         employee = frappe.get_doc("Employee", emp, for_update=False)
         grade = employee.grade
+        filter_values = get_bio_log_filter_values(employee)
 
         for log in emp_logs:
             try:
@@ -107,6 +136,7 @@ def process_employee_checkin(logs):
                         log.name,
                         "E",
                         f"Missing punch date/time for employee {get_link_to_form('Employee', emp)}",
+                        filter_values=filter_values,
                     )
                     continue
 
@@ -172,6 +202,7 @@ def process_employee_checkin(logs):
                     log.name,
                     "Y",
                     f"Checkin created {get_link_to_form('Employee Checkin', doc.name)}",
+                    filter_values=filter_values,
                 )
             except Exception as e:
                 message = cstr(e)
@@ -186,12 +217,14 @@ def process_employee_checkin(logs):
                             log.name,
                             "E",
                             f"Error processing checkout for employee {get_link_to_form('Employee', emp)}: Bio log already linked to {get_link_to_form('Employee Checkin', existing_checkin)}",
+                            filter_values=filter_values,
                         )
                         continue
                 mark_bio_log(
                     log.name,
                     "E",
                     f"Error processing checkin for employee {get_link_to_form('Employee', emp)}: {e!s}",
+                    filter_values=filter_values,
                 )
                 continue
 
@@ -292,6 +325,7 @@ def process_employee_checkout(logs):
             continue
         employee = frappe.get_doc("Employee", emp, for_update=False)
         grade = employee.grade
+        filter_values = get_bio_log_filter_values(employee)
 
         for log in emp_logs:
             try:
@@ -301,6 +335,7 @@ def process_employee_checkout(logs):
                         log.name,
                         "E",
                         f"Missing punch date/time for employee {get_link_to_form('Employee', emp)}",
+                        filter_values=filter_values,
                     )
                     continue
 
@@ -375,6 +410,7 @@ def process_employee_checkout(logs):
                     log.name,
                     "Y",
                     f"Checkout created {get_link_to_form('Employee Checkin', doc.name)}",
+                    filter_values=filter_values,
                 )
             except Exception as e:
                 message = cstr(e)
@@ -389,12 +425,14 @@ def process_employee_checkout(logs):
                             log.name,
                             "E",
                             f"Error processing checkout for employee {get_link_to_form('Employee', emp)}: Bio log already linked to {get_link_to_form('Employee Checkin', existing_checkin)}",
+                            filter_values=filter_values,
                         )
                         continue
                 mark_bio_log(
                     log.name,
                     "E",
                     f"Error processing checkout for employee {get_link_to_form('Employee', emp)}: {e!s}",
+                    filter_values=filter_values,
                 )
                 continue
 

@@ -16,6 +16,10 @@ class bioattendancelog(Document):
         from frappe.types import DF
 
         area: DF.Data | None
+        branch: DF.Link | None
+        company: DF.Link | None
+        department: DF.Link | None
+        division: DF.Link | None
         employee_id: DF.Data
         is_processed: DF.Data | None
         message: DF.Text | None
