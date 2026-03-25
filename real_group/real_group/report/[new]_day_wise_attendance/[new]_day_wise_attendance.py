@@ -31,6 +31,7 @@ top_row_status_split = {
     "HCO": {"leaves": 0.5},
     "PCO": {"leaves": 0.5},
     "LW": {"leaves": 1},
+    "LWP": {"leaves": 1},
     "HLW": {"leaves": 0.5},
     "PLW": {"leaves": 0.5},
     "ELHO": {"holiday": 0.5, "leaves": 0.5},
@@ -46,6 +47,25 @@ top_row_status_split = {
     "ODEL": {"leaves": 0.5, "od": 0.5},
     "ODCL": {"leaves": 0.5, "od": 0.5},
     "ODCO": {"leaves": 0.5, "od": 0.5},
+}
+
+summary_status_split = {
+    "P": {"present": 1},
+    "EW": {"present": 1},
+    "SL": {"present": 1},
+    "POH": {"present": 1},
+    "POW": {"present": 1},
+    "A": {"absent": 1},
+    "A1": {"absent": 1},
+    "HD": {"present": 0.5, "absent": 0.5},
+    "PLW": {"present": 0.5, "absent": 0.5},
+    "PEL": {"present": 0.5},
+    "PCL": {"present": 0.5},
+    "PCO": {"present": 0.5},
+    "POD": {"present": 0.5},
+    "PHO": {"present": 0.5},
+    "HHO": {"absent": 0.5},
+    "LWHO": {"absent": 0.5},
 }
 
 
@@ -77,8 +97,7 @@ def execute(filters=None):
         max_pairs = max(max_pairs, pairs)
 
         (row_keys, hours_worked, extra_worked, processed_status, status, shift) = get_rows(max_pairs, dates)
-        total_present = 0
-        total_absent = 0
+        summary_presence_totals = init_summary_presence_totals()
         total_hours = 0.0
         extra_status_totals = init_top_row_status_totals()
 
@@ -114,16 +133,6 @@ def execute(filters=None):
                 for attendance in attendance_on_date:
                     worked_hours += attendance.get("working_hours", 0.0)
                     day_status = attendance.get("custom_attendance_tag", None) or attendance.get("status")
-                    tag = attendance.get("custom_attendance_tag", None)
-                    if tag in ["P", "POH", "EW"]:
-                        total_present += 1
-                    elif tag == "A":
-                        total_absent += 1
-                    elif tag == "HD":
-                        total_absent += 0.5
-                        total_present += 0.5
-            else:
-                total_absent += 1
             total_hours += worked_hours
             worked_hours_value = worked_hours
             hours_worked[date_str] = (
@@ -163,6 +172,7 @@ def execute(filters=None):
                 status_value = "MIS"
             status[date_str] = status_value
             add_top_row_status_totals(extra_status_totals, status_value)
+            add_summary_presence_totals(summary_presence_totals, status_value)
             attendance_doc = attendance_on_date[0] if attendance_on_date else None
             if include_processed_status:
                 processed_status[date_str] = derive_processed_status(
@@ -184,8 +194,12 @@ def execute(filters=None):
             info[summary_dates[1]] = employee["employee_name"]
             info[summary_dates[2]] = employee.get("designation", "")
             info[summary_dates[3]] = employee.get("department", "")
-            info[summary_dates[4]] = f"Present: {total_present}"
-            info[summary_dates[5]] = f"Absent: {total_absent}"
+            info[summary_dates[4]] = (
+                f"Present: {format_top_row_status_value(summary_presence_totals['present'])}"
+            )
+            info[summary_dates[5]] = (
+                f"Absent: {format_top_row_status_value(summary_presence_totals['absent'])}"
+            )
             info[summary_dates[6]] = f"Hours: {format_time_hhmm(total_time)}"
             info[summary_dates[7]] = f"Holiday: {format_top_row_status_value(extra_status_totals['holiday'])}"
             info[summary_dates[8]] = f"Weekly Off: {format_top_row_status_value(extra_status_totals['weekly_off'])}"
@@ -263,11 +277,24 @@ def init_top_row_status_totals():
     return {"holiday": 0.0, "weekly_off": 0.0, "leaves": 0.0, "od": 0.0}
 
 
+def init_summary_presence_totals():
+    return {"present": 0.0, "absent": 0.0}
+
+
 def add_top_row_status_totals(totals, status_code):
     if not totals or not status_code:
         return
 
     contributions = top_row_status_split.get((status_code or "").strip().upper(), {})
+    for key, value in contributions.items():
+        totals[key] = totals.get(key, 0.0) + value
+
+
+def add_summary_presence_totals(totals, status_code):
+    if not totals or not status_code:
+        return
+
+    contributions = summary_status_split.get((status_code or "").strip().upper(), {})
     for key, value in contributions.items():
         totals[key] = totals.get(key, 0.0) + value
 
@@ -554,7 +581,7 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
         return None
 
     attendance_on_day_off = get_attendance_record(employee, target_date)
-    if attendance_on_day_off and attendance_on_day_off.get("leave_application"):
+    if attendance_on_day_off:
         tag = (attendance_on_day_off.get("custom_attendance_tag") or "").strip()
         if tag:
             return tag
@@ -922,6 +949,7 @@ def derive_processed_status(status_code, processed_code, attendance_doc, checkin
 
     direct_map = {
         "LW": "A",
+        "LWP": "A",
         "HLW": "PLW",
         "POH": "HO",
         "POW": "WO",
@@ -990,7 +1018,7 @@ def _derive_mis_processed_status(attendance_doc, presence):
 
 
 def _map_leave_code_combo(leave_code):
-    mapping = {"EL": "PEL", "CL": "PCL", "CO": "PCO", "LW": "PLW"}
+    mapping = {"EL": "PEL", "CL": "PCL", "CO": "PCO", "LW": "PLW", "LWP": "PLW"}
     return mapping.get(leave_code)
 
 

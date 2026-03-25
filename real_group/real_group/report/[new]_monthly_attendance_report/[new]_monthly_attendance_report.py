@@ -17,6 +17,8 @@ def execute(filters=None):
     year = cint(filters.get("year"))
     dates = dw.get_dates(month, year)
     start_date, end_date = getdate(dates[0]), getdate(dates[-1])
+    effective_end_date = min(end_date, getdate())
+    effective_dates = [target_date for target_date in dates if getdate(target_date) <= effective_end_date]
     columns = build_columns()
 
     form_filters = dict(filters)
@@ -25,12 +27,12 @@ def execute(filters=None):
 
     first_half_rows = [row for row in (raw_rows or []) if row and row.get("sr")]
     employee_ids = [row.get("token_no") for row in first_half_rows if row.get("token_no")]
-    request_map = dw.get_attendance_requests(employee_ids, start_date, end_date)
+    request_map = dw.get_attendance_requests(employee_ids, start_date, effective_end_date)
 
     result = []
     for row in first_half_rows:
         employee_id = row.get("token_no")
-        od_total, tour_total = _compute_od_and_tour(employee_id, dates, request_map)
+        od_total, tour_total = _compute_od_and_tour(employee_id, effective_dates, request_map)
 
         result.append(
             {

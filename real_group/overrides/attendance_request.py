@@ -8,7 +8,12 @@ from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequ
 from real_group.helper.attendance_helper import (
     create_attendance,
 )
-from real_group.utils import convert_time_to_hours, has_absent_attendance, is_holiday_for_employee
+from real_group.utils import (
+    convert_time_to_hours,
+    has_absent_attendance,
+    holiday_matches_requested_half,
+    is_holiday_for_employee,
+)
 
 
 def is_cross_day_shift(shift_name: str | None) -> bool:
@@ -92,6 +97,27 @@ def calculate_request_working_hours_for_date(
 def get_working_hours_timedelta(hours: float) -> timedelta:
     total_seconds = round(hours * 3600 / 60) * 60
     return timedelta(seconds=total_seconds)
+
+
+def get_checkins_for_employee_date(employee: str, attendance_date):
+    attendance_date = getdate(attendance_date)
+    start_dt = datetime.combine(attendance_date, datetime.min.time())
+    end_dt = start_dt + timedelta(days=1)
+
+    return frappe.db.sql(
+        """
+        SELECT *
+        FROM `tabEmployee Checkin`
+        WHERE employee = %s
+          AND (
+            (`time` >= %s AND `time` < %s)
+            OR (`shift_start` >= %s AND `shift_start` < %s)
+          )
+        ORDER BY `time`
+        """,
+        (employee, start_dt, end_dt, start_dt, end_dt),
+        as_dict=True,
+    )
 
 
 class AttendanceRequestOverride(AttendanceRequest):
@@ -179,6 +205,15 @@ class AttendanceRequestOverride(AttendanceRequest):
                 )
             )
             return False
+        if holiday_matches_requested_half(holiday, self.custom_half_type) and not has_absent_attendance(
+            self.employee, attendance_date
+        ):
+            frappe.msgprint(
+                _("Attendance not submitted for {0} as it falls on the Holiday half.").format(
+                    frappe.bold(format_date(attendance_date))
+                )
+            )
+            return False
 
         # Check if employee is on leave
         if self.has_leave_record(attendance_date):
@@ -224,6 +259,10 @@ class AttendanceRequestOverride(AttendanceRequest):
             # If it is marked Absent already (e.g. sandwich policy), allow overwrite via request.
             if holiday and not holiday.get("is_half_day") and not has_absent_attendance(self.employee, attendance_date):
                 attendance_warnings.append({"date": attendance_date, "reason": "Holiday", "action": "Skip"})
+            elif holiday_matches_requested_half(holiday, self.custom_half_type) and not has_absent_attendance(
+                self.employee, attendance_date
+            ):
+                attendance_warnings.append({"date": attendance_date, "reason": "Holiday Half", "action": "Skip"})
             elif self.has_leave_record(attendance_date):
                 attendance_warnings.append({"date": attendance_date, "reason": "On Leave", "action": "Skip"})
             else:
@@ -263,16 +302,7 @@ class AttendanceRequestOverride(AttendanceRequest):
         half_day_date = getdate(self.half_day_date) if self.half_day else None
         while from_date <= to_date:
             attendance = next((att for att in attendance_list if getdate(att.attendance_date) == from_date), None)
-            has_checkins = (
-                frappe.get_all(
-                    "Employee Checkin",
-                    filters={"attendance": attendance.name},
-                    fields=["*"],
-                    order_by="time",
-                )
-                if attendance
-                else False
-            )
+            day_checkins = get_checkins_for_employee_date(self.employee, from_date)
             if attendance:
                 old_attendance = frappe.get_doc("Attendance", attendance.name)
                 old_attendance.cancel()
@@ -289,25 +319,16 @@ class AttendanceRequestOverride(AttendanceRequest):
                 ["name", "leave_type", "half_day", "half_day_date", "custom_half_type", "from_date", "to_date"],
                 as_dict=True,
             )
-            if leave and has_checkins:
-                self.create_leave_attendance(leave, from_date, half_day_date, has_checkins)
-            elif leave and not has_checkins:
+            if leave and day_checkins:
+                self.create_leave_attendance(leave, from_date, half_day_date, day_checkins)
+            elif leave and not day_checkins:
                 self.create_leave_attendance(leave, from_date, half_day_date, False)
 
             # CASE 2: For checkins
-            elif has_checkins:
-                create_attendance(self.employee, from_date, has_checkins)
+            elif day_checkins:
+                create_attendance(self.employee, from_date, day_checkins)
             else:
-                doc = frappe.get_doc(
-                    {
-                        "doctype": "Attendance",
-                        "employee": self.employee,
-                        "attendance_date": from_date,
-                        "status": "Absent",
-                        "company": self.company,
-                    }
-                ).insert(ignore_permissions=True)
-                doc.submit()
+                create_attendance(self.employee, from_date, [])
             from_date = add_days(from_date, 1)
 
     def create_leave_attendance(self, leave, from_date, half_day_date, has_checkins):
@@ -330,7 +351,7 @@ class AttendanceRequestOverride(AttendanceRequest):
                 doc.submit()
                 if has_checkins:
                     # Now process the checkins to create attendance for present half day
-                    create_attendance(from_date, self.employee, has_checkins)
+                    create_attendance(self.employee, from_date, has_checkins)
         else:
             doc = frappe.get_doc(
                 {

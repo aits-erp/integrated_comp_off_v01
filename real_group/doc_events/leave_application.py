@@ -164,8 +164,11 @@ def validate_el_and_cl(doc):
         other_is_el = "earned" in other_type
         other_is_cl = "casual" in other_type
 
-        # Only compare EL vs CL
-        if (is_el and other_is_el) or (is_cl and other_is_cl):
+        # Only compare EL <-> CL. Do not block EL/CL against other leave types
+        # like Comp Off or LWP when the opposite half is still free.
+        if is_el and not other_is_cl:
+            continue
+        if is_cl and not other_is_el:
             continue
 
         other_from = getdate(leave.from_date)

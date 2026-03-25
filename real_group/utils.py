@@ -85,6 +85,42 @@ def is_holiday_for_employee(employee: str, date, weekly_holiday_name=None):
     return False
 
 
+def normalize_half_type(half_type: str | None) -> str | None:
+    if not half_type:
+        return None
+
+    normalized = half_type.strip().lower().replace("_", " ")
+    if normalized in {"first", "first half"}:
+        return "first half"
+    if normalized in {"second", "second half"}:
+        return "second half"
+    return normalized or None
+
+
+def half_types_match(first_half_type: str | None, second_half_type: str | None) -> bool:
+    first = normalize_half_type(first_half_type)
+    second = normalize_half_type(second_half_type)
+    return bool(first and second and first == second)
+
+
+def half_types_differ(first_half_type: str | None, second_half_type: str | None) -> bool:
+    first = normalize_half_type(first_half_type)
+    second = normalize_half_type(second_half_type)
+    return bool(first and second and first != second)
+
+
+def holiday_matches_requested_half(holiday: dict | None, requested_half_type: str | None) -> bool:
+    if not holiday or not holiday.get("is_holiday") or not holiday.get("is_half_day"):
+        return False
+    return half_types_match(holiday.get("half_type"), requested_half_type)
+
+
+def holiday_complements_requested_half(holiday: dict | None, requested_half_type: str | None) -> bool:
+    if not holiday or not holiday.get("is_holiday") or not holiday.get("is_half_day"):
+        return False
+    return half_types_differ(holiday.get("half_type"), requested_half_type)
+
+
 def has_absent_attendance(employee: str, attendance_date) -> bool:
     """Return True if there is a non-cancelled Attendance marked Absent for the given date."""
 

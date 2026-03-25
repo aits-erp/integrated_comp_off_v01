@@ -12,7 +12,7 @@ from hrms.hr.doctype.leave_application.leave_application import (
 )
 from hrms.hr.doctype.leave_application.leave_application import get_holidays as _get_holidays
 
-from real_group.utils import is_holiday_for_employee
+from real_group.utils import holiday_matches_requested_half, is_holiday_for_employee
 
 
 @frappe.whitelist()
@@ -51,6 +51,7 @@ def get_number_of_leave_days(
     half_day: int | str | None = None,
     half_day_date: datetime.date | str | None = None,
     holiday_list: str | None = None,
+    custom_half_type: str | None = None,
 ) -> float:
     """
     Return number of leave days considering:
@@ -78,12 +79,14 @@ def get_number_of_leave_days(
     total = 0.0
     current = from_date
     while current <= to_date:
+        holiday_info = is_holiday_for_employee(employee, current) or {}
+
         if is_half_day and half_day_date == current:
-            total += 0.5
+            if not holiday_matches_requested_half(holiday_info, custom_half_type):
+                total += 0.5
             current = add_days(current, 1)
             continue
 
-        holiday_info = is_holiday_for_employee(employee, current) or {}
         if holiday_info.get("is_holiday"):
             if holiday_info.get("is_half_day"):
                 total += 0.5

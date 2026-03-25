@@ -19,6 +19,7 @@ def execute(filters=None):
     processed_report = bool(cint(filters.get("processed_report")))
     dates = dw.get_dates(month, year)
     start_date, end_date = dates[0], dates[-1]
+    effective_end_date = min(end_date, getdate())
     columns = build_columns(dates)
     company = filters.get("company")
     branch = filters.get("branch")
@@ -45,7 +46,7 @@ def execute(filters=None):
 
         for _date in dates:
             date_key = format_date(_date)
-            if is_outside_service_period(employee, _date):
+            if _date > effective_end_date or is_outside_service_period(employee, _date):
                 first_half_row[date_key] = ""
                 second_half_row[date_key] = ""
                 continue
@@ -53,7 +54,8 @@ def execute(filters=None):
 
             first_half_row[date_key] = day_snapshot["first_half"]
             second_half_row[date_key] = day_snapshot["second_half"]
-        counters = compute_counters_from_rows(first_half_row, second_half_row, dates)
+        counted_dates = [_date for _date in dates if _date <= effective_end_date]
+        counters = compute_counters_from_rows(first_half_row, second_half_row, counted_dates)
 
         ttl = (
             counters["ho"]
@@ -231,6 +233,10 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
     half_type_code = _normalize_half_type(half_type)
     processed_code = (processed_status or "").upper()
     normal_code = (normal_status or "").upper()
+    if processed_code == "LWP":
+        processed_code = "LW"
+    if normal_code == "LWP":
+        normal_code = "LW"
 
     # Default to processed code, with fallbacks for specific combinations that rely on the normal status.
     code = processed_code or normal_code

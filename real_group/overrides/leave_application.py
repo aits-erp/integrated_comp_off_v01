@@ -14,7 +14,12 @@ from hrms.hr.doctype.leave_application.leave_application import (
 
 from real_group.doc_events.attendance import allocate_c_off, allocate_incentive, update_attendance_tag
 from real_group.helper.attendance_helper import create_attendance
-from real_group.utils import get_actual_leave_balance_cf, get_holiday_dates_for_employee, is_holiday_for_employee
+from real_group.utils import (
+    get_actual_leave_balance_cf,
+    get_holiday_dates_for_employee,
+    holiday_matches_requested_half,
+    is_holiday_for_employee,
+)
 
 
 class LeaveApplicationOverride(LeaveApplication):
@@ -82,6 +87,7 @@ class LeaveApplicationOverride(LeaveApplication):
             holiday_map[d] = {
                 "is_holiday": bool(info.get("is_holiday")),
                 "is_half_day": bool(info.get("is_half_day")),
+                "half_type": info.get("half_type"),
             }
 
         # Initial status map
@@ -136,11 +142,13 @@ class LeaveApplicationOverride(LeaveApplication):
             # update existing attendance, change absent to on leave
             doc = frappe.get_doc("Attendance", attendance_name)
             final_status = status
+            holiday = is_holiday_for_employee(self.employee, date) or {}
 
             # Match Attendance Request behavior for half-day merge:
             # existing half-day attendance + half-day leave => present.
             if doc.status == "Half Day" and status == "Half Day":
-                final_status = "Present"
+                if not holiday_matches_requested_half(holiday, self.custom_half_type):
+                    final_status = "Present"
 
             doc.db_set(
                 {
@@ -240,7 +248,13 @@ class LeaveApplicationOverride(LeaveApplication):
     def validate_balance_leaves(self):
         if self.from_date and self.to_date:
             self.total_leave_days = get_number_of_leave_days(
-                self.employee, self.leave_type, self.from_date, self.to_date, self.half_day, self.half_day_date
+                self.employee,
+                self.leave_type,
+                self.from_date,
+                self.to_date,
+                self.half_day,
+                self.half_day_date,
+                custom_half_type=self.custom_half_type,
             )
 
             if self.total_leave_days <= 0:

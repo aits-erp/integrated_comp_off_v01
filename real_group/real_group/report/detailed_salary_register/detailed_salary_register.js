@@ -31,6 +31,7 @@ frappe.query_reports["Detailed Salary Register"] = {
 			label: "Branch",
 			fieldtype: "Link",
 			options: "Branch",
+			reqd: 1,
 		},
 		{
 			fieldname: "division",

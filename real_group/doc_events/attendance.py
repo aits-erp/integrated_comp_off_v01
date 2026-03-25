@@ -9,6 +9,7 @@ from real_group.utils import (
     convert_time_to_hours,
     get_holiday_dates_for_employee,
     get_weekly_off_based_on_date,
+    half_types_differ,
     is_holiday_for_employee,
 )
 
@@ -128,11 +129,13 @@ def update_attendance_status(doc):
         is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
         is_lwp = frappe.get_value("Leave Type", doc.leave_type, "is_lwp")
         if is_holiday and is_holiday.get("is_half_day"):
-            if is_lwp:
-                doc.status = "Absent"
-            else:
-                doc.status = "Present"
-            frappe.db.set_value("Attendance", doc.name, "status", doc.status)
+            leave_half_type = frappe.get_value("Leave Application", doc.leave_application, "custom_half_type")
+            if half_types_differ(is_holiday.get("half_type"), leave_half_type) or not leave_half_type:
+                if is_lwp:
+                    doc.status = "Absent"
+                else:
+                    doc.status = "Present"
+                frappe.db.set_value("Attendance", doc.name, "status", doc.status)
 
         if doc.attendance_request:
             request_half_day_date = frappe.get_value(
@@ -141,14 +144,74 @@ def update_attendance_status(doc):
             leave_half_date = frappe.get_value(
                 "Leave Application", doc.leave_application, "half_day_date"
             )
+            request_half_type = frappe.get_value("Attendance Request", doc.attendance_request, "custom_half_type")
+            leave_half_type = frappe.get_value("Leave Application", doc.leave_application, "custom_half_type")
             if (
                 request_half_day_date
                 and leave_half_date
                 and getdate(request_half_day_date) == getdate(leave_half_date)
+                and (half_types_differ(request_half_type, leave_half_type) or not request_half_type or not leave_half_type)
             ):
                 doc.status = "Present"
 
         frappe.db.set_value("Attendance", doc.name, "status", doc.status)
+
+
+def get_leave_code_for_tag(leave_type_doc):
+    if not leave_type_doc:
+        return None
+
+    if leave_type_doc.is_lwp:
+        return "LW"
+
+    leave_name = (leave_type_doc.name or "").lower()
+    if "earned leave" in leave_name:
+        return "EL"
+    if "casual leave" in leave_name:
+        return "CL"
+    if leave_type_doc.is_compensatory:
+        return "CO"
+
+    return None
+
+
+def get_half_day_holiday_combo_tag(doc, holiday):
+    if not holiday or not holiday.get("is_holiday") or not holiday.get("is_half_day"):
+        return None
+
+    holiday_half_type = holiday.get("half_type")
+
+    if doc.leave_application and doc.leave_type:
+        leave_half_type = frappe.get_cached_value("Leave Application", doc.leave_application, "custom_half_type")
+        if half_types_differ(holiday_half_type, leave_half_type):
+            leave_type = frappe.get_cached_doc("Leave Type", doc.leave_type)
+            leave_code = get_leave_code_for_tag(leave_type)
+            return {
+                "EL": "ELHO",
+                "CL": "CLHO",
+                "CO": "COHO",
+                "LW": "LWHO",
+            }.get(leave_code)
+
+    if doc.attendance_request:
+        request = frappe.get_cached_doc("Attendance Request", doc.attendance_request)
+        if (
+            getattr(request, "half_day", False)
+            and getattr(request, "half_day_date", None)
+            and getdate(request.half_day_date) == getdate(doc.attendance_date)
+            and half_types_differ(holiday_half_type, getattr(request, "custom_half_type", None))
+        ):
+            if request.reason == "Mis Punch":
+                return "PHO"
+            return "ODHO"
+
+    if doc.status == "Present":
+        return "PHO"
+
+    if doc.status == "Half Day":
+        return "HHO"
+
+    return None
 
 
 def has_valid_holiday_in_out_pair(doc):
@@ -166,7 +229,10 @@ def update_attendance_tag(doc):
     is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
     grade = frappe.get_value("Employee", doc.employee, "grade")
     is_sandwich = frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag")
-    if doc.status == "On Leave" or doc.leave_application:
+    half_day_holiday_combo = get_half_day_holiday_combo_tag(doc, is_holiday)
+    if half_day_holiday_combo:
+        status = half_day_holiday_combo
+    elif doc.status == "On Leave" or doc.leave_application:
         leave_type = frappe.get_doc("Leave Type", doc.leave_type)
         if (
             is_sandwich

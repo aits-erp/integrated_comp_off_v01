@@ -730,12 +730,13 @@ def get_latest_effective_salary_structure(employee, slip_start_date):
 # ---------------- Form 14 ----------------
 def apply_new_form_14(filters, res):
     try:
+        branch = filters.get("branch") or res.get("branch")
         cols_14, rows_14 = new_form_14.execute(
             {
                 "company": filters.get("company"),
                 "year": filters.get("year"),
                 "month": filters.get("month"),
-                "branch": filters.get("branch"),
+                "branch": branch,
                 "division": filters.get("division"),
                 "department": filters.get("department"),
                 "employee": res.get("emp"),

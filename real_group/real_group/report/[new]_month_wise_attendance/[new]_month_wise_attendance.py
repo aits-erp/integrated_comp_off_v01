@@ -44,6 +44,7 @@ leave_split = {
     "MIS": {"absent": 1},
     "HD": {"present": 0.5, "absent": 0.5, "half_day": 1.0},
     "LW": {"absent": 1},
+    "LWP": {"absent": 1},
     "WO": {"weekly_off": 1},
     "HO": {"holiday": 1},
     "HHO": {"holiday": 0.5, "absent": 0.5, "half_day": 1.0},
@@ -83,6 +84,7 @@ def execute(filters=None):
     department = filters.get("department")
     employee = filters.get("employee")
     dates = day_wise_attendance.get_dates(month, year)
+    effective_end_date = min(dates[-1], frappe.utils.getdate())
     employees = get_employees(company, branch, division, department, employee, dates[0], dates[-1], all_company)
     employee_names = [emp.name for emp in employees]
     attendance_map = day_wise_attendance.get_attendance(employee_names, dates[0], dates[-1], month, year)
@@ -103,13 +105,11 @@ def execute(filters=None):
             max_pairs, dates
         )
         hours_worked = {"sr": "N Work"}
-        total_present = 0
-        total_absent = 0
         total_hours = 0.0
 
         for _date in dates:
             date_str = format_date(_date)
-            if day_wise_attendance.is_outside_service_period(employee, _date):
+            if _date > effective_end_date or day_wise_attendance.is_outside_service_period(employee, _date):
                 status[date_str] = None
                 processed_status[date_str] = None
                 shift[date_str] = None
@@ -138,16 +138,6 @@ def execute(filters=None):
                 for attendance in attendance_on_date:
                     worked_hours += attendance.get("working_hours", 0.0)
                     day_status = attendance.get("custom_attendance_tag", None) or attendance.get("status")
-                    tag = attendance.get("custom_attendance_tag", None)
-                    if tag in ["P", "POH", "EW"]:
-                        total_present += 1
-                    elif tag == "A":
-                        total_absent += 1
-                    elif tag == "HD":
-                        total_absent += 0.5
-                        total_present += 0.5
-            else:
-                total_absent += 1
             total_hours += worked_hours
             worked_hours_value = worked_hours
             hours_worked[date_str] = (
@@ -198,17 +188,19 @@ def execute(filters=None):
             summary_dates.append(format_date(temp_date))
             temp_date = add_days(temp_date, days=1)
 
+        counted_dates = [_date for _date in dates if _date <= effective_end_date]
+        summary_metrics = calculate_summary_metrics(processed_status, emp_data, counted_dates)
+
         if len(summary_dates) >= 8:
             total_time = timedelta(seconds=round(total_hours * 3600 / 60) * 60)
             info[summary_dates[0]] = employee["name"]
             info[summary_dates[1]] = employee["employee_name"]
             info[summary_dates[2]] = employee.get("designation", "")
             info[summary_dates[3]] = employee.get("department", "")
-            info[summary_dates[4]] = f"Present: {total_present}"
-            info[summary_dates[5]] = f"Absent: {total_absent}"
+            info[summary_dates[4]] = f"Present: {format_summary_value(summary_metrics.get('present', 0.0))}"
+            info[summary_dates[5]] = f"Absent: {format_summary_value(summary_metrics.get('absent', 0.0))}"
             info[summary_dates[6]] = f"Hours: {format_time_hhmm(total_time)}"
 
-        summary_metrics = calculate_summary_metrics(processed_status, emp_data, dates)
         apply_summary_metrics(shift, summary_metrics)
         data.append(info)
         data.extend(row_keys)
