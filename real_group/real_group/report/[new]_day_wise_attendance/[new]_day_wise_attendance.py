@@ -171,18 +171,20 @@ def execute(filters=None):
             ):  # if theres mispunch status should be mispunch
                 status_value = "MIS"
             status[date_str] = status_value
-            add_top_row_status_totals(extra_status_totals, status_value)
-            add_summary_presence_totals(summary_presence_totals, status_value)
             attendance_doc = attendance_on_date[0] if attendance_on_date else None
+            processed_status_value = derive_processed_status(
+                status_value,
+                processed_value,
+                attendance_doc,
+                emp_checkins,
+                worked_hours_value,
+                holiday_info,
+            )
+            summary_status_value = processed_status_value if include_processed_status else status_value
+            add_top_row_status_totals(extra_status_totals, summary_status_value)
+            add_summary_presence_totals(summary_presence_totals, summary_status_value)
             if include_processed_status:
-                processed_status[date_str] = derive_processed_status(
-                    status_value,
-                    processed_value,
-                    attendance_doc,
-                    emp_checkins,
-                    worked_hours_value,
-                    holiday_info,
-                )
+                processed_status[date_str] = processed_status_value
         summary_dates = []
         temp_date = dates[0]
         for _ in range(11):

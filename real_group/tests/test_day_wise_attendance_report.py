@@ -11,6 +11,9 @@ day_wise_attendance = import_module(
 month_wise_attendance = import_module(
     "real_group.real_group.report.[new]_month_wise_attendance.[new]_month_wise_attendance"
 )
+monthly_attendance_report = import_module(
+    "real_group.real_group.report.[new]_monthly_attendance_report.[new]_monthly_attendance_report"
+)
 
 
 def get_leave_type_doc(name):
@@ -230,3 +233,118 @@ class TestDayWiseAttendanceReport(TestCase):
         ]
 
         self.assertEqual(day_wise_attendance.get_holiday_extra_work(checkins), "12:06")
+
+    def test_day_wise_summary_uses_processed_status_when_processed_attendance_enabled(self):
+        employee = day_wise_attendance.frappe._dict(
+            {
+                "name": "12005",
+                "employee_name": "Rakesh Singh",
+                "designation": "Supervisor",
+                "department": "Security - RIPL",
+            }
+        )
+        target_date = date(2026, 2, 1)
+        attendance_map = {
+            "12005": {
+                "max_checkins": 0,
+                "01-02-2026": {
+                    "attendance": [],
+                    "checkins": [],
+                },
+            }
+        }
+
+        with (
+            patch.object(day_wise_attendance, "format_date", side_effect=lambda value: value.strftime("%d-%m-%Y")),
+            patch.object(day_wise_attendance, "get_dates", return_value=[target_date]),
+            patch.object(day_wise_attendance, "get_employees", return_value=[employee]),
+            patch.object(day_wise_attendance, "get_attendance", return_value=attendance_map),
+            patch.object(day_wise_attendance, "get_attendance_requests", return_value={}),
+            patch.object(day_wise_attendance, "get_shifts", return_value=[]),
+            patch.object(day_wise_attendance, "is_outside_service_period", return_value=False),
+            patch.object(day_wise_attendance, "get_status", return_value="P"),
+            patch.object(day_wise_attendance, "adjust_status_with_checkins", return_value="MIS"),
+            patch.object(day_wise_attendance, "has_mis_punch_request", return_value=False),
+            patch.object(day_wise_attendance, "derive_processed_status", return_value="P"),
+            patch.object(day_wise_attendance, "is_holiday_for_employee", return_value={"is_holiday": False}),
+        ):
+            _, data = day_wise_attendance.execute(
+                {
+                    "company": "Real Ispat and Power Ltd",
+                    "branch": "Plant Site",
+                    "month": "Feb",
+                    "year": "2026",
+                    "employee": "12005",
+                    "processed_attendance": 1,
+                }
+            )
+
+        self.assertEqual(data[0]["05-02-2026"], "Present: 1")
+        self.assertEqual(data[3]["01-02-2026"], "MIS")
+        self.assertEqual(data[4]["01-02-2026"], "P")
+
+    def test_monthly_attendance_report_uses_form14_od_to_match_paid_days(self):
+        dates = [date(2026, 2, day) for day in range(1, 29)]
+        request_map = {
+            "12005": {
+                "01-02-2026": [{"reason": "Official", "half_day": 0}],
+                "02-02-2026": [{"reason": "Official", "half_day": 0}],
+                "03-02-2026": [{"reason": "Official", "half_day": 0}],
+                "04-02-2026": [{"reason": "Official", "half_day": 0}],
+            }
+        }
+        raw_rows = [
+            {
+                "sr": "1",
+                "token_no": "12005",
+                "employee_name": "Rakesh Singh",
+                "p": 21.0,
+                "a": 0.0,
+                "el": 0.0,
+                "cl": 0.0,
+                "co": 0.0,
+                "od": 3.0,
+                "ho": 0.0,
+                "wo": 4.0,
+                "ttl": 28.0,
+                "m": 195,
+            }
+        ]
+
+        def fake_getdate(value=None):
+            if value is None:
+                return dates[-1]
+            return value
+
+        with (
+            patch.object(monthly_attendance_report.form, "execute", return_value=([], raw_rows)),
+        ):
+            _, data = monthly_attendance_report.execute(
+                {
+                    "company": "Real Ispat and Power Ltd",
+                    "branch": "Plant Site",
+                    "month": "Feb",
+                    "year": "2026",
+                    "employee": "12005",
+                }
+            )
+
+        self.assertEqual(data[0]["total_present"], 21.0)
+        self.assertEqual(data[0]["total_od"], 3.0)
+        self.assertEqual(data[0]["total_wo"], 4.0)
+        self.assertEqual(data[0]["total_ttl"], 28.0)
+        self.assertNotIn("total_tour", data[0])
+
+    def test_monthly_attendance_report_calculates_paid_days_from_visible_totals(self):
+        self.assertEqual(
+            monthly_attendance_report.calculate_paid_days(
+                present=3.0,
+                earned_leave=0.0,
+                casual_leave=0.0,
+                od=5.5,
+                compensatory_off=0.0,
+                holiday=0.0,
+                weekly_off=1.0,
+            ),
+            9.5,
+        )
