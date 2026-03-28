@@ -234,6 +234,68 @@ class TestDayWiseAttendanceReport(TestCase):
 
         self.assertEqual(day_wise_attendance.get_holiday_extra_work(checkins), "12:06")
 
+    def test_day_off_status_prefers_a1_for_sandwich_marked_attendance(self):
+        attendance = day_wise_attendance.frappe._dict(
+            {"custom_attendance_tag": "A", "custom_marked_absent_by_sandwich": 1}
+        )
+
+        with (
+            patch.object(
+                day_wise_attendance,
+                "is_holiday_for_employee",
+                return_value={"is_holiday": True, "is_weekly_off": True},
+            ),
+            patch.object(day_wise_attendance, "get_attendance_record", return_value=attendance),
+        ):
+            status = day_wise_attendance.get_employee_day_off_status("10794", date(2026, 2, 23), checkins=[])
+
+        self.assertEqual(status, "A1")
+
+    def test_day_off_status_uses_pow_when_checkins_exist_for_weekly_off(self):
+        attendance = day_wise_attendance.frappe._dict(
+            {"custom_attendance_tag": "WO", "custom_marked_absent_by_sandwich": 0}
+        )
+
+        with (
+            patch.object(
+                day_wise_attendance,
+                "is_holiday_for_employee",
+                return_value={"is_holiday": True, "is_weekly_off": True},
+            ),
+            patch.object(day_wise_attendance, "get_attendance_record", return_value=attendance),
+        ):
+            status = day_wise_attendance.get_employee_day_off_status(
+                "10794",
+                date(2026, 2, 16),
+                checkins=[{"log_type": "IN"}, {"log_type": "OUT"}],
+            )
+
+        self.assertEqual(status, "POW")
+
+    def test_derive_processed_status_keeps_pow_and_a1_codes(self):
+        self.assertEqual(
+            day_wise_attendance.derive_processed_status(
+                "POW",
+                "POW",
+                None,
+                [{"log_type": "IN"}, {"log_type": "OUT"}],
+                9.0,
+                {"is_holiday": True, "is_weekly_off": True},
+            ),
+            "POW",
+        )
+        self.assertEqual(
+            day_wise_attendance.derive_processed_status(
+                "A1",
+                "A1",
+                None,
+                [],
+                0.0,
+                {"is_holiday": True, "is_weekly_off": True},
+            ),
+            "A1",
+        )
+
     def test_day_wise_summary_uses_processed_status_when_processed_attendance_enabled(self):
         employee = day_wise_attendance.frappe._dict(
             {

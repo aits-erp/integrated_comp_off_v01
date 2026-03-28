@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, get_first_day, get_last_day, getdate
+from frappe.utils import add_days, date_diff, get_datetime, get_first_day, get_last_day, getdate
 
 from real_group.helper.attendance_helper import create_attendance
 from real_group.utils import (
@@ -214,10 +214,44 @@ def get_half_day_holiday_combo_tag(doc, holiday):
     return None
 
 
-def has_valid_holiday_in_out_pair(doc):
+def get_attendance_checkin_log_types(doc):
     log_types = frappe.get_all(
         "Employee Checkin", filters={"attendance": doc.name}, pluck="log_type"
     )
+    if log_types:
+        return [log_type for log_type in log_types if log_type]
+
+    attendance_date = getattr(doc, "attendance_date", None)
+    employee = getattr(doc, "employee", None)
+    if not attendance_date or not employee:
+        return []
+
+    start = get_datetime(getdate(attendance_date))
+    end = get_datetime(add_days(getdate(attendance_date), 1))
+    fallback_filters = [
+        ["employee", "=", employee],
+        ["shift_start", ">=", start],
+        ["shift_start", "<", end],
+    ]
+    log_types = frappe.get_all("Employee Checkin", filters=fallback_filters, pluck="log_type")
+    if log_types:
+        return [log_type for log_type in log_types if log_type]
+
+    fallback_filters = [
+        ["employee", "=", employee],
+        ["time", ">=", start],
+        ["time", "<", end],
+    ]
+    log_types = frappe.get_all("Employee Checkin", filters=fallback_filters, pluck="log_type")
+    return [log_type for log_type in log_types if log_type]
+
+
+def has_attendance_checkins(doc):
+    return bool(get_attendance_checkin_log_types(doc))
+
+
+def has_valid_holiday_in_out_pair(doc):
+    log_types = get_attendance_checkin_log_types(doc)
     if not log_types:
         return False
     return "IN" in log_types and "OUT" in log_types
@@ -372,7 +406,7 @@ def allocate_incentive(doc):
         return
     status = ""
     holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
-    if holiday and holiday.get("is_holiday") and not checkins:
+    if holiday and holiday.get("is_holiday") and not (checkins or has_attendance_checkins(doc)):
         return  # It is holiday and employee did not worked.
 
     if holiday and holiday.get("is_holiday") and holiday.get("is_weekly_off"):
@@ -521,7 +555,7 @@ def allocate_c_off(doc):
 
     status = ""
     holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
-    if holiday and holiday.get("is_holiday") and not checkins:
+    if holiday and holiday.get("is_holiday") and not (checkins or has_attendance_checkins(doc)):
         return  # It is holiday and employee did not worked.
 
     if holiday and holiday.get("is_holiday") and holiday.get("is_weekly_off"):

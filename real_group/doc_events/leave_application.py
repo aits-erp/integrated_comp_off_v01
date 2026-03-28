@@ -434,9 +434,28 @@ def has_present_day_between(employee, start_date, end_date):
 
 
 def validate_leave_balance(doc):
-    # Apply this lock check only while the leave application is in draft/open flow.
-    # This prevents users from over-applying while another request is pending approval.
-    if doc.docstatus != 0 or doc.status != "Open":
+    previous = None if doc.is_new() else doc.get_doc_before_save()
+    is_draft_apply_flow = doc.docstatus == 0 and doc.status == "Open"
+    is_hod_to_hr = (
+        previous
+        and previous.docstatus == 0
+        and previous.workflow_state != doc.workflow_state
+        and previous.workflow_state == "Pending at HOD"
+        and doc.workflow_state == "Pending at HR"
+    )
+    is_hr_final_approval = (
+        previous
+        and previous.workflow_state != doc.workflow_state
+        and previous.workflow_state == "Pending at HR"
+        and doc.workflow_state == "Approved"
+    )
+
+    # Enforce this check while the employee is applying in draft/open flow,
+    # and again on the final HR approval. Skip it on the HOD handoff step.
+    if not is_draft_apply_flow and not is_hr_final_approval:
+        return
+
+    if is_hod_to_hr:
         return
 
     if frappe.db.get_value("Leave Type", doc.leave_type, "allow_negative"):

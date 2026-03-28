@@ -37,7 +37,9 @@ def get_leave_details(employee, date):
     leave_allocation = leave_details.get("leave_allocation") or {}
 
     for details in leave_allocation.values():
-        details["available_leaves"] = flt(details.get("remaining_leaves")) - flt(details.get("leaves_pending_approval"))
+        # Keep displayed available balance equal to actual earned balance.
+        # Pending requests are already exposed separately via leaves_pending_approval.
+        details["available_leaves"] = flt(details.get("remaining_leaves"))
 
     return leave_details
 

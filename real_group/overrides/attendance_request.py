@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, format_date, get_time, getdate
+from frappe.utils import add_days, cint, date_diff, format_date, get_time, getdate
 from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequest
 
 from real_group.helper.attendance_helper import (
@@ -123,7 +123,12 @@ def get_checkins_for_employee_date(employee: str, attendance_date):
 class AttendanceRequestOverride(AttendanceRequest):
     def validate(self):
         super().validate()
+        self.validate_half_type_required()
         self.validate_working_hours_window()
+
+    def validate_half_type_required(self):
+        if cint(self.half_day) and not (self.custom_half_type or "").strip():
+            frappe.throw(_("Half Type is mandatory when Half Day is selected."))
 
     def validate_request_overlap(self):
         return  # Overriding the base method to disable overlap validation

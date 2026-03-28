@@ -583,9 +583,16 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
         return None
 
     attendance_on_day_off = get_attendance_record(employee, target_date)
+    has_checkins = bool(checkins)
     if attendance_on_day_off:
+        if getattr(attendance_on_day_off, "custom_marked_absent_by_sandwich", 0):
+            return "A1"
         tag = (attendance_on_day_off.get("custom_attendance_tag") or "").strip()
         if tag:
+            if tag == "WO" and day_off_data.get("is_weekly_off") and has_checkins:
+                return "POW"
+            if tag == "HO" and not day_off_data.get("is_weekly_off") and has_checkins:
+                return "POH"
             return tag
     od_status = get_day_off_attendance_request_status(employee, target_date)
     if od_status:
@@ -595,7 +602,6 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
     if sandwich_status:
         return sandwich_status
 
-    has_checkins = bool(checkins)
     if day_off_data.get("is_weekly_off"):
         return "POW" if has_checkins else "WO"
 
@@ -953,9 +959,6 @@ def derive_processed_status(status_code, processed_code, attendance_doc, checkin
         "LW": "A",
         "LWP": "A",
         "HLW": "PLW",
-        "POH": "HO",
-        "POW": "WO",
-        "A1": "A",
     }
     if primary_status in direct_map:
         return direct_map[primary_status]
