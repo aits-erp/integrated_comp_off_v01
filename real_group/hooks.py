@@ -98,6 +98,10 @@ jinja = {"methods": ["real_group.real_group.utils.get_qr_code", "real_group.real
 # after_install = "real_group.install.after_install"
 after_migrate = "real_group.migration.ensure_reprocess_indexes"
 
+on_session_creation = [
+    "real_group.api.session.mark_pwa_session",
+]
+
 # Uninstallation
 # ------------
 

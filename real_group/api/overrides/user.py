@@ -6,6 +6,68 @@ from frappe.core.doctype.user.user import update_password as _update_password
 from real_group.real_group.integration import oracle_connection
 
 
+def enqueue_oracle_password_sync(user: str, new_password: str):
+    employee = frappe.db.get_value("Employee", user, ["name", "company"], as_dict=True)
+    if not employee:
+        frappe.log_error(
+            title="Oracle Password Sync Skipped",
+            message=f"Employee not found for user {user}",
+        )
+        return
+
+    if not employee.company:
+        frappe.log_error(
+            title="Oracle Password Sync Skipped",
+            message=f"Company not found for employee {employee.name} and user {user}",
+        )
+        return
+
+    frappe.enqueue(
+        sync_oracle_password,
+        queue="short",
+        enqueue_after_commit=True,
+        user=user,
+        company=employee.company,
+        new_password=new_password,
+    )
+
+
+def sync_oracle_password(user: str, company: str, new_password: str):
+    con = oracle_connection(company)
+    if not con:
+        frappe.log_error(
+            title="Oracle Password Sync Failed",
+            message=f"Oracle connection information is not set for company {company} and user {user}",
+        )
+        return
+
+    try:
+        with con.cursor() as cur:
+            cur.execute(
+                f"""SELECT USER_CODE FROM RIPLRR.USER_MAST WHERE USER_CODE = '{user}'""",
+            )
+            if not cur.fetchall():
+                frappe.log_error(
+                    title="Oracle Password Sync Failed",
+                    message=f"User not found in Oracle DB for user {user}",
+                )
+                return
+
+            cur.execute(
+                f"UPDATE RIPLRR.USER_MAST SET PASSWORD = (SELECT RIPLRR.LHS_UTILITY.GET_ENCRYPT('{new_password}') FROM DUAL), LASTUPDATE = TIMESTAMP '{str(frappe.utils.now())}' WHERE USER_CODE = '{user}'"
+            )
+
+        con.commit()
+    except cx_Oracle.DatabaseError:
+        con.rollback()
+        frappe.log_error(frappe.get_traceback(), title="Oracle Password Sync Failed")
+    except Exception:
+        con.rollback()
+        frappe.log_error(frappe.get_traceback(), title="Oracle Password Sync Failed")
+    finally:
+        con.close()
+
+
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def update_user_password(
     new_password: str, logout_all_sessions: int = 0, key: str | None = None, old_password: str | None = None
@@ -17,48 +79,11 @@ def update_user_password(
 
     user = res["user"]
 
-    if user == "Administrator":
-        return _update_password(new_password, logout_all_sessions, key, old_password)
+    response = _update_password(new_password, logout_all_sessions, key, old_password)
 
-    if not frappe.db.exists("Employee", user):
-        frappe.throw(f"Employee not found for the user -> {user}")
-    company = frappe.db.get_value("Employee", user, "company")
+    # Temporarily disable Oracle password sync and let Frappe handle
+    # password reset with its default behavior.
+    # if user != "Administrator":
+    #     enqueue_oracle_password_sync(user, new_password)
 
-    con = oracle_connection(company)
-    if not con:
-        frappe.throw(title="Oracle Connection information is not set")
-
-    try:
-        with con.cursor() as cur:
-            current_user = user
-            cur.execute(
-                f"""SELECT USER_CODE FROM RIPLRR.USER_MAST WHERE USER_CODE = '{current_user}'""",
-            )
-            if not cur.fetchall():
-                frappe.throw(frappe._("User not found in Oracle DB!! Kindly Create User"))
-
-            cur.execute(
-                f"UPDATE RIPLRR.USER_MAST SET  PASSWORD = (SELECT RIPLRR.LHS_UTILITY.GET_ENCRYPT('{new_password}') FROM DUAL), LASTUPDATE = TIMESTAMP '{str(frappe.utils.now())}' WHERE USER_CODE = '{current_user}'"
-            )
-
-        try:
-            response = _update_password(new_password, logout_all_sessions, key, old_password)
-        except Exception as e:
-            frappe.log_error(title="Frappe Password Update Error", message=str(e))
-            raise
-
-        con.commit()
-        return response
-
-    except cx_Oracle.DatabaseError as er:
-        con.rollback()
-        frappe.log_error(frappe.get_traceback())
-        frappe.throw(f"Oracle Query Error: {er!s}")
-
-    except Exception as er:
-        con.rollback()
-        frappe.log_error(title="Unexpected Exception", message=str(er))
-        raise
-
-    finally:
-        con.close()
+    return response
