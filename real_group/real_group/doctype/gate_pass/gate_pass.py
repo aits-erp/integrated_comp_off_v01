@@ -16,15 +16,18 @@ class GatePass(Document):
         from frappe.types import DF
 
         amended_from: DF.Link | None
+        branch: DF.Link | None
         checkout_time: DF.Datetime | None
+        company: DF.Link | None
         date: DF.Date
+        department: DF.Link | None
+        division: DF.Link | None
         employee: DF.Link
         employee_name: DF.Data | None
         name: DF.Int | None
         reason: DF.Literal["", "Personal", "Official"]
         reason_detail: DF.SmallText
         status: DF.Literal["Draft", "Pending", "Rejected", "Approved"]
-
     # end: auto-generated types
     def validate(self):
         self.validate_total_gate_pass_per_day()

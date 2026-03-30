@@ -585,15 +585,17 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
     attendance_on_day_off = get_attendance_record(employee, target_date)
     has_checkins = bool(checkins)
     if attendance_on_day_off:
-        if getattr(attendance_on_day_off, "custom_marked_absent_by_sandwich", 0):
-            return "A1"
         tag = (attendance_on_day_off.get("custom_attendance_tag") or "").strip()
         if tag:
+            if tag in {"A", "A1"} and getattr(attendance_on_day_off, "custom_marked_absent_by_sandwich", 0):
+                return "A1"
             if tag == "WO" and day_off_data.get("is_weekly_off") and has_checkins:
                 return "POW"
             if tag == "HO" and not day_off_data.get("is_weekly_off") and has_checkins:
                 return "POH"
             return tag
+        if getattr(attendance_on_day_off, "custom_marked_absent_by_sandwich", 0):
+            return "A1"
     od_status = get_day_off_attendance_request_status(employee, target_date)
     if od_status:
         return od_status
@@ -976,7 +978,7 @@ def derive_processed_status(status_code, processed_code, attendance_doc, checkin
         return "HOD"
 
     if primary_status in {"HCL", "HEL", "HCO"}:
-        return _map_half_day_leave_presence(primary_status, presence)
+        return _map_half_day_leave_presence(primary_status, _has_confirmed_presence(worked_hours, checkins))
 
     if primary_status == "MIS":
         return _derive_mis_processed_status(attendance_doc, presence)
@@ -989,6 +991,12 @@ def _map_half_day_leave_presence(status_code, presence):
     if presence and status_code in mapping:
         return mapping[status_code]
     return status_code
+
+
+def _has_confirmed_presence(worked_hours, checkins):
+    if worked_hours and worked_hours > 0:
+        return True
+    return bool(checkins and len(checkins) >= 2)
 
 
 def _has_physical_presence(worked_hours, checkins):

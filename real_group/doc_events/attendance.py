@@ -2,7 +2,14 @@ from datetime import timedelta
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, get_datetime, get_first_day, get_last_day, getdate
+from frappe.utils import (
+    add_days,
+    date_diff,
+    get_datetime,
+    get_first_day,
+    get_last_day,
+    getdate,
+)
 
 from real_group.helper.attendance_helper import create_attendance
 from real_group.utils import (
@@ -129,8 +136,13 @@ def update_attendance_status(doc):
         is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
         is_lwp = frappe.get_value("Leave Type", doc.leave_type, "is_lwp")
         if is_holiday and is_holiday.get("is_half_day"):
-            leave_half_type = frappe.get_value("Leave Application", doc.leave_application, "custom_half_type")
-            if half_types_differ(is_holiday.get("half_type"), leave_half_type) or not leave_half_type:
+            leave_half_type = frappe.get_value(
+                "Leave Application", doc.leave_application, "custom_half_type"
+            )
+            if (
+                half_types_differ(is_holiday.get("half_type"), leave_half_type)
+                or not leave_half_type
+            ):
                 if is_lwp:
                     doc.status = "Absent"
                 else:
@@ -144,13 +156,21 @@ def update_attendance_status(doc):
             leave_half_date = frappe.get_value(
                 "Leave Application", doc.leave_application, "half_day_date"
             )
-            request_half_type = frappe.get_value("Attendance Request", doc.attendance_request, "custom_half_type")
-            leave_half_type = frappe.get_value("Leave Application", doc.leave_application, "custom_half_type")
+            request_half_type = frappe.get_value(
+                "Attendance Request", doc.attendance_request, "custom_half_type"
+            )
+            leave_half_type = frappe.get_value(
+                "Leave Application", doc.leave_application, "custom_half_type"
+            )
             if (
                 request_half_day_date
                 and leave_half_date
                 and getdate(request_half_day_date) == getdate(leave_half_date)
-                and (half_types_differ(request_half_type, leave_half_type) or not request_half_type or not leave_half_type)
+                and (
+                    half_types_differ(request_half_type, leave_half_type)
+                    or not request_half_type
+                    or not leave_half_type
+                )
             ):
                 doc.status = "Present"
 
@@ -182,7 +202,9 @@ def get_half_day_holiday_combo_tag(doc, holiday):
     holiday_half_type = holiday.get("half_type")
 
     if doc.leave_application and doc.leave_type:
-        leave_half_type = frappe.get_cached_value("Leave Application", doc.leave_application, "custom_half_type")
+        leave_half_type = frappe.get_cached_value(
+            "Leave Application", doc.leave_application, "custom_half_type"
+        )
         if half_types_differ(holiday_half_type, leave_half_type):
             leave_type = frappe.get_cached_doc("Leave Type", doc.leave_type)
             leave_code = get_leave_code_for_tag(leave_type)
@@ -199,7 +221,9 @@ def get_half_day_holiday_combo_tag(doc, holiday):
             getattr(request, "half_day", False)
             and getattr(request, "half_day_date", None)
             and getdate(request.half_day_date) == getdate(doc.attendance_date)
-            and half_types_differ(holiday_half_type, getattr(request, "custom_half_type", None))
+            and half_types_differ(
+                holiday_half_type, getattr(request, "custom_half_type", None)
+            )
         ):
             if request.reason == "Mis Punch":
                 return "PHO"
@@ -233,7 +257,9 @@ def get_attendance_checkin_log_types(doc):
         ["shift_start", ">=", start],
         ["shift_start", "<", end],
     ]
-    log_types = frappe.get_all("Employee Checkin", filters=fallback_filters, pluck="log_type")
+    log_types = frappe.get_all(
+        "Employee Checkin", filters=fallback_filters, pluck="log_type"
+    )
     if log_types:
         return [log_type for log_type in log_types if log_type]
 
@@ -242,7 +268,9 @@ def get_attendance_checkin_log_types(doc):
         ["time", ">=", start],
         ["time", "<", end],
     ]
-    log_types = frappe.get_all("Employee Checkin", filters=fallback_filters, pluck="log_type")
+    log_types = frappe.get_all(
+        "Employee Checkin", filters=fallback_filters, pluck="log_type"
+    )
     return [log_type for log_type in log_types if log_type]
 
 
@@ -406,7 +434,11 @@ def allocate_incentive(doc):
         return
     status = ""
     holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
-    if holiday and holiday.get("is_holiday") and not (checkins or has_attendance_checkins(doc)):
+    if (
+        holiday
+        and holiday.get("is_holiday")
+        and not (checkins or has_attendance_checkins(doc))
+    ):
         return  # It is holiday and employee did not worked.
 
     if holiday and holiday.get("is_holiday") and holiday.get("is_weekly_off"):
@@ -555,7 +587,11 @@ def allocate_c_off(doc):
 
     status = ""
     holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
-    if holiday and holiday.get("is_holiday") and not (checkins or has_attendance_checkins(doc)):
+    if (
+        holiday
+        and holiday.get("is_holiday")
+        and not (checkins or has_attendance_checkins(doc))
+    ):
         return  # It is holiday and employee did not worked.
 
     if holiday and holiday.get("is_holiday") and holiday.get("is_weekly_off"):

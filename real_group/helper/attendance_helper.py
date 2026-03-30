@@ -29,7 +29,11 @@ def has_valid_in_out_pair(logs) -> bool:
     has_in = False
     has_out = False
     for log in logs or []:
-        log_type = log.get("log_type") if hasattr(log, "get") else getattr(log, "log_type", None)
+        log_type = (
+            log.get("log_type")
+            if hasattr(log, "get")
+            else getattr(log, "log_type", None)
+        )
         if log_type == "IN":
             has_in = True
         elif log_type == "OUT":
@@ -39,8 +43,90 @@ def has_valid_in_out_pair(logs) -> bool:
     return False
 
 
+def get_last_checkout_shift(logs) -> str | None:
+    for log in reversed(sorted(logs or [], key=lambda x: x["time"])):
+        log_type = (
+            log.get("log_type")
+            if hasattr(log, "get")
+            else getattr(log, "log_type", None)
+        )
+        shift = log.get("shift") if hasattr(log, "get") else getattr(log, "shift", None)
+        if log_type == "OUT" and shift:
+            return shift
+    return None
+
+
+def get_attendance_status_from_working_hours(total_working_hours: float, shift) -> str:
+    working_threshold = convert_time_to_hours(
+        shift.custom_working_hours_threshold_for_present
+    )
+    half_day_threshold = convert_time_to_hours(
+        shift.custom_working_hours_threshold_for_half_day
+    )
+    absent_threshold = convert_time_to_hours(
+        shift.custom_working_hours_threshold_for_absent
+    )
+
+    if working_threshold and total_working_hours >= working_threshold:
+        return "Present"
+    if half_day_threshold and total_working_hours >= half_day_threshold:
+        return "Half Day"
+    if absent_threshold and total_working_hours < absent_threshold:
+        return "Absent"
+    return "Absent"
+
+
+def get_specific_multi_checkin_override_fields(logs, shift):
+    if not has_valid_in_out_pair(logs):
+        return None
+
+    total_working_hours, in_time, out_time = calculate_working_hours_for_attendance(
+        logs
+    )
+    status = get_attendance_status_from_working_hours(total_working_hours, shift)
+
+    return {
+        "status": status,
+        "working_hours": total_working_hours,
+        "shift": shift.name,
+        "late_entry": False,
+        "early_exit": False,
+        "in_time": in_time,
+        "out_time": out_time,
+    }
+
+
+def get_specific_multi_checkin_override(existing_attendance):
+    linked_logs = frappe.get_all(
+        "Employee Checkin",
+        filters={"attendance": existing_attendance.name},
+        fields=["name", "time", "log_type", "shift", "custom_processed_time"],
+        order_by="time asc",
+    )
+    if len(linked_logs) < 4:
+        return None
+    if existing_attendance.leave_application or existing_attendance.attendance_request:
+        return None
+    if existing_attendance.status == "On Leave":
+        return None
+
+    last_checkout_shift = get_last_checkout_shift(linked_logs)
+    if not last_checkout_shift:
+        return None
+
+    # Specific case only:
+    # If extra checkins are linked later for the same attendance date, the first pass may
+    # already have marked the employee as Absent/Half Day from the earlier punches alone.
+    # Recompute from the linked multi check-in set at the end of processing so the normal
+    # attendance flow stays unchanged for all other cases.
+    shift = frappe.get_cached_doc("Shift Type", last_checkout_shift)
+    return get_specific_multi_checkin_override_fields(linked_logs, shift)
+
+
 # Main function to create or update attendance
-def create_attendance(employee: str, date: str | date, logs: list[dict] | None, reprocess_ref=None) -> None:
+def create_attendance(
+    employee: str, date: str | date, logs: list[dict] | None, reprocess_ref=None
+) -> None:
     employee_doc = frappe.get_cached_doc("Employee", employee)
 
     if isinstance(date, str):
@@ -76,7 +162,11 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
             # (night shift / delayed sync), update the actual status and timings.
             if existing_attendance.status == "Absent":
                 final_status = attendance_status
-                if holiday and holiday.get("is_holiday") and not holiday.get("is_half_day"):
+                if (
+                    holiday
+                    and holiday.get("is_holiday")
+                    and not holiday.get("is_half_day")
+                ):
                     # On full holidays/weekly-offs, low hours should not keep status as Absent.
                     final_status = "Present"
                 existing_attendance.db_set(
@@ -94,7 +184,10 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
 
             # If there's already a half-day leave linked, keep it as half-day unless logs
             # justify marking it present.
-            elif existing_attendance.status == "Half Day" and existing_attendance.leave_application:
+            elif (
+                existing_attendance.status == "Half Day"
+                and existing_attendance.leave_application
+            ):
                 if attendance_status == "Half Day":
                     attendance_status = "Present"
                 if attendance_status == "Absent":
@@ -103,9 +196,11 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                 existing_attendance.db_set(
                     {
                         "status": attendance_status,
-                        "working_hours": working_hours + existing_attendance.working_hours
-                        if existing_attendance.working_hours
-                        else working_hours,
+                        "working_hours": (
+                            working_hours + existing_attendance.working_hours
+                            if existing_attendance.working_hours
+                            else working_hours
+                        ),
                         "shift": shift,
                         "late_entry": late_entry,
                         "early_exit": early_exit,
@@ -117,17 +212,38 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
             else:
                 existing_attendance.db_set(
                     {
-                        "working_hours": working_hours + existing_attendance.working_hours
-                        if existing_attendance.working_hours
-                        else working_hours,
-                        "shift": shift if not existing_attendance.shift else existing_attendance.shift,
+                        "working_hours": (
+                            working_hours + existing_attendance.working_hours
+                            if existing_attendance.working_hours
+                            else working_hours
+                        ),
+                        "shift": (
+                            shift
+                            if not existing_attendance.shift
+                            else existing_attendance.shift
+                        ),
                         "custom_reprocess_reference": reprocess_ref,
                     }
                 )
-            update_attendance_in_checkins([c.name for c in logs], existing_attendance.name)
+            update_attendance_in_checkins(
+                [c.name for c in logs], existing_attendance.name
+            )
+            specific_multi_checkin_override = get_specific_multi_checkin_override(
+                existing_attendance
+            )
+            if specific_multi_checkin_override:
+                specific_multi_checkin_override["custom_reprocess_reference"] = (
+                    reprocess_ref
+                )
+                existing_attendance.db_set(specific_multi_checkin_override)
+                existing_attendance.reload()
             # Keep tags consistent when we change status on an already-submitted doc.
             try:
-                from real_group.doc_events.attendance import allocate_c_off, allocate_incentive, update_attendance_tag
+                from real_group.doc_events.attendance import (
+                    allocate_c_off,
+                    allocate_incentive,
+                    update_attendance_tag,
+                )
 
                 update_attendance_tag(existing_attendance)
                 if not reprocess_ref:
@@ -146,7 +262,9 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                     "attendance_date": date,
                     "status": "Half Day",
                     "employee": employee,
-                    "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
+                    "custom_attendance_tag": (
+                        "HO" if not holiday.get("is_weekly_off") else "WO"
+                    ),
                     "custom_reprocess_reference": reprocess_ref,
                 },
             ).insert(ignore_permissions=True).submit()
@@ -157,7 +275,9 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
                     "attendance_date": date,
                     "status": "Present",
                     "employee": employee,
-                    "custom_attendance_tag": "HO" if not holiday.get("is_weekly_off") else "WO",
+                    "custom_attendance_tag": (
+                        "HO" if not holiday.get("is_weekly_off") else "WO"
+                    ),
                     "custom_reprocess_reference": reprocess_ref,
                 },
             ).insert(ignore_permissions=True).submit()
@@ -184,7 +304,9 @@ def create_attendance(employee: str, date: str | date, logs: list[dict] | None, 
             shift,
         )
         attendance.db_set("custom_reprocess_reference", reprocess_ref)
-        mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance)
+        mark_half_day_based_on_deduction_cycle(
+            employee, allowed_late_day, deduction_cycle, attendance
+        )
     elif logs and holiday:
         is_half_day_holiday = holiday.get("is_half_day")
         is_weekly_off = holiday.get("is_weekly_off")
@@ -283,12 +405,16 @@ def calculate_working_hours_for_attendance(logs):
     processed_logs = update_time(original_logs)
 
     total_working_hours, in_time, out_time = calculate_working_hours(
-        processed_logs, "Strictly based on Log Type in Employee Checkin", "Every Valid Check-in and Check-out"
+        processed_logs,
+        "Strictly based on Log Type in Employee Checkin",
+        "Every Valid Check-in and Check-out",
     )
 
     if total_working_hours < 0:
         total_working_hours, in_time, out_time = calculate_working_hours(
-            original_logs, "Strictly based on Log Type in Employee Checkin", "Every Valid Check-in and Check-out"
+            original_logs,
+            "Strictly based on Log Type in Employee Checkin",
+            "Every Valid Check-in and Check-out",
         )
 
     return total_working_hours, in_time, out_time
@@ -297,7 +423,11 @@ def calculate_working_hours_for_attendance(logs):
 def has_attendance(employee, attendance_date):
     return frappe.db.exists(
         "Attendance",
-        {"employee": employee, "attendance_date": attendance_date, "docstatus": ["<", 2]},
+        {
+            "employee": employee,
+            "attendance_date": attendance_date,
+            "docstatus": ["<", 2],
+        },
     )
 
 
@@ -306,13 +436,19 @@ def get_attendance(logs, grade, shift_type):
         return "Absent", 0, False, False, None, None
 
     late_entry = early_exit = False
-    total_working_hours, in_time, out_time = calculate_working_hours_for_attendance(logs)
+    total_working_hours, in_time, out_time = calculate_working_hours_for_attendance(
+        logs
+    )
     grade = frappe.get_cached_doc("Employee Grade", grade)
     shift = frappe.get_cached_doc("Shift Type", shift_type)
     force_half_day_due_to_late = False
     if cint(shift.enable_late_entry_marking) and in_time:
-        shift_grace_minutes = convert_time_to_minutes(shift.custom_late_entry_grace_period)
-        grade_grace_minutes = convert_time_to_minutes(grade.custom_late_entry_grace_period)
+        shift_grace_minutes = convert_time_to_minutes(
+            shift.custom_late_entry_grace_period
+        )
+        grade_grace_minutes = convert_time_to_minutes(
+            grade.custom_late_entry_grace_period
+        )
         grade_grace_minutes = max(grade_grace_minutes, shift_grace_minutes)
 
         shift_grace_time = logs[0].shift_start + timedelta(minutes=shift_grace_minutes)
@@ -330,7 +466,10 @@ def get_attendance(logs, grade, shift_type):
         cint(shift.enable_early_exit_marking)
         and out_time
         and out_time
-        < logs[0].shift_end - timedelta(minutes=cint(convert_time_to_minutes(shift.custom_early_exit_grace_period)))
+        < logs[0].shift_end
+        - timedelta(
+            minutes=cint(convert_time_to_minutes(shift.custom_early_exit_grace_period))
+        )
     ):
         early_exit = True
 
@@ -342,13 +481,23 @@ def get_attendance(logs, grade, shift_type):
             hours = convert_time_to_hours(abs(end - start))
             total_working_hours += hours
 
-    working_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_present)
-    half_day_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_half_day)
-    absent_threshold = convert_time_to_hours(shift.custom_working_hours_threshold_for_absent)
+    working_threshold = convert_time_to_hours(
+        shift.custom_working_hours_threshold_for_present
+    )
+    half_day_threshold = convert_time_to_hours(
+        shift.custom_working_hours_threshold_for_half_day
+    )
+    absent_threshold = convert_time_to_hours(
+        shift.custom_working_hours_threshold_for_absent
+    )
 
     if working_threshold and total_working_hours >= working_threshold:
         status = "Present"
-    elif half_day_threshold and total_working_hours >= half_day_threshold and total_working_hours < working_threshold:
+    elif (
+        half_day_threshold
+        and total_working_hours >= half_day_threshold
+        and total_working_hours < working_threshold
+    ):
         status = "Half Day"
     elif absent_threshold and total_working_hours < absent_threshold:
         status = "Absent"
@@ -380,7 +529,9 @@ def get_short_leaves(employee, date):
     return data
 
 
-def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction_cycle, attendance):
+def mark_half_day_based_on_deduction_cycle(
+    employee, allowed_late_day, deduction_cycle, attendance
+):
     if not allowed_late_day or not deduction_cycle:
         return
     if not attendance or not attendance.late_entry or attendance.status != "Present":
@@ -408,4 +559,6 @@ def mark_half_day_based_on_deduction_cycle(employee, allowed_late_day, deduction
     if monthly_late_count > allowed_late_day:
         if monthly_late_count % deduction_cycle == 0 and attendance:
             frappe.db.set_value("Attendance", attendance.name, "status", "Half Day")
-            frappe.db.set_value("Attendance", attendance.name, "custom_attendance_tag", "HD")
+            frappe.db.set_value(
+                "Attendance", attendance.name, "custom_attendance_tag", "HD"
+            )
