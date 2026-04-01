@@ -557,7 +557,7 @@
   "modified": "2025-12-25 19:10:05.514731",
   "module": "Real Group",
   "name": "[New] Monthly Attendance Report",
-  "prepared_report": 0,
+  "prepared_report": 1,
   "query": null,
   "ref_doctype": "Attendance",
   "reference_report": null,

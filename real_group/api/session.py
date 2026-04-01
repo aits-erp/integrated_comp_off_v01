@@ -1,7 +1,7 @@
 import frappe
 
 PWA_LOGIN_SOURCE = "hrms_pwa"
-PWA_SESSION_MAX_AGE = 60 * 60 * 24 * 365 * 45 
+PWA_SESSION_MAX_AGE = 60 * 60 * 24 * 365 * 1  # 1 year 
 
 
 def mark_pwa_session(login_manager=None):

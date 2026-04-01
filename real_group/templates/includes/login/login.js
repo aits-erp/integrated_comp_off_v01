@@ -165,6 +165,33 @@ login.signup = function () {
 	$("#signup_fullname").focus();
 }
 
+login.get_post_login_route = function () {
+	var redirect_to = frappe.utils.sanitise_redirect(frappe.utils.get_url_arg("redirect-to"));
+	if (redirect_to && redirect_to !== "login") {
+		return redirect_to;
+	}
+
+	if (localStorage) {
+		var last_visited = localStorage.getItem("last_visited");
+		if (last_visited && last_visited !== "/login") {
+			return last_visited;
+		}
+	}
+
+	return "/app";
+}
+
+login.redirect_if_authenticated = function () {
+	var user_id = frappe.get_cookie("user_id");
+	var sid = frappe.get_cookie("sid");
+
+	if (!user_id || user_id === "Guest" || !sid) {
+		return;
+	}
+
+	window.location.replace(login.get_post_login_route());
+}
+
 
 // Login
 login.call = function (args, callback, url="/") {
@@ -299,6 +326,23 @@ login.login_handlers = (function () {
 frappe.ready(function () {
 
 	login.bind_events();
+	login.redirect_if_authenticated();
+
+	$(window).on("focus", function () {
+		login.redirect_if_authenticated();
+	});
+
+	$(window).on("storage", function (event) {
+		if (!event.originalEvent || event.originalEvent.key === "hrms:auth_event") {
+			login.redirect_if_authenticated();
+		}
+	});
+
+	document.addEventListener("visibilitychange", function () {
+		if (!document.hidden) {
+			login.redirect_if_authenticated();
+		}
+	});
 
 	if (!window.location.hash) {
 		window.location.hash = "#login";

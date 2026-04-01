@@ -43,15 +43,15 @@ def has_valid_in_out_pair(logs) -> bool:
     return False
 
 
-def get_last_checkout_shift(logs) -> str | None:
-    for log in reversed(sorted(logs or [], key=lambda x: x["time"])):
+def get_first_checkin_shift(logs) -> str | None:
+    for log in sorted(logs or [], key=lambda x: x["time"]):
         log_type = (
             log.get("log_type")
             if hasattr(log, "get")
             else getattr(log, "log_type", None)
         )
         shift = log.get("shift") if hasattr(log, "get") else getattr(log, "shift", None)
-        if log_type == "OUT" and shift:
+        if log_type == "IN" and shift:
             return shift
     return None
 
@@ -110,8 +110,8 @@ def get_specific_multi_checkin_override(existing_attendance):
     if existing_attendance.status == "On Leave":
         return None
 
-    last_checkout_shift = get_last_checkout_shift(linked_logs)
-    if not last_checkout_shift:
+    first_checkin_shift = get_first_checkin_shift(linked_logs)
+    if not first_checkin_shift:
         return None
 
     # Specific case only:
@@ -119,7 +119,7 @@ def get_specific_multi_checkin_override(existing_attendance):
     # already have marked the employee as Absent/Half Day from the earlier punches alone.
     # Recompute from the linked multi check-in set at the end of processing so the normal
     # attendance flow stays unchanged for all other cases.
-    shift = frappe.get_cached_doc("Shift Type", last_checkout_shift)
+    shift = frappe.get_cached_doc("Shift Type", first_checkin_shift)
     return get_specific_multi_checkin_override_fields(linked_logs, shift)
 
 

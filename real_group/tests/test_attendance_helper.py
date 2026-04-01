@@ -6,7 +6,7 @@ from frappe.utils import get_datetime
 
 from real_group.helper.attendance_helper import (
     calculate_working_hours_for_attendance,
-    get_last_checkout_shift,
+    get_first_checkin_shift,
     get_specific_multi_checkin_override_fields,
 )
 
@@ -52,50 +52,50 @@ class TestAttendanceHelper(TestCase):
         self.assertEqual(in_time, get_datetime("2026-03-10 09:00:00"))
         self.assertEqual(out_time, get_datetime("2026-03-10 17:00:00"))
 
-    def test_specific_multi_checkin_override_uses_last_checkout_shift_and_combined_hours(
+    def test_specific_multi_checkin_override_uses_first_checkin_shift_and_combined_hours(
         self,
     ):
         logs = [
             frappe._dict(
                 log_type="IN",
                 shift="B",
-                time=get_datetime("2026-03-06 17:41:00"),
-                custom_processed_time=get_datetime("2026-03-06 17:41:00"),
+                time=get_datetime("2026-03-10 13:55:22"),
+                custom_processed_time=get_datetime("2026-03-10 13:55:22"),
             ),
             frappe._dict(
                 log_type="OUT",
                 shift="B",
-                time=get_datetime("2026-03-06 19:41:00"),
-                custom_processed_time=get_datetime("2026-03-06 19:41:00"),
+                time=get_datetime("2026-03-10 22:00:33"),
+                custom_processed_time=get_datetime("2026-03-10 22:00:33"),
             ),
             frappe._dict(
                 log_type="IN",
                 shift="C",
-                time=get_datetime("2026-03-06 22:00:00"),
-                custom_processed_time=get_datetime("2026-03-06 22:00:00"),
+                time=get_datetime("2026-03-10 22:01:13"),
+                custom_processed_time=get_datetime("2026-03-10 22:01:13"),
             ),
             frappe._dict(
                 log_type="OUT",
                 shift="C",
-                time=get_datetime("2026-03-07 06:00:00"),
-                custom_processed_time=get_datetime("2026-03-07 06:00:00"),
+                time=get_datetime("2026-03-11 03:01:00"),
+                custom_processed_time=get_datetime("2026-03-11 03:01:00"),
             ),
         ]
         shift = SimpleNamespace(
-            name="C",
-            custom_working_hours_threshold_for_present="7:45:00",
+            name="B",
+            custom_working_hours_threshold_for_present="7:44:59",
             custom_working_hours_threshold_for_half_day="3:50:01",
             custom_working_hours_threshold_for_absent="3:50:00",
         )
 
         override = get_specific_multi_checkin_override_fields(logs, shift)
 
-        self.assertEqual(get_last_checkout_shift(logs), "C")
+        self.assertEqual(get_first_checkin_shift(logs), "B")
         self.assertEqual(override["status"], "Present")
-        self.assertEqual(override["shift"], "C")
-        self.assertEqual(override["in_time"], get_datetime("2026-03-06 17:41:00"))
-        self.assertEqual(override["out_time"], get_datetime("2026-03-07 06:00:00"))
-        self.assertEqual(override["working_hours"], 10.0)
+        self.assertEqual(override["shift"], "B")
+        self.assertEqual(override["in_time"], get_datetime("2026-03-10 13:55:22"))
+        self.assertEqual(override["out_time"], get_datetime("2026-03-11 03:01:00"))
+        self.assertEqual(override["working_hours"], 13.09)
         self.assertFalse(override["late_entry"])
         self.assertFalse(override["early_exit"])
 
