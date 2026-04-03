@@ -65,6 +65,15 @@
  {
   "docstatus": 0,
   "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2024-08-17 13:18:17.405639",
+  "name": "Rejected by HOD",
+  "style": "Danger",
+  "workflow_state_name": "Rejected by HOD"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
   "icon": "ok-sign",
   "modified": "2024-01-23 12:16:06.089462",
   "name": "Approved",
@@ -97,14 +106,5 @@
   "name": "Pending at HOD",
   "style": "",
   "workflow_state_name": "Pending at HOD"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
-  "icon": "",
-  "modified": "2024-08-17 13:18:17.405639",
-  "name": "Rejected by HOD",
-  "style": "Danger",
-  "workflow_state_name": "Rejected by HOD"
  }
 ]

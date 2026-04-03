@@ -30,6 +30,7 @@ class TestAttendanceRequestOverride(FrappeTestCase):
     def setUp(self):
         frappe.db.delete("Attendance", {"employee": self.employee_name})
         frappe.db.delete("Attendance Request", {"employee": self.employee_name})
+        frappe.db.delete("Leave Application", {"employee": self.employee_name})
 
         self.holiday_list_name = "RG Attendance Request Test Holiday List"
         if frappe.db.exists("Holiday List", self.holiday_list_name):
@@ -86,6 +87,44 @@ class TestAttendanceRequestOverride(FrappeTestCase):
         attendance_request.update(overrides)
         return attendance_request.submit()
 
+    def make_half_day_leave_application(self, **overrides):
+        leave_application = frappe.get_doc(
+            {
+                "doctype": "Leave Application",
+                "employee": self.employee_name,
+                "leave_type": "Leave Without Pay",
+                "from_date": getdate(),
+                "to_date": getdate(),
+                "half_day": 1,
+                "half_day_date": getdate(),
+                "custom_half_type": "Second Half",
+                "company": "_Test Company",
+                "status": "Approved",
+                "leave_approver": "test@example.com",
+            }
+        )
+        leave_application.update(overrides)
+        leave_application.insert()
+        leave_application.submit()
+        return leave_application
+
+    def make_attendance(self, **overrides):
+        attendance = frappe.get_doc(
+            {
+                "doctype": "Attendance",
+                "employee": self.employee_name,
+                "attendance_date": getdate(),
+                "status": "Half Day",
+                "company": "_Test Company",
+                "shift": self.day_shift.name,
+                "working_hours": 7.0,
+            }
+        )
+        attendance.update(overrides)
+        attendance.insert(ignore_permissions=True)
+        attendance.submit()
+        return attendance
+
     def get_request_attendance(self, attendance_request):
         attendance_name = frappe.db.get_value(
             "Attendance",
@@ -103,14 +142,14 @@ class TestAttendanceRequestOverride(FrappeTestCase):
         )
         return [frappe.get_doc("Attendance", attendance_name) for attendance_name in attendance_names]
 
-    def test_cross_day_attendance_request_marks_positive_working_hours(self):
+    def test_cross_day_attendance_request_does_not_set_working_hours(self):
         attendance_request = self.make_attendance_request()
         attendance = self.get_request_attendance(attendance_request)
 
         self.assertEqual(attendance.status, "Present")
-        self.assertAlmostEqual(attendance.working_hours, 8.0)
+        self.assertFalse(attendance.working_hours)
 
-    def test_multi_day_day_shift_request_marks_per_day_working_hours(self):
+    def test_multi_day_day_shift_request_does_not_set_working_hours(self):
         attendance_request = self.make_attendance_request(
             shift=self.day_shift.name,
             from_date=getdate(),
@@ -124,9 +163,9 @@ class TestAttendanceRequestOverride(FrappeTestCase):
         self.assertEqual(len(attendances), 3)
         for attendance in attendances:
             self.assertEqual(attendance.status, "Present")
-            self.assertAlmostEqual(attendance.working_hours, 9.0)
+            self.assertFalse(attendance.working_hours)
 
-    def test_multi_day_cross_day_request_marks_per_day_working_hours(self):
+    def test_multi_day_cross_day_request_does_not_set_working_hours(self):
         attendance_request = self.make_attendance_request(
             from_date=getdate(),
             to_date=add_days(getdate(), 1),
@@ -137,7 +176,37 @@ class TestAttendanceRequestOverride(FrappeTestCase):
         self.assertEqual(len(attendances), 2)
         for attendance in attendances:
             self.assertEqual(attendance.status, "Present")
-            self.assertAlmostEqual(attendance.working_hours, 8.0)
+            self.assertFalse(attendance.working_hours)
+
+    def test_full_day_request_updates_status_without_adding_existing_working_hours(self):
+        self.make_attendance(status="Half Day", working_hours=7.0)
+
+        attendance_request = self.make_attendance_request(
+            shift=self.day_shift.name,
+            custom_from_time="09:00:00",
+            custom_to_time="18:00:00",
+        )
+        attendance = self.get_request_attendance(attendance_request)
+
+        self.assertEqual(attendance.status, "Present")
+        self.assertAlmostEqual(attendance.working_hours, 7.0)
+
+    def test_opposite_half_day_request_with_leave_keeps_half_type_logic(self):
+        leave_application = self.make_half_day_leave_application(custom_half_type="Second Half")
+
+        attendance_request = self.make_attendance_request(
+            shift=self.day_shift.name,
+            custom_from_time="09:00:00",
+            custom_to_time="13:00:00",
+            half_day=1,
+            half_day_date=getdate(),
+            custom_half_type="First Half",
+        )
+        attendance = self.get_request_attendance(attendance_request)
+
+        self.assertEqual(attendance.status, "Present")
+        self.assertEqual(attendance.leave_application, leave_application.name)
+        self.assertEqual(attendance.attendance_request, attendance_request.name)
 
     def test_closest_shift_prefers_cross_day_overlap_for_early_morning_request(self):
         with patch(

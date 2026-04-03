@@ -164,7 +164,9 @@ def execute(filters=None):
                         holiday_extra_work = get_holiday_extra_work(emp_checkins)
                         if holiday_extra_work:
                             extra_worked[date_str] = holiday_extra_work
-            processed_value = get_status(employee.name, _date, emp_date_data, day_status)
+            processed_value = get_status(
+                employee.name, _date, emp_date_data, day_status, attendance_requests_map
+            )
             status_value = adjust_status_with_checkins(processed_value, emp_checkins, day_shift_name, shift_map)
             if has_mis_punch_request(
                 attendance_requests_map, employee.name, _date
@@ -452,6 +454,39 @@ def has_mis_punch_request(request_map: dict, employee: str, target_date: date):
     return False
 
 
+def has_full_day_official_request(request_map: dict, employee: str, target_date: date) -> bool:
+    employee_requests = request_map.get(employee)
+    if not employee_requests:
+        return False
+
+    requests_on_date = employee_requests.get(format_date(target_date), [])
+    if not requests_on_date:
+        return False
+
+    matching_half_day_requests = []
+    half_types = set()
+
+    for request in requests_on_date:
+        reason = (request.get("reason") or "").strip().lower()
+        if reason not in {"official", "tour"}:
+            continue
+
+        if not request.get("half_day"):
+            return True
+
+        half_day_date = request.get("half_day_date")
+        if half_day_date and getdate(half_day_date) == target_date:
+            matching_half_day_requests.append(request)
+            half_type = (request.get("custom_half_type") or "").strip().lower()
+            if half_type:
+                half_types.add(half_type)
+
+    if len(half_types) >= 2:
+        return True
+
+    return len(matching_half_day_requests) >= 2 and not half_types
+
+
 def get_rows(pairs, dates):
     paired_rows = []
 
@@ -489,7 +524,7 @@ def get_shifts():
     return frappe.get_all("Shift Type", fields=["*"])
 
 
-def get_status(employee, date, data_on_date, day_status):
+def get_status(employee, date, data_on_date, day_status, attendance_requests_map=None):
     status = day_status
     date = getdate(date)
     attendance = data_on_date.get("attendance", [])
@@ -546,14 +581,19 @@ def get_status(employee, date, data_on_date, day_status):
             status = "OD"
             attendance_request = frappe.get_cached_doc("Attendance Request", attendance.attendance_request)
             if attendance_request.half_day_date == date:
-                status = "HOD"
-                if attendance.leave_application:
-                    if attendance.custom_attendance_tag == "EL":
-                        status = "ODEL"
-                    elif attendance.custom_attendance_tag == "CL":
-                        status = "ODCL"
-                    elif attendance.custom_attendance_tag == "CO":
-                        status = "ODCO"
+                if attendance_requests_map and has_full_day_official_request(
+                    attendance_requests_map, employee, date
+                ):
+                    status = "OD"
+                else:
+                    status = "HOD"
+                    if attendance.leave_application:
+                        if attendance.custom_attendance_tag == "EL":
+                            status = "ODEL"
+                        elif attendance.custom_attendance_tag == "CL":
+                            status = "ODCL"
+                        elif attendance.custom_attendance_tag == "CO":
+                            status = "ODCO"
 
             if attendance_request.reason == "Mis Punch":
                 status = "MIS"

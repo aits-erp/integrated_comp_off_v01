@@ -102,7 +102,6 @@ def process_attendance_from_attendance_summary_queue(employee, company):
 
     emp_filter = set()
     if not x.get("result"):
-        frappe.log_error(f"attendance marking {employee}", employee)
         cur_date = fr_date
         emp_grade = frappe.db.get_value("Employee", employee, "grade")
         is_active = frappe.db.get_value("Employee", employee, "status")
@@ -478,7 +477,6 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
 
     emp_filter = set()
     if not x.get("result"):
-        frappe.log_error(f"attendance marking {employee}", employee)
         cur_date = fr_date
         emp_grade = frappe.db.get_value("Employee", employee, "grade")
         is_active = frappe.db.get_value("Employee", employee, "status")
@@ -492,9 +490,6 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
                 while cur_date <= frappe.utils.getdate(
                     frappe.utils.add_to_date(frappe.utils.today(), days=-2)
                 ):
-                    frappe.log_error(
-                        f"attendance marking {employee}{cur_date}", employee
-                    )
                     attendance_exists = frappe.db.get_all(
                         "Attendance",
                         fields=["name"],
@@ -557,9 +552,6 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
                     cur_date = frappe.utils.add_to_date(cur_date, days=1)
     else:
         for i in x.get("result"):
-            frappe.log_error(
-                f"attendance marking {i.get('employee')}", i.get("employee")
-            )
             employee_code = i.get("employee")
             if employee_code in all_emp_list and employee_code not in emp_filter:
                 emp_filter.add(employee_code)
@@ -613,6 +605,7 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
 
             merged_list = list(merged_dict.values())
             mark_till = t_date  # noqa: F841
+            date_of_joining = frappe.db.get_value("Employee", key, "date_of_joining")
             for r in merged_list:
                 holiday_sql = frappe.db.sql(
                     f"""
@@ -696,6 +689,10 @@ def process_attendance_for_last_day_of_month_queue(employee, company):
                             attendance_date
                         ) <= frappe.utils.getdate(
                             frappe.utils.add_to_date(frappe.utils.getdate(), days=-2)
+                        ) and (
+                            not date_of_joining
+                            or frappe.utils.getdate(attendance_date)
+                            >= frappe.utils.getdate(date_of_joining)
                         ):
                             attendance = frappe.new_doc("Attendance")
                             try:

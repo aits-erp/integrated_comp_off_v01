@@ -103,7 +103,9 @@ def build_day_snapshot(employee, target_date, emp_data, attendance_requests_map,
     if not shift_name and checkins_on_date:
         shift_name = checkins_on_date[0].get("shift") or ""
 
-    processed_value = dw.get_status(employee.name, target_date, emp_date_data, day_status)
+    processed_value = dw.get_status(
+        employee.name, target_date, emp_date_data, day_status, attendance_requests_map
+    )
     status_value = dw.adjust_status_with_checkins(processed_value, checkins_on_date, shift_name, shift_map)
     if dw.has_mis_punch_request(attendance_requests_map, employee.name, target_date):
         status_value = "MIS"

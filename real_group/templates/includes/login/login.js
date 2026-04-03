@@ -194,7 +194,7 @@ login.redirect_if_authenticated = function () {
 
 
 // Login
-login.call = function (args, callback, url="/") {
+login.call = function (args, callback, url = "/") {
 	login.set_status('{{ _("Verifying...") }}', 'blue');
 
 	return frappe.call({

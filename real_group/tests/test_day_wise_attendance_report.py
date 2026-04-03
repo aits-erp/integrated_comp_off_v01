@@ -90,6 +90,61 @@ class TestDayWiseAttendanceReport(TestCase):
 
         self.assertEqual(result, "ELCO")
 
+    def test_get_status_treats_two_complementary_half_day_official_requests_as_od(self):
+        target_date = date(2026, 3, 13)
+        request_map = {
+            "10079": {
+                day_wise_attendance.format_date(target_date): [
+                    day_wise_attendance.frappe._dict(
+                        {
+                            "name": "HR-ARQ-1",
+                            "reason": "Official",
+                            "half_day": 1,
+                            "half_day_date": target_date,
+                            "custom_half_type": "First Half",
+                        }
+                    ),
+                    day_wise_attendance.frappe._dict(
+                        {
+                            "name": "HR-ARQ-2",
+                            "reason": "Official",
+                            "half_day": 1,
+                            "half_day_date": target_date,
+                            "custom_half_type": "Second Half",
+                        }
+                    ),
+                ]
+            }
+        }
+        data_on_date = {
+            "attendance": [
+                day_wise_attendance.frappe._dict(
+                    {
+                        "attendance_request": "HR-ARQ-2",
+                        "leave_application": None,
+                        "leave_type": None,
+                        "custom_attendance_tag": "P",
+                    }
+                )
+            ],
+            "checkins": [],
+        }
+
+        with patch.object(
+            day_wise_attendance.frappe,
+            "get_cached_doc",
+            return_value=SimpleNamespace(
+                name="HR-ARQ-2",
+                reason="Official",
+                half_day=1,
+                half_day_date=target_date,
+                custom_half_type="Second Half",
+            ),
+        ):
+            result = day_wise_attendance.get_status("10079", target_date, data_on_date, "P", request_map)
+
+        self.assertEqual(result, "OD")
+
     @patch.object(day_wise_attendance.frappe, "get_all")
     def test_day_wise_get_employees_excludes_records_outside_report_month(self, mock_get_all):
         mock_get_all.return_value = [

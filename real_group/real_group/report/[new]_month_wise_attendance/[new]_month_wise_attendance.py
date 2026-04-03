@@ -169,7 +169,9 @@ def execute(filters=None):
                         holiday_extra_work = day_wise_attendance.get_holiday_extra_work(emp_checkins)
                         if holiday_extra_work:
                             extra_worked[date_str] = holiday_extra_work
-            processed_value = day_wise_attendance.get_status(employee.name, _date, emp_date_data, day_status)
+            processed_value = day_wise_attendance.get_status(
+                employee.name, _date, emp_date_data, day_status, attendance_requests_map
+            )
             status_value = day_wise_attendance.adjust_status_with_checkins(
                 processed_value, emp_checkins, day_shift_name, shift_map
             )

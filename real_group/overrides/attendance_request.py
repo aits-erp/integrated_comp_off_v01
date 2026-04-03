@@ -153,7 +153,6 @@ class AttendanceRequestOverride(AttendanceRequest):
     def create_or_update_attendance(self, date: str):
         attendance_name = self.get_attendance_record(date)
         status = self.get_attendance_status(date)
-        request_working_hours = self.get_working_hours(date)
         attendance = None
         if attendance_name:
             old_status = frappe.db.get_value("Attendance", attendance_name, "status")
@@ -170,10 +169,6 @@ class AttendanceRequestOverride(AttendanceRequest):
         else:
             doc = frappe.new_doc("Attendance")
 
-        if doc.working_hours:
-            doc.working_hours += request_working_hours
-        else:
-            doc.working_hours = request_working_hours
         doc.update(
             {
                 "employee": self.employee,
