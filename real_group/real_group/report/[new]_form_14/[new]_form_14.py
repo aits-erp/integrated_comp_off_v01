@@ -1,11 +1,11 @@
 # Copyright (c) 2025, rtCamp and contributors
 # For license information, please see license.txt
 
-from datetime import date
+from datetime import date, timedelta
 from importlib import import_module
 
 import frappe
-from frappe.utils import cint, format_date, getdate
+from frappe.utils import cint, format_date, get_timedelta, getdate
 
 from real_group.utils import is_holiday_for_employee
 
@@ -117,6 +117,8 @@ def build_day_snapshot(employee, target_date, emp_data, attendance_requests_map,
     )
 
     half_type = resolve_half_type(attendance_on_date, attendance_requests_map, employee.name, target_date)
+    if not half_type and (processed_status == "HD" or status_value == "HD"):
+        half_type = derive_half_day_present_half(attendance_doc, checkins_on_date, shift_name, shift_map)
 
     first_half, second_half = map_status_to_halves(
         processed_status, status_value, checkins_on_date, worked_hours, holiday_info, half_type
@@ -161,6 +163,20 @@ def _extract_half_type(source):
     return _get_field(source, "custom_half_type")
 
 
+def derive_half_day_present_half(attendance_doc, checkins, shift_name, shift_map):
+    in_time = _get_boundary_time(attendance_doc, checkins, "IN")
+    shift_start = _get_shift_start(attendance_doc, checkins, shift_name, shift_map)
+    threshold_delta = _get_half_day_split_threshold(shift_name, shift_map)
+
+    if not in_time or not shift_start or not threshold_delta:
+        return None
+
+    half_boundary = shift_start + (threshold_delta / 2)
+    if in_time > half_boundary:
+        return "Second Half"
+    return "First Half"
+
+
 def _get_field(source, fieldname, default=None):
     if not source:
         return default
@@ -187,6 +203,62 @@ def _get_time_from_log(log):
     try:
         return log.time
     except AttributeError:
+        return None
+
+
+def _get_boundary_time(attendance_doc, checkins, log_type):
+    fieldname = "in_time" if log_type == "IN" else "out_time"
+    field_value = _get_field(attendance_doc, fieldname)
+    if field_value:
+        return field_value
+
+    matching_logs = [
+        log for log in checkins if (_get_field(log, "log_type", "") or "").upper() == log_type
+    ]
+    if not matching_logs:
+        return None
+
+    matching_logs = sorted(matching_logs, key=lambda log: _get_field(log, "time"))
+    target_log = matching_logs[0] if log_type == "IN" else matching_logs[-1]
+    return _get_field(target_log, "time")
+
+
+def _get_shift_start(attendance_doc, checkins, shift_name, shift_map):
+    for log in checkins:
+        shift_start = _get_field(log, "shift_start")
+        if shift_start:
+            return shift_start
+
+    shift_doc = shift_map.get(shift_name) if shift_map else None
+    in_time = _get_field(attendance_doc, "in_time")
+    if not shift_doc or not in_time or not shift_doc.start_time:
+        return None
+
+    shift_start = in_time.replace(
+        hour=shift_doc.start_time.hour,
+        minute=shift_doc.start_time.minute,
+        second=shift_doc.start_time.second,
+        microsecond=0,
+    )
+    if shift_start > in_time:
+        shift_start -= timedelta(days=1)
+    return shift_start
+
+
+def _get_half_day_split_threshold(shift_name, shift_map):
+    shift_doc = shift_map.get(shift_name) if shift_map else None
+    if not shift_doc:
+        return None
+
+    raw_value = _get_field(shift_doc, "custom_working_hours_threshold_for_half_day") or _get_field(
+        shift_doc, "custom_half_day_threshold"
+    )
+    if not raw_value:
+        return None
+
+    try:
+        return get_timedelta(raw_value)
+    except Exception:
         return None
 
 
@@ -269,6 +341,10 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
     leave_half_map = {"HEL": "EL", "HCL": "CL", "HCO": "CO"}
     processed_leave_half_map = {"PEL": "EL", "PCL": "CL", "PCO": "CO"}
     processed_official_half_map = {"POD": "OD"}
+
+    if code == "HD" and half_type_code:
+        base_pair = ("P", "A") if half_type_code == "FIRST" else ("A", "P")
+        return rebalance_presence_halves(base_pair, presence_first_half, force_order=True)
 
     if code in leave_half_map:
         leave_code = leave_half_map[code]

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from importlib import import_module
 from types import SimpleNamespace
 from unittest import TestCase
@@ -105,6 +105,48 @@ class TestForm14Report(TestCase):
         result = form_14.map_status_to_halves("HD", "HD", checkins, 7.63, False, None)
 
         self.assertEqual(result, ("A", "P"))
+
+    def test_derive_half_day_present_half_uses_shift_boundary_for_day_shift(self):
+        attendance = {"in_time": datetime(2026, 3, 19, 12, 56, 22)}
+        checkins = [
+            SimpleNamespace(
+                time=datetime(2026, 3, 19, 12, 56, 22),
+                log_type="IN",
+                shift_start=datetime(2026, 3, 19, 10, 0, 0),
+            )
+        ]
+        shift_map = {
+            "F": SimpleNamespace(
+                custom_working_hours_threshold_for_half_day="4:00:00",
+                custom_half_day_threshold="4:00:00",
+                start_time=time(10, 0, 0),
+            )
+        }
+
+        result = form_14.derive_half_day_present_half(attendance, checkins, "F", shift_map)
+
+        self.assertEqual(result, "Second Half")
+
+    def test_derive_half_day_present_half_handles_cross_midnight_shift(self):
+        attendance = {"in_time": datetime(2026, 3, 26, 0, 35, 0)}
+        checkins = [
+            SimpleNamespace(
+                time=datetime(2026, 3, 26, 0, 35, 0),
+                log_type="IN",
+                shift_start=datetime(2026, 3, 25, 22, 0, 0),
+            )
+        ]
+        shift_map = {
+            "C": SimpleNamespace(
+                custom_working_hours_threshold_for_half_day="4:00:00",
+                custom_half_day_threshold="4:00:00",
+                start_time=time(22, 0, 0),
+            )
+        }
+
+        result = form_14.derive_half_day_present_half(attendance, checkins, "C", shift_map)
+
+        self.assertEqual(result, "Second Half")
 
     def test_processed_first_half_official_keeps_od_on_first_half(self):
         checkins = [
