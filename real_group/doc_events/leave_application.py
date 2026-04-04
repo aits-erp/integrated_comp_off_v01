@@ -474,8 +474,23 @@ def validate_leave_balance(doc):
             return
         pending = leave_allocation[doc.leave_type]["leaves_pending_approval"] or 0
 
-        # Avoid double counting this same document when it already exists in Open state.
-        if not doc.is_new():
+        if is_hr_final_approval:
+            # At final HR approval, reserve balance only for earlier pending leave dates.
+            earlier_pending = frappe.get_all(
+                "Leave Application",
+                filters={
+                    "employee": doc.employee,
+                    "leave_type": doc.leave_type,
+                    "status": "Open",
+                    "docstatus": 0,
+                    "name": ["!=", doc.name],
+                    "from_date": ["<", doc.from_date],
+                },
+                fields=["SUM(total_leave_days) as leaves"],
+            )
+            pending = (earlier_pending[0].get("leaves") or 0) if earlier_pending else 0
+        elif not doc.is_new():
+            # Avoid double counting this same document when it already exists in Open state.
             existing = frappe.db.get_value(
                 "Leave Application",
                 doc.name,
