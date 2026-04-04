@@ -82,12 +82,39 @@ class TestForm14Report(TestCase):
 
         self.assertEqual(result, ("P", "CL"))
 
+    def test_half_day_leave_with_second_half_type_and_single_mispunch_keeps_absent_first_half(self):
+        checkins = [SimpleNamespace(time=datetime(2026, 3, 3, 9, 59, 48))]
+
+        result = form_14.map_status_to_halves("HCL", "HCL", checkins, 0.0, False, "Second Half")
+
+        self.assertEqual(result, ("A", "CL"))
+
     def test_optional_leave_half_without_half_type_does_not_crash(self):
         checkins = [SimpleNamespace(time=datetime(2026, 1, 26, 9, 0, 0))]
 
         result = form_14.map_status_to_halves("ELHO", "ELHO", checkins, 4.0, {"is_holiday": 1}, None)
 
         self.assertEqual(result, ("P", "EL"))
+
+    def test_half_day_uses_in_punch_to_place_presence_on_second_half_for_night_shift(self):
+        checkins = [
+            SimpleNamespace(time=datetime(2026, 3, 25, 22, 23, 14), log_type="IN"),
+            SimpleNamespace(time=datetime(2026, 3, 26, 6, 0, 58), log_type="OUT"),
+        ]
+
+        result = form_14.map_status_to_halves("HD", "HD", checkins, 7.63, False, None)
+
+        self.assertEqual(result, ("A", "P"))
+
+    def test_processed_first_half_official_keeps_od_on_first_half(self):
+        checkins = [
+            SimpleNamespace(time=datetime(2026, 3, 25, 22, 23, 14), log_type="IN"),
+            SimpleNamespace(time=datetime(2026, 3, 26, 6, 0, 58), log_type="OUT"),
+        ]
+
+        result = form_14.map_status_to_halves("POD", "HOD", checkins, 7.63, False, "First Half")
+
+        self.assertEqual(result, ("OD", "P"))
 
     def test_rebalance_presence_halves_handles_empty_pair(self):
         self.assertEqual(form_14.rebalance_presence_halves(None, False), ("", ""))

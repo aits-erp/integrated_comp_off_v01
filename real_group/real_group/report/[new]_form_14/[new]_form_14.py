@@ -259,20 +259,24 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
             elif normal_code == "A1":
                 code = "A1"
     presence_first_half, presence_second_half = infer_presence_halves(checkins)
+    leave_presence_confirmed = has_confirmed_presence(worked_hours, checkins)
+    leave_presence_first_half = presence_first_half if leave_presence_confirmed else False
+    leave_presence_second_half = presence_second_half if leave_presence_confirmed else False
     presence = presence_first_half or presence_second_half or (worked_hours and worked_hours > 0)
     is_day_off = bool(holiday_info.get("is_holiday")) if isinstance(holiday_info, dict) else False
 
     # Presence-aware handling for half-day leave combos where order depends on which half had presence.
     leave_half_map = {"HEL": "EL", "HCL": "CL", "HCO": "CO"}
     processed_leave_half_map = {"PEL": "EL", "PCL": "CL", "PCO": "CO"}
+    processed_official_half_map = {"POD": "OD"}
 
     if code in leave_half_map:
         leave_code = leave_half_map[code]
         return rebalance_presence_halves(
             map_half_day_leave(
                 leave_code,
-                presence_first_half,
-                presence_second_half,
+                leave_presence_first_half,
+                leave_presence_second_half,
                 default_present_first=False,
                 half_type=half_type_code,
             ),
@@ -285,20 +289,40 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
         return rebalance_presence_halves(
             map_half_day_leave(
                 leave_code,
-                presence_first_half,
-                presence_second_half,
+                leave_presence_first_half,
+                leave_presence_second_half,
                 default_present_first=True,
                 half_type=half_type_code,
             ),
             presence_first_half,
             force_order=bool(half_type_code),
         )
+
+    if code in processed_official_half_map:
+        official_code = processed_official_half_map[code]
+        return rebalance_presence_halves(
+            map_half_day_leave(
+                official_code,
+                leave_presence_first_half,
+                leave_presence_second_half,
+                default_present_first=True,
+                half_type=half_type_code,
+            ),
+            presence_first_half,
+            force_order=bool(half_type_code),
+        )
+
     # Optional leave + holiday (HO) combos: keep HO on the half without presence.
     optional_leave_map = {"ELHO": "EL", "CLHO": "CL", "COHO": "CO"}
     if code in optional_leave_map:
         leave_code = optional_leave_map[code]
         return rebalance_presence_halves(
-            map_optional_leave_half(leave_code, presence_first_half, presence_second_half, half_type=half_type_code),
+            map_optional_leave_half(
+                leave_code,
+                leave_presence_first_half,
+                leave_presence_second_half,
+                half_type=half_type_code,
+            ),
             presence_first_half,
             force_order=bool(half_type_code),
         )
@@ -371,8 +395,10 @@ def infer_presence_halves(checkins):
         return False, False
     has_first = False
     has_second = False
+    in_logs = [log for log in checkins if (_get_field(log, "log_type", "") or "").upper() == "IN"]
+    logs_for_presence = in_logs or checkins
     try:
-        for log in sorted(checkins, key=_get_time_from_log):
+        for log in sorted(logs_for_presence, key=_get_time_from_log):
             ts = _get_time_from_log(log)
             if not ts:
                 continue
@@ -393,6 +419,15 @@ def infer_presence_halves(checkins):
         return True, False
 
     return has_first, has_second
+
+
+def has_confirmed_presence(worked_hours, checkins):
+    checker = getattr(dw, "_has_confirmed_presence", None)
+    if callable(checker):
+        return checker(worked_hours, checkins)
+    if worked_hours and worked_hours > 0:
+        return True
+    return bool(checkins and len(checkins) >= 2)
 
 
 def rebalance_presence_halves(pair, presence_first_half, force_order=False):
