@@ -482,6 +482,31 @@ class TestDayWiseAttendanceReport(TestCase):
 
         self.assertEqual(result, "EL")
 
+    def test_day_off_status_returns_half_day_leave_tag_for_sandwich_leave(self):
+        attendance = day_wise_attendance.frappe._dict(
+            {
+                "status": "Half Day",
+                "custom_attendance_tag": "CL",
+                "leave_application": "RB-LAP-24-0001447",
+                "custom_marked_absent_by_sandwich": 1,
+            }
+        )
+        leave_application = day_wise_attendance.frappe._dict(
+            {
+                "half_day": 1,
+                "half_day_date": date(2026, 3, 31),
+            }
+        )
+
+        with (
+            patch.object(day_wise_attendance, "is_holiday_for_employee", return_value={"is_holiday": True}),
+            patch.object(day_wise_attendance, "get_attendance_record", return_value=attendance),
+            patch.object(day_wise_attendance.frappe, "get_cached_doc", return_value=leave_application),
+        ):
+            result = day_wise_attendance.get_employee_day_off_status("10568", date(2026, 3, 31), [])
+
+        self.assertEqual(result, "HCL")
+
     def test_half_day_leave_processed_status_stays_hcl_for_single_mispunch(self):
         result = day_wise_attendance.derive_processed_status(
             "HCL",

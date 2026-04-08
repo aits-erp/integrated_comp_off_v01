@@ -627,6 +627,9 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
     if attendance_on_day_off:
         tag = (attendance_on_day_off.get("custom_attendance_tag") or "").strip()
         if tag:
+            half_day_leave_tag = get_half_day_leave_tag_for_day_off(attendance_on_day_off, target_date)
+            if half_day_leave_tag:
+                return half_day_leave_tag
             if tag in {"A", "A1"} and getattr(attendance_on_day_off, "custom_marked_absent_by_sandwich", 0):
                 return "A1"
             if tag == "WO" and day_off_data.get("is_weekly_off") and has_checkins:
@@ -648,6 +651,31 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
         return "POW" if has_checkins else "WO"
 
     return "POH" if has_checkins else "HO"
+
+
+def get_half_day_leave_tag_for_day_off(attendance_on_day_off, target_date):
+    if not attendance_on_day_off:
+        return None
+
+    attendance_status = cstr(attendance_on_day_off.get("status")).strip().lower()
+    if attendance_status != "half day":
+        return None
+
+    leave_application_name = attendance_on_day_off.get("leave_application")
+    if not leave_application_name:
+        return None
+
+    leave_application = frappe.get_cached_doc("Leave Application", leave_application_name)
+    if not getattr(leave_application, "half_day", False):
+        return None
+
+    half_day_date = getattr(leave_application, "half_day_date", None)
+    if not half_day_date or getdate(half_day_date) != getdate(target_date):
+        return None
+
+    tag = cstr(attendance_on_day_off.get("custom_attendance_tag")).strip().upper()
+    mapping = {"CL": "HCL", "EL": "HEL", "CO": "HCO", "LW": "HLW", "LWP": "HLW"}
+    return mapping.get(tag)
 
 
 def get_day_off_attendance_request_status(employee: str, target_date):
