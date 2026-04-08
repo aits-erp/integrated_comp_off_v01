@@ -181,11 +181,19 @@ class LeaveApplicationOverride(LeaveApplication):
             doc = frappe.get_doc("Attendance", attendance_name)
             final_status = status
             holiday = is_holiday_for_employee(self.employee, date) or {}
+            current_leave_is_lwp = frappe.db.get_value("Leave Type", self.leave_type, "is_lwp")
+            existing_leave_is_lwp = (
+                frappe.db.get_value("Leave Type", doc.leave_type, "is_lwp") if doc.leave_type else 0
+            )
 
             # Match Attendance Request behavior for half-day merge:
             # existing half-day attendance + half-day leave => present.
             if doc.status == "Half Day" and status == "Half Day":
-                if not holiday_matches_requested_half(holiday, self.custom_half_type):
+                if (
+                    not current_leave_is_lwp
+                    and not existing_leave_is_lwp
+                    and not holiday_matches_requested_half(holiday, self.custom_half_type)
+                ):
                     final_status = "Present"
 
             doc.db_set(

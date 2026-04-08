@@ -172,7 +172,8 @@ def update_attendance_status(doc):
                     or not leave_half_type
                 )
             ):
-                doc.status = "Present"
+                if not is_lwp:
+                    doc.status = "Present"
 
         frappe.db.set_value("Attendance", doc.name, "status", doc.status)
 

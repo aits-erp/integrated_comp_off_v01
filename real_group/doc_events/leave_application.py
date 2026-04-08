@@ -412,12 +412,17 @@ def has_present_day_between(employee, start_date, end_date):
     start_date = getdate(start_date)
     end_date = getdate(end_date)
     _filter_dates = []
-    while start_date <= end_date:
-        if is_holiday_for_employee(employee, start_date):
-            start_date = add_days(start_date, 1)
+    current_date = add_days(start_date, 1)
+
+    while current_date < end_date:
+        if is_holiday_for_employee(employee, current_date):
+            current_date = add_days(current_date, 1)
             continue
-        _filter_dates.append(start_date)
-        start_date = add_days(start_date, 1)
+        _filter_dates.append(current_date)
+        current_date = add_days(current_date, 1)
+
+    if not _filter_dates:
+        return False
 
     return bool(
         frappe.db.exists(

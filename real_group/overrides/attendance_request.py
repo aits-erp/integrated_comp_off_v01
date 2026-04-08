@@ -156,9 +156,14 @@ class AttendanceRequestOverride(AttendanceRequest):
         attendance = None
         if attendance_name:
             old_status = frappe.db.get_value("Attendance", attendance_name, "status")
+            existing_leave_type = frappe.db.get_value("Attendance", attendance_name, "leave_type")
+            existing_leave_is_lwp = (
+                frappe.db.get_value("Leave Type", existing_leave_type, "is_lwp") if existing_leave_type else 0
+            )
 
             if old_status == status and old_status == "Half Day" and status == "Half Day":
-                status = "Present"
+                if not existing_leave_is_lwp:
+                    status = "Present"
             # Need to create new record, so cancel the existing one
             old_attendance = frappe.get_doc("Attendance", attendance_name)
             old_attendance.cancel()
