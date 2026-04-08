@@ -10,7 +10,9 @@ from hrms.hr.doctype.leave_application.leave_application import (
     get_leaves_for_period,
     get_new_and_cf_leaves_taken,
 )
-from hrms.hr.doctype.leave_application.leave_application import get_holidays as _get_holidays
+from hrms.hr.doctype.leave_application.leave_application import (
+    get_holidays as _get_holidays,
+)
 
 from real_group.utils import holiday_matches_requested_half, is_holiday_for_employee
 
@@ -19,7 +21,9 @@ from real_group.utils import holiday_matches_requested_half, is_holiday_for_empl
 def get_holidays(employee, from_date, to_date, holiday_list=None):
     holidays = _get_holidays(employee, from_date, to_date, holiday_list)
 
-    weekly_holiday_list = frappe.db.get_value("Employee", employee, "custom_weekly_holiday_list")
+    weekly_holiday_list = frappe.db.get_value(
+        "Employee", employee, "custom_weekly_holiday_list"
+    )
 
     weekly_holidays = frappe.db.count(
         "Weekly Off Holiday",
@@ -76,7 +80,9 @@ def get_number_of_leave_days(
     grade = frappe.db.get_value("Employee", employee, "grade")
     apply_sandwich = False
     if grade:
-        apply_sandwich = frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag") == 1
+        apply_sandwich = (
+            frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag") == 1
+        )
 
     total = 0.0
     current = from_date
@@ -133,18 +139,32 @@ def get_leave_balance_on(
     allocation = allocation_records.get(leave_type, frappe._dict())
 
     if not allocation:
-        empty_balance = frappe._dict(leave_balance=0.0, leave_balance_for_consumption=0.0)
+        empty_balance = frappe._dict(
+            leave_balance=0.0, leave_balance_for_consumption=0.0
+        )
         return empty_balance if for_consumption else 0.0
 
-    end_date = allocation.to_date if cint(consider_all_leaves_in_the_allocation_period) else date
-    cf_expiry = get_allocation_expiry_for_cf_leaves(employee, leave_type, to_date, allocation.from_date)
+    end_date = (
+        allocation.to_date
+        if cint(consider_all_leaves_in_the_allocation_period)
+        else date
+    )
+    cf_expiry = get_allocation_expiry_for_cf_leaves(
+        employee, leave_type, to_date, allocation.from_date
+    )
 
-    leaves_taken = get_leaves_for_period(employee, leave_type, allocation.from_date, end_date)
+    leaves_taken = get_leaves_for_period(
+        employee, leave_type, allocation.from_date, end_date
+    )
 
     # Only count manual expiry entries up to the balance reference date.
-    manually_expired_leaves = get_manually_expired_leaves(employee, leave_type, allocation.from_date, date)
+    manually_expired_leaves = get_manually_expired_leaves(
+        employee, leave_type, allocation.from_date, date
+    )
 
-    remaining_leaves = get_remaining_leaves(allocation, leaves_taken, date, cf_expiry, manually_expired_leaves)
+    remaining_leaves = get_remaining_leaves(
+        allocation, leaves_taken, date, cf_expiry, manually_expired_leaves
+    )
 
     if for_consumption:
         return remaining_leaves
@@ -174,7 +194,9 @@ def get_remaining_leaves(
 
     if cf_expiry and allocation.unused_leaves:
         # allocation contains both carry forwarded and new leaves
-        new_leaves_taken, cf_leaves_taken = get_new_and_cf_leaves_taken(allocation, cf_expiry)
+        new_leaves_taken, cf_leaves_taken = get_new_and_cf_leaves_taken(
+            allocation, cf_expiry
+        )
 
         if getdate(date) > getdate(cf_expiry):
             # carry forwarded leaves have expired
@@ -198,14 +220,22 @@ def get_remaining_leaves(
     else:
         # allocation only contains newly allocated leaves
         leave_balance = leave_balance_for_consumption = (
-            flt(allocation.total_leaves_allocated) + flt(leaves_taken) + flt(manually_expired_leaves)
+            flt(allocation.total_leaves_allocated)
+            + flt(leaves_taken)
+            + flt(manually_expired_leaves)
         )
 
-    remaining_leaves = _get_remaining_leaves(leave_balance_for_consumption, allocation.to_date)
-    return frappe._dict(leave_balance=leave_balance, leave_balance_for_consumption=remaining_leaves)
+    remaining_leaves = _get_remaining_leaves(
+        leave_balance_for_consumption, allocation.to_date
+    )
+    return frappe._dict(
+        leave_balance=leave_balance, leave_balance_for_consumption=remaining_leaves
+    )
 
 
-def get_manually_expired_leaves(employee: str, leave_type: str, from_date: datetime.date, end_date: datetime.date):
+def get_manually_expired_leaves(
+    employee: str, leave_type: str, from_date: datetime.date, end_date: datetime.date
+):
     ledger = frappe.qb.DocType("Leave Ledger Entry")
     allocation = frappe.qb.DocType("Leave Allocation")
 
