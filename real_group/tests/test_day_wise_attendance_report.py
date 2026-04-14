@@ -518,3 +518,49 @@ class TestDayWiseAttendanceReport(TestCase):
         )
 
         self.assertEqual(result, "HCL")
+
+    def test_half_day_leave_processed_status_stays_hcl_when_hours_below_half_day_threshold(self):
+        attendance = day_wise_attendance.frappe._dict({"shift": "B"})
+        checkins = [
+            day_wise_attendance.frappe._dict({"time": datetime(2026, 4, 8, 14, 0), "log_type": "IN", "shift": "B"}),
+            day_wise_attendance.frappe._dict({"time": datetime(2026, 4, 8, 17, 0), "log_type": "OUT", "shift": "B"}),
+        ]
+
+        with patch.object(
+            day_wise_attendance.frappe,
+            "get_cached_value",
+            side_effect=["3:50:01"],
+        ):
+            result = day_wise_attendance.derive_processed_status(
+                "HCL",
+                "HCL",
+                attendance,
+                checkins,
+                3.0,
+                {"is_holiday": False},
+            )
+
+        self.assertEqual(result, "HCL")
+
+    def test_half_day_leave_processed_status_becomes_pcl_when_hours_meet_half_day_threshold(self):
+        attendance = day_wise_attendance.frappe._dict({"shift": "B"})
+        checkins = [
+            day_wise_attendance.frappe._dict({"time": datetime(2026, 4, 8, 14, 0), "log_type": "IN", "shift": "B"}),
+            day_wise_attendance.frappe._dict({"time": datetime(2026, 4, 8, 18, 0), "log_type": "OUT", "shift": "B"}),
+        ]
+
+        with patch.object(
+            day_wise_attendance.frappe,
+            "get_cached_value",
+            side_effect=["3:50:01"],
+        ):
+            result = day_wise_attendance.derive_processed_status(
+                "HCL",
+                "HCL",
+                attendance,
+                checkins,
+                4.0,
+                {"is_holiday": False},
+            )
+
+        self.assertEqual(result, "PCL")

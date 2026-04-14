@@ -1046,7 +1046,12 @@ def derive_processed_status(status_code, processed_code, attendance_doc, checkin
         return "HOD"
 
     if primary_status in {"HCL", "HEL", "HCO"}:
-        return _map_half_day_leave_presence(primary_status, _has_confirmed_presence(worked_hours, checkins))
+        return _map_half_day_leave_presence(
+            primary_status,
+            attendance_doc,
+            checkins,
+            worked_hours,
+        )
 
     if primary_status == "MIS":
         return _derive_mis_processed_status(attendance_doc, presence)
@@ -1054,9 +1059,9 @@ def derive_processed_status(status_code, processed_code, attendance_doc, checkin
     return business_status or display_status
 
 
-def _map_half_day_leave_presence(status_code, presence):
+def _map_half_day_leave_presence(status_code, attendance_doc, checkins, worked_hours):
     mapping = {"HCL": "PCL", "HEL": "PEL", "HCO": "PCO"}
-    if presence and status_code in mapping:
+    if _has_half_day_qualifying_presence(attendance_doc, checkins, worked_hours) and status_code in mapping:
         return mapping[status_code]
     return status_code
 
@@ -1065,6 +1070,38 @@ def _has_confirmed_presence(worked_hours, checkins):
     if worked_hours and worked_hours > 0:
         return True
     return bool(checkins and len(checkins) >= 2)
+
+
+def _has_half_day_qualifying_presence(attendance_doc, checkins, worked_hours):
+    threshold_hours = _get_half_day_threshold_hours(attendance_doc, checkins)
+    effective_hours = worked_hours or _calculate_hours_from_checkins(checkins)
+
+    if threshold_hours is not None:
+        return bool(effective_hours and effective_hours >= threshold_hours)
+
+    return _has_confirmed_presence(worked_hours, checkins)
+
+
+def _get_half_day_threshold_hours(attendance_doc, checkins):
+    shift_name = None
+    if attendance_doc:
+        try:
+            shift_name = attendance_doc.get("shift")
+        except AttributeError:
+            shift_name = getattr(attendance_doc, "shift", None)
+
+    if not shift_name and checkins:
+        shift_name = checkins[0].get("shift")
+
+    if not shift_name:
+        return None
+
+    raw_threshold = frappe.get_cached_value("Shift Type", shift_name, "custom_working_hours_threshold_for_half_day")
+    if not raw_threshold:
+        raw_threshold = frappe.get_cached_value("Shift Type", shift_name, "custom_half_day_threshold")
+
+    threshold_hours = convert_time_to_hours(raw_threshold)
+    return threshold_hours if threshold_hours else None
 
 
 def _has_physical_presence(worked_hours, checkins):
