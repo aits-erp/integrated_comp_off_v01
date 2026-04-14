@@ -307,6 +307,69 @@ def get_valid_owning_shift_for_checkout(employee: str, punch_dt: datetime, grade
     return _get_shift_data_from_candidate(candidate_checkins[0])
 
 
+def get_checkout_validation_for_owning_shift(
+    owning_shift_data: dict | frappe._dict | None, punch_dt: datetime
+):
+    if not owning_shift_data:
+        return frappe._dict(
+            {
+                "is_valid": False,
+                "valid_until": None,
+                "is_cross_day": False,
+            }
+        )
+
+    shift_name = owning_shift_data.get("shift")
+    shift_start = owning_shift_data.get("shift_start")
+    shift_end = owning_shift_data.get("shift_end")
+
+    if not (shift_name and shift_start and shift_end):
+        return frappe._dict(
+            {
+                "is_valid": False,
+                "valid_until": None,
+                "is_cross_day": False,
+            }
+        )
+
+    shift_start = get_datetime(shift_start)
+    shift_end = get_datetime(shift_end)
+    is_cross_day = getdate(shift_start) != getdate(shift_end)
+    shift_type = get_shift_type(shift_name)
+
+    if not is_cross_day and shift_type:
+        is_cross_day = is_cross_day_shift_type(shift_type)
+
+    if not is_cross_day:
+        valid_until = datetime.combine(
+            getdate(shift_start) + timedelta(days=1), datetime.min.time()
+        )
+        return frappe._dict(
+            {
+                "is_valid": getdate(punch_dt) == getdate(shift_start),
+                "valid_until": valid_until,
+                "is_cross_day": False,
+            }
+        )
+
+    working_threshold = (
+        shift_type.get("custom_working_hours_threshold_for_present")
+        if shift_type
+        else None
+    )
+    valid_until = shift_end + timedelta(
+        minutes=(convert_time_to_minutes(working_threshold) / 2)
+    )
+
+    return frappe._dict(
+        {
+            "is_valid": punch_dt <= valid_until,
+            "valid_until": valid_until,
+            "is_cross_day": True,
+        }
+    )
+
+
 def process_employee_checkout(logs):
     log_map = defaultdict(list)
 
@@ -346,6 +409,14 @@ def process_employee_checkout(logs):
                 use_owning_shift = bool(
                     owning_shift_data and owning_shift_data.get("shift")
                 )
+                checkout_note = ""
+                if use_owning_shift:
+                    validation = get_checkout_validation_for_owning_shift(
+                        owning_shift_data, punch_dt
+                    )
+                    use_owning_shift = bool(validation.get("is_valid"))
+                    if not use_owning_shift:
+                        checkout_note = f" after original shift {owning_shift_data.get('shift')} expired"
 
                 if use_owning_shift:
                     shift_name = owning_shift_data.get("shift")
@@ -409,7 +480,7 @@ def process_employee_checkout(logs):
                 mark_bio_log(
                     log.name,
                     "Y",
-                    f"Checkout created {get_link_to_form('Employee Checkin', doc.name)}",
+                    f"Checkout created {get_link_to_form('Employee Checkin', doc.name)}{checkout_note}",
                     filter_values=filter_values,
                 )
             except Exception as e:
@@ -891,6 +962,7 @@ def get_shift_type(shift_type_name: str) -> dict:
             "enable_late_entry_marking",
             "enable_early_exit_marking",
             "custom_early_exit_grace_period",
+            "custom_working_hours_threshold_for_present",
         ],
         as_dict=1,
     )
