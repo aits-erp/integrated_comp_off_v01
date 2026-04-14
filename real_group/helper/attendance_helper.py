@@ -349,6 +349,10 @@ def create_attendance(
 
         if attendance_status == "Half Day" and is_half_day_holiday:
             final_status = "Present"
+        elif attendance_status == "Absent" and is_half_day_holiday:
+            # On half-day holidays, incomplete punches should still preserve
+            # the holiday half instead of converting the full day to Absent.
+            final_status = "Half Day"
 
         if not is_half_day_holiday:
             # For full holiday/weekly-off:

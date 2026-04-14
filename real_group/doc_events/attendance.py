@@ -132,6 +132,29 @@ def cancel_incentive_or_c_off(doc):
 
 
 def update_attendance_status(doc):
+    if doc.attendance_request and not doc.leave_application and doc.status == "Half Day":
+        is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
+        if is_holiday and is_holiday.get("is_half_day"):
+            request_half_day_date = frappe.get_value(
+                "Attendance Request", doc.attendance_request, "half_day_date"
+            )
+            request_half_type = frappe.get_value(
+                "Attendance Request", doc.attendance_request, "custom_half_type"
+            )
+            request_reason = frappe.get_value(
+                "Attendance Request", doc.attendance_request, "reason"
+            )
+            if (
+                request_half_day_date
+                and getdate(request_half_day_date) == getdate(doc.attendance_date)
+                and (
+                    half_types_differ(is_holiday.get("half_type"), request_half_type)
+                    or not request_half_type
+                )
+            ):
+                doc.status = "Half Day" if request_reason == "Mis Punch" else "Present"
+                frappe.db.set_value("Attendance", doc.name, "status", doc.status)
+
     if doc.leave_application and doc.status == "Half Day":
         is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
         is_lwp = frappe.get_value("Leave Type", doc.leave_type, "is_lwp")
