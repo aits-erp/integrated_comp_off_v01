@@ -45,7 +45,7 @@ def execute(filters=None):
         return [], []
 
     columns = get_columns()
-    data = get_data(filters)
+    data = get_data(filters, columns)
     return columns, data
 
 
@@ -468,7 +468,7 @@ def get_columns(sst_name_for_order=None):
 
 
 # ---------------- Data ----------------
-def get_data(filters):
+def get_data(filters, columns=None):
     year = filters.get("year")
     month = filters.get("month")
     employee = filters.get("employee")
@@ -612,7 +612,96 @@ def get_data(filters):
 
         result.append(res)
 
-    return result
+    return add_division_summary_rows(result, columns or get_columns())
+
+
+def get_division_sort_key(row):
+    return (
+        normalize_division_name(row.get("division")).casefold(),
+        get_employee_code_sort_key(row.get("emp")),
+        (row.get("emp_name") or "").strip().casefold(),
+    )
+
+
+def get_employee_code_sort_key(employee_code):
+    employee_code = str(employee_code or "").strip()
+    if employee_code.isdigit():
+        return (0, int(employee_code))
+    return (1, employee_code.casefold())
+
+
+def normalize_division_name(division_name):
+    division_name = (division_name or "").strip()
+    return division_name or "No Division"
+
+
+def add_division_summary_rows(rows, columns):
+    if not rows:
+        return []
+
+    rows = sorted(rows, key=get_division_sort_key)
+    numeric_fields = get_numeric_fieldnames(columns)
+    grouped_rows = []
+    grand_total_row = make_summary_row(columns, numeric_fields, "GRAND TOTAL", "grand_total")
+    current_division = None
+    division_total_row = None
+
+    # Insert division header and total rows after all employee-level calculations are ready.
+    for row in rows:
+        division_name = normalize_division_name(row.get("division"))
+        row["row_type"] = "detail"
+
+        if division_name != current_division:
+            if division_total_row:
+                grouped_rows.append(division_total_row)
+
+            grouped_rows.append(make_division_header_row(columns, division_name))
+            division_total_row = make_summary_row(columns, numeric_fields, "TOTAL", "division_total")
+            current_division = division_name
+
+        grouped_rows.append(row)
+        accumulate_numeric_fields(division_total_row, row, numeric_fields)
+        accumulate_numeric_fields(grand_total_row, row, numeric_fields)
+
+    if division_total_row:
+        grouped_rows.append(division_total_row)
+
+    grouped_rows.append(grand_total_row)
+    return grouped_rows
+
+
+def get_numeric_fieldnames(columns):
+    numeric_types = {"Currency", "Float", "Int", "Percent"}
+    return [
+        column.get("fieldname")
+        for column in columns
+        if column.get("fieldname") and column.get("fieldtype") in numeric_types
+    ]
+
+
+def make_empty_report_row(columns, row_type):
+    row = {column.get("fieldname"): None for column in columns if column.get("fieldname")}
+    row["row_type"] = row_type
+    return row
+
+
+def make_division_header_row(columns, division_name):
+    row = make_empty_report_row(columns, "division_header")
+    row["emp_name"] = division_name
+    return row
+
+
+def make_summary_row(columns, numeric_fields, label, row_type):
+    row = make_empty_report_row(columns, row_type)
+    row["emp_name"] = label
+    for fieldname in numeric_fields:
+        row[fieldname] = 0
+    return row
+
+
+def accumulate_numeric_fields(total_row, source_row, numeric_fields):
+    for fieldname in numeric_fields:
+        total_row[fieldname] = flt(total_row.get(fieldname)) + flt(source_row.get(fieldname))
 
 
 # ---------------- Salary Structure helpers ----------------
