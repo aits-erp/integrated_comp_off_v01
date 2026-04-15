@@ -293,7 +293,6 @@ def get_columns(sst_name_for_order=None):
         "Special Allowances": ("special_pay_actual", "SPECIAL"),
         "Local Transport Allowance": ("transport_allowance_actual", "TRANS"),
         "Children Hostel Allowance": ("children_allowance_actual", "CHILD"),
-        "Miscellaneous": ("misc_actual", "MISC"),
     }
 
     # Build allotted columns
