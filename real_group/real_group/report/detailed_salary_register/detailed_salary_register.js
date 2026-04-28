@@ -79,5 +79,27 @@ frappe.query_reports["Detailed Salary Register"] = {
 			options: years,
 			reqd: 1,
 		},
+		{
+			fieldname: "summarized_view",
+			label: __("Summarized View"),
+			fieldtype: "Check",
+			default: 0,
+		},
 	],
+	formatter: function (value, row, column, data, default_formatter) {
+		value = default_formatter(value, row, column, data);
+
+		if (!data || !["division_total", "grand_total"].includes(data.row_type)) {
+			return value;
+		}
+
+		const isDetailedTotalLabel = column.fieldname === "emp_name";
+		const isSummaryTotalLabel = column.fieldname === "division";
+
+		if (!isDetailedTotalLabel && !isSummaryTotalLabel) {
+			return value;
+		}
+
+		return `<span style="font-weight: 700; font-size: calc(100% + 2px);">${value}</span>`;
+	},
 };

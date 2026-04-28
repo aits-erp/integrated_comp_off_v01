@@ -2,6 +2,7 @@ from importlib import import_module
 
 import frappe
 from frappe.utils import flt, get_last_day, getdate
+from real_group.overrides.query_report_export import set_xlsx_cell_style_like_header
 
 # IMPORTANT: module path contains [new]_form_14 so normal import won't work
 new_form_14 = import_module("real_group.real_group.report.[new]_form_14.[new]_form_14")
@@ -32,7 +33,6 @@ HR_ACTUAL_ORDER = [
     "Canteen Allowance",
     "Washing Allowance",
     "Special Allowances",
-    "Local Transport Allowance",
     "Children Hostel Allowance",
 ]
 
@@ -44,13 +44,22 @@ def execute(filters=None):
     if not (filters.get("company") and filters.get("month") and filters.get("year")):
         return [], []
 
-    columns = get_columns()
+    columns = get_columns(filters)
     data = get_data(filters, columns)
     return columns, data
 
 
 # ---------------- Columns (ordered) ----------------
-def get_columns(sst_name_for_order=None):
+def get_columns(filters=None):
+    filters = frappe._dict(filters or {})
+
+    if filters.get("summarized_view"):
+        return get_summary_columns()
+
+    return get_detailed_columns()
+
+
+def get_detailed_columns():
     # Base columns (same as your sandbox)
     base_cols = [
         {
@@ -291,7 +300,6 @@ def get_columns(sst_name_for_order=None):
         "Canteen Allowance": ("canteen_allowance_actual", "CANTEEN"),
         "Washing Allowance": ("washing_allowance_actual", "WASH"),
         "Special Allowances": ("special_pay_actual", "SPECIAL"),
-        "Local Transport Allowance": ("transport_allowance_actual", "TRANS"),
         "Children Hostel Allowance": ("children_allowance_actual", "CHILD"),
     }
 
@@ -467,8 +475,138 @@ def get_columns(sst_name_for_order=None):
     return base_cols + allotted_cols + actual_cols + tail_cols
 
 
+def get_summary_columns():
+    return [
+        {
+            "fieldname": "division",
+            "fieldtype": "Data",
+            "label": "DIVISION",
+            "width": "220px",
+        },
+        {
+            "fieldname": "manpower",
+            "fieldtype": "Int",
+            "label": "MP",
+            "width": "80px",
+        },
+        {
+            "fieldname": "gross",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "GROSS",
+            "width": "120px",
+        },
+        {
+            "fieldname": "paid_days",
+            "fieldtype": "Float",
+            "precision": "1",
+            "label": "PD",
+            "width": "90px",
+        },
+        {
+            "fieldname": "earned_basic_actual",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "E_BASIC",
+            "width": "120px",
+        },
+        {
+            "fieldname": "gross_pay_total_earned",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "EARNED TOTAL",
+            "width": "140px",
+        },
+        {
+            "fieldname": "employee_provident_fund",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "EPF",
+            "width": "100px",
+        },
+        {
+            "fieldname": "esic",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "ESIC",
+            "width": "90px",
+        },
+        {
+            "fieldname": "loan",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "LOAN",
+            "width": "100px",
+        },
+        {
+            "fieldname": "salary_advance",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "ADV",
+            "width": "90px",
+        },
+        {
+            "fieldname": "income_tax",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "IT",
+            "width": "90px",
+        },
+        {
+            "fieldname": "misc_actual",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "MISC",
+            "width": "90px",
+        },
+        {
+            "fieldname": "labour_welfare_fund",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "LWF",
+            "width": "90px",
+        },
+        {
+            "fieldname": "other_ded",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "OTH DED",
+            "width": "110px",
+        },
+        {
+            "fieldname": "glwf",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "GLWF",
+            "width": "90px",
+        },
+        {
+            "fieldname": "total_deduction",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "DTOT",
+            "width": "110px",
+        },
+        {
+            "fieldname": "net_payment",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "NET PAYMENT",
+            "width": "140px",
+        },
+        {
+            "fieldname": "remark",
+            "fieldtype": "Data",
+            "label": "REMARK",
+            "width": "140px",
+        },
+    ]
+
+
 # ---------------- Data ----------------
 def get_data(filters, columns=None):
+    columns = columns or get_columns(filters)
+
     year = filters.get("year")
     month = filters.get("month")
     employee = filters.get("employee")
@@ -478,6 +616,7 @@ def get_data(filters, columns=None):
     department = filters.get("department")
 
     from_date, to_date = get_month_range(year, month)
+    precision_map = get_column_precision_map(columns)
 
     # Build WHERE safely
     where = ["1=1", "ss.docstatus <> 2"]
@@ -608,11 +747,17 @@ def get_data(filters, columns=None):
         apply_salary_slip_loan_deduction(res)
         apply_holiday_tour_overlap(res, from_date, to_date)
 
-        res["working_days"] = (res.get("month_days") or 0) - ((res.get("weekly_off") or 0) + (res.get("holiday") or 0))
+        res["working_days"] = (res.get("month_days") or 0) - (
+            (res.get("weekly_off") or 0) + (res.get("holiday") or 0)
+        )
 
+        apply_column_precision(res, precision_map)
         result.append(res)
 
-    return add_division_summary_rows(result, columns or get_columns())
+    if filters.get("summarized_view"):
+        return get_division_summary_data(result, columns)
+
+    return add_division_summary_rows(result, columns)
 
 
 def get_division_sort_key(row):
@@ -641,8 +786,11 @@ def add_division_summary_rows(rows, columns):
 
     rows = sorted(rows, key=get_division_sort_key)
     numeric_fields = get_numeric_fieldnames(columns)
+    precision_map = get_column_precision_map(columns)
     grouped_rows = []
-    grand_total_row = make_summary_row(columns, numeric_fields, "GRAND TOTAL", "grand_total")
+    grand_total_row = make_summary_row(
+        columns, numeric_fields, "GRAND TOTAL", "grand_total"
+    )
     current_division = None
     division_total_row = None
 
@@ -653,10 +801,13 @@ def add_division_summary_rows(rows, columns):
 
         if division_name != current_division:
             if division_total_row:
+                apply_column_precision(division_total_row, precision_map)
                 grouped_rows.append(division_total_row)
 
             grouped_rows.append(make_division_header_row(columns, division_name))
-            division_total_row = make_summary_row(columns, numeric_fields, "TOTAL", "division_total")
+            division_total_row = make_summary_row(
+                columns, numeric_fields, "TOTAL", "division_total"
+            )
             current_division = division_name
 
         grouped_rows.append(row)
@@ -664,10 +815,71 @@ def add_division_summary_rows(rows, columns):
         accumulate_numeric_fields(grand_total_row, row, numeric_fields)
 
     if division_total_row:
+        apply_column_precision(division_total_row, precision_map)
         grouped_rows.append(division_total_row)
 
+    apply_column_precision(grand_total_row, precision_map)
     grouped_rows.append(grand_total_row)
     return grouped_rows
+
+
+def get_division_summary_data(rows, columns):
+    if not rows:
+        return []
+
+    rows = sorted(rows, key=get_division_sort_key)
+    precision_map = get_column_precision_map(columns)
+    numeric_fields = [
+        fieldname
+        for fieldname in get_numeric_fieldnames(columns)
+        if fieldname != "manpower"
+    ]
+    summary_rows = []
+    grand_total_row = make_summary_row(
+        columns,
+        numeric_fields,
+        "GRAND TOTAL",
+        "grand_total",
+        label_fieldname="division",
+    )
+    division_totals = {}
+    division_employees = {}
+    grand_total_employees = set()
+
+    for row in rows:
+        division_name = normalize_division_name(row.get("division"))
+        division_total = division_totals.get(division_name)
+
+        if not division_total:
+            division_total = make_summary_row(
+                columns,
+                numeric_fields,
+                division_name,
+                "division_summary",
+                label_fieldname="division",
+            )
+            division_totals[division_name] = division_total
+            division_employees[division_name] = set()
+            summary_rows.append(division_total)
+
+        accumulate_numeric_fields(division_total, row, numeric_fields)
+        accumulate_numeric_fields(grand_total_row, row, numeric_fields)
+
+        employee = row.get("emp")
+        if employee and employee not in division_employees[division_name]:
+            division_employees[division_name].add(employee)
+            division_total["manpower"] = (division_total.get("manpower") or 0) + 1
+
+        if employee and employee not in grand_total_employees:
+            grand_total_employees.add(employee)
+            grand_total_row["manpower"] = (grand_total_row.get("manpower") or 0) + 1
+
+    for row in summary_rows:
+        apply_column_precision(row, precision_map)
+
+    apply_column_precision(grand_total_row, precision_map)
+    summary_rows.append(grand_total_row)
+    return summary_rows
 
 
 def get_numeric_fieldnames(columns):
@@ -679,8 +891,38 @@ def get_numeric_fieldnames(columns):
     ]
 
 
+def get_column_precision_map(columns):
+    precision_map = {}
+    for column in columns:
+        fieldname = column.get("fieldname")
+        fieldtype = column.get("fieldtype")
+
+        if not fieldname or fieldtype not in {"Currency", "Float", "Int", "Percent"}:
+            continue
+
+        if fieldtype == "Int":
+            precision_map[fieldname] = 0
+            continue
+
+        precision_map[fieldname] = int(column.get("precision") or 0)
+
+    return precision_map
+
+
+def apply_column_precision(row, precision_map):
+    for fieldname, precision in precision_map.items():
+        value = row.get(fieldname)
+        if value is None:
+            continue
+        row[fieldname] = flt(value, precision)
+
+    return row
+
+
 def make_empty_report_row(columns, row_type):
-    row = {column.get("fieldname"): None for column in columns if column.get("fieldname")}
+    row = {
+        column.get("fieldname"): None for column in columns if column.get("fieldname")
+    }
     row["row_type"] = row_type
     return row
 
@@ -691,9 +933,13 @@ def make_division_header_row(columns, division_name):
     return row
 
 
-def make_summary_row(columns, numeric_fields, label, row_type):
+def make_summary_row(
+    columns, numeric_fields, label, row_type, label_fieldname="emp_name"
+):
     row = make_empty_report_row(columns, row_type)
-    row["emp_name"] = label
+    row[label_fieldname] = label
+    if row_type in {"division_total", "grand_total"}:
+        set_xlsx_cell_style_like_header(row, label_fieldname)
     for fieldname in numeric_fields:
         row[fieldname] = 0
     return row
@@ -701,7 +947,9 @@ def make_summary_row(columns, numeric_fields, label, row_type):
 
 def accumulate_numeric_fields(total_row, source_row, numeric_fields):
     for fieldname in numeric_fields:
-        total_row[fieldname] = flt(total_row.get(fieldname)) + flt(source_row.get(fieldname))
+        total_row[fieldname] = flt(total_row.get(fieldname)) + flt(
+            source_row.get(fieldname)
+        )
 
 
 # ---------------- Salary Structure helpers ----------------
@@ -772,7 +1020,9 @@ def apply_salary_structure_allotted(res):
         elif comp in ("Miscellaneous", "MISC"):
             res["misc_alotted"] = amt
 
-    total_earnings = sum(flt(r.get("amount")) for r in rows if r.get("parentfield") == "earnings")
+    total_earnings = sum(
+        flt(r.get("amount")) for r in rows if r.get("parentfield") == "earnings"
+    )
     res["gross"] = total_earnings
     res["gross_pay_alotted"] = flt(res.get("gross_pay_alotted")) or total_earnings
 
@@ -964,7 +1214,9 @@ def apply_loan_installment_logic(res, from_date, to_date):
                 as_dict=True,
             )
             res["loan_closing"] = (
-                closing_loan_sql[0]["amount"] if closing_loan_sql and closing_loan_sql[0].get("amount") else 0
+                closing_loan_sql[0]["amount"]
+                if closing_loan_sql and closing_loan_sql[0].get("amount")
+                else 0
             )
     else:
         res["loan_opening_balance"] = 0

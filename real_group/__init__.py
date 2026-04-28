@@ -5,6 +5,10 @@ def monkey_patch():
     from frappe.www import login
 
     from real_group.api.overrides.auth import send_login_link as custom_send_login_link
+    from real_group.overrides.query_report_export import (
+        build_xlsx_data_with_cell_styles,
+        make_xlsx_with_cell_styles,
+    )
 
     login.send_login_link = custom_send_login_link
 
@@ -39,6 +43,12 @@ def monkey_patch():
     la.get_holidays = get_holidays
     la.get_number_of_leave_days = get_number_of_leave_days
     la.get_leave_balance_on = get_leave_balance_on
+
+    from frappe.desk import query_report
+    from frappe.utils import xlsxutils
+
+    query_report.build_xlsx_data = build_xlsx_data_with_cell_styles
+    xlsxutils.make_xlsx = make_xlsx_with_cell_styles
 
 
 monkey_patch()  # nosemgrep
