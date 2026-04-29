@@ -9,6 +9,7 @@ function getYearList(range = 3) {
 	return years;
 }
 
+
 frappe.query_reports["Late Arrival"] = {
 	filters: [
 		{

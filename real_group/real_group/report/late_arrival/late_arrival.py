@@ -263,11 +263,22 @@ def execute(filters=None):
 
                 st = None
                 et = None
+                half_day_late_threshold_seconds = 0
                 if data["shift"]:
                     shift = frappe.get_doc("Shift Type", data["shift"])
                     full_day = safe_get_time(shift.custom_present_threshold, "08:00:00")
                     half_day = safe_get_time(shift.custom_half_day_threshold, "04:00:00")
                     absent = safe_get_time(shift.custom_absent_threshold, "00:00:00")
+                    half_day_late_threshold_seconds = (
+                        get_duration_seconds(
+                            getattr(
+                                shift,
+                                "custom_working_hours_threshold_for_half_day",
+                                None,
+                            )
+                        )
+                        / 2
+                    )
                     if shift.custom_late_entry_grace_period is not None:
                         fifteen_minutes_in = safe_get_time(
                             shift.custom_late_entry_grace_period
@@ -347,8 +358,16 @@ def execute(filters=None):
                             + fifteen_minutes_in.minute * 60
                             + fifteen_minutes_in.second
                         )
+                        is_half_day_late = (
+                            half_day_late_threshold_seconds > 0
+                            and late_entry_difference_seconds
+                            >= half_day_late_threshold_seconds
+                        )
 
-                        if late_entry_difference_seconds > f_seconds:
+                        if (
+                            late_entry_difference_seconds > f_seconds
+                            and not is_half_day_late
+                        ):
                             data["late_entry"] = "Yes"
                             employee = str(data["employee"]) + str(data["date"])
                             if (
@@ -457,3 +476,14 @@ def safe_get_time(value, default="00:00:00"):
         value = default
 
     return frappe.utils.get_time(value)
+
+
+def get_duration_seconds(value, default="00:00:00"):
+    if value is None:
+        value = default
+    if hasattr(value, "total_seconds"):
+        return value.total_seconds()
+    if hasattr(value, "hour") and hasattr(value, "minute") and hasattr(value, "second"):
+        return value.hour * 3600 + value.minute * 60 + value.second
+
+    return frappe.utils.get_timedelta(str(value)).total_seconds()
