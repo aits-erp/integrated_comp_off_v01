@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import cint
+from frappe.utils import cint, flt
 
 
 def execute(filters=None):
@@ -116,7 +116,8 @@ def execute(filters=None):
         f"""
 		SELECT
 			DISTINCT e.name, e.employee_name, e.custom_division AS division, e.department, e.holiday_list,
-			e.custom_weekly_holiday_list, COALESCE(eg.custom_allowed_late_count_days, 0) AS allowed_late_count
+			e.custom_weekly_holiday_list, COALESCE(eg.custom_allowed_late_count_days, 0) AS allowed_late_count,
+			COALESCE(eg.custom_late_entry_deduction_cycle, 0) AS deduction_cycle
 		FROM
 			`tabEmployee` e
 		LEFT JOIN
@@ -133,6 +134,7 @@ def execute(filters=None):
 
     for emp in employee_list:
         allowed_late_count = cint(emp.get("allowed_late_count") or 0)
+        deduction_cycle = flt(emp.get("deduction_cycle") or 0)
         off_dates = get_holiday_dates(emp.get("holiday_list"), month_start_date, month_end_date)
         off_dates.update(get_weekly_off_dates(
             emp.get("custom_weekly_holiday_list"), month_start_date, month_end_date
@@ -433,7 +435,9 @@ def execute(filters=None):
             late_count = len([key for key in late_entry_dict if "-" in str(key)])
             if late_count:
                 late_entry_dict["late_count"] = late_count
-                late_entry_dict["deduction_in_days"] = max((late_count - allowed_late_count) / 2, 0)
+                late_entry_dict["deduction_in_days"] = calculate_deduction_in_days(
+                    late_count, allowed_late_count, deduction_cycle
+                )
                 result.append(late_entry_dict)
 
     return columns, result
@@ -522,6 +526,13 @@ def get_late_reversal_attendance_request_dates(employee, from_date, to_date):
 
 def is_first_half(value):
     return (value or "").strip().lower().replace("_", " ") == "first half"
+
+
+def calculate_deduction_in_days(late_count, allowed_late_count, deduction_cycle):
+    if not deduction_cycle:
+        return 0
+
+    return max(((late_count - allowed_late_count) / deduction_cycle) / 2, 0)
 
 
 def safe_get_time(value, default="00:00:00"):
