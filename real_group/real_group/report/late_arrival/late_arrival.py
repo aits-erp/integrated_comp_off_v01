@@ -137,6 +137,9 @@ def execute(filters=None):
         off_dates.update(get_weekly_off_dates(
             emp.get("custom_weekly_holiday_list"), month_start_date, month_end_date
         ))
+        attendance_request_dates = get_late_reversal_attendance_request_dates(
+            emp.get("name"), month_start_date, month_end_date
+        )
 
         sql = frappe.db.sql(
             f"""
@@ -345,6 +348,7 @@ def execute(filters=None):
                     and data.get("in_date_time")
                     == first_checkin_by_date.get(format_date)
                     and format_date not in off_dates
+                    and format_date not in attendance_request_dates
                 ):
                     if str(data["date"]) > first_day_last_month:
                         late_entry_difference = (
@@ -469,6 +473,55 @@ def get_holiday_dates(holiday_list, from_date, to_date):
     )
 
     return {str(frappe.utils.getdate(holiday)) for holiday in holidays}
+
+
+def get_late_reversal_attendance_request_dates(employee, from_date, to_date):
+    if not employee:
+        return set()
+
+    from_date = frappe.utils.getdate(from_date)
+    to_date = frappe.utils.getdate(to_date)
+
+    requests = frappe.db.sql(
+        """
+        SELECT
+            from_date, to_date, half_day, half_day_date, custom_half_type
+        FROM
+            `tabAttendance Request`
+        WHERE
+            employee = %s
+            AND docstatus = 1
+            AND from_date <= %s
+            AND to_date >= %s
+            AND (status = 'Approved' OR workflow_state = 'Approved')
+        """,
+        (employee, to_date, from_date),
+        as_dict=True,
+    )
+
+    reversal_dates = set()
+    for request in requests:
+        if request.get("half_day"):
+            half_day_date = request.get("half_day_date")
+            if (
+                half_day_date
+                and from_date <= frappe.utils.getdate(half_day_date) <= to_date
+                and is_first_half(request.get("custom_half_type"))
+            ):
+                reversal_dates.add(str(frappe.utils.getdate(half_day_date)))
+            continue
+
+        current_date = max(frappe.utils.getdate(request.get("from_date")), from_date)
+        request_to_date = min(frappe.utils.getdate(request.get("to_date")), to_date)
+        while current_date <= request_to_date:
+            reversal_dates.add(str(current_date))
+            current_date = frappe.utils.add_to_date(current_date, days=1)
+
+    return reversal_dates
+
+
+def is_first_half(value):
+    return (value or "").strip().lower().replace("_", " ") == "first half"
 
 
 def safe_get_time(value, default="00:00:00"):
