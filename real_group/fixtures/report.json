@@ -6,6 +6,61 @@
   "docstatus": 0,
   "doctype": "Report",
   "filters": [],
+  "is_standard": "Yes",
+  "javascript": "function getYearList(range = 3) {\n\tconst currentYear = new Date().getFullYear();\n\tconst years = [];\n\n\tfor (let i = currentYear - range; i <= currentYear + range; i++) {\n\t\tyears.push(i);\n\t}\n\n\treturn years;\n}\n\nfrappe.query_reports[\"Late Arrival\"] = {\n\tfilters: [\n\t\t{\n\t\t\t\"fieldname\": \"company\",\n\t\t\t\"fieldtype\": \"Link\",\n\t\t\t\"options\": \"Company\",\n\t\t\t\"label\": \"Company\",\n\t\t\t\"reqd\": 0,\n\t\t\t\"on_change\": function () {\n\t\t\t\tfrappe.query_report.set_filter_value(\"department\", null);\n\t\t\t\tfrappe.query_report.set_filter_value(\"employee\", null);\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"fieldname\": \"branch\",\n\t\t\t\"fieldtype\": \"Link\",\n\t\t\t\"options\": \"Branch\",\n\t\t\t\"label\": \"Branch\",\n\t\t\t\"reqd\": 1,\n\t\t\t\"on_change\": function () {\n\t\t\t\tfrappe.query_report.set_filter_value(\"employee\", null);\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"fieldname\": \"division\",\n\t\t\t\"fieldtype\": \"Link\",\n\t\t\t\"options\": \"Division\",\n\t\t\t\"label\": \"Division\"\n\t\t},\n\n\t\t{\n\t\t\t\"fieldname\": \"department\",\n\t\t\t\"fieldtype\": \"Link\",\n\t\t\t\"options\": \"Department\",\n\t\t\t\"label\": \"Department\",\n\t\t\t\"get_query\": function () {\n\t\t\t\tvar company = frappe.query_report.get_filter_value(\"company\");\n\t\t\t\tif (company) {\n\t\t\t\t\treturn {\n\t\t\t\t\t\tfilters: [\n\t\t\t\t\t\t\t[\"Department\", \"company\", \"=\", company]\n\t\t\t\t\t\t]\n\t\t\t\t\t};\n\t\t\t\t}\n\n\t\t\t\treturn {};\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"fieldname\": \"employee\",\n\t\t\t\"fieldtype\": \"Link\",\n\t\t\t\"options\": \"Employee\",\n\t\t\t\"label\": \"Employee\",\n\t\t\t\"get_query\": function () {\n\t\t\t\tvar company = frappe.query_report.get_filter_value(\"company\");\n\t\t\t\tvar branch = frappe.query_report.get_filter_value(\"branch\");\n\t\t\t\tvar filters = [];\n\n\t\t\t\tif (company) {\n\t\t\t\t\tfilters.push([\"Employee\", \"company\", \"=\", company]);\n\t\t\t\t}\n\t\t\t\tif (branch) {\n\t\t\t\t\tfilters.push([\"Employee\", \"branch\", \"=\", branch]);\n\t\t\t\t}\n\n\t\t\t\treturn { filters: filters };\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"fieldname\": \"month\",\n\t\t\t\"fieldtype\": \"Select\",\n\t\t\t\"label\": \"Month\",\n\t\t\t\"options\": [\"Jan\", \"Feb\", \"Mar\", \"Apr\", \"May\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"],\n\t\t\t\"reqd\": 1\n\t\t},\n\t\t{\n\t\t\t\"fieldname\": \"year\",\n\t\t\t\"fieldtype\": \"Select\",\n\t\t\t\"label\": \"Year\",\n\t\t\t\"options\": getYearList(),\n\t\t\t\"reqd\": 1\n\t\t}\n\t]\n}\n",
+  "json": null,
+  "letter_head": null,
+  "modified": "2026-04-29 10:05:43.010564",
+  "module": "Real Group",
+  "name": "Late Arrival",
+  "prepared_report": 1,
+  "query": null,
+  "ref_doctype": "Employee Checkin",
+  "reference_report": null,
+  "report_name": "Late Arrival",
+  "report_script": "",
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Late Arrival",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "Late Arrival",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
+   },
+   {
+    "parent": "Late Arrival",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Employee"
+   },
+   {
+    "parent": "Late Arrival",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "Late Arrival",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Employee Self Service"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
   "is_standard": "No",
   "javascript": "frappe.query_reports[\"Biometric Attendance Summary To Mark Attendance Optimization\"] = {\n    filters: [\n        {\n            \"fieldname\": \"company\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Company\",\n            \"label\": \"Company\",\n            \"on_change\": function() {\n                frappe.query_report.set_filter_value('employee', null);\n            }\n        },\n        {\n            \"fieldname\": \"branch\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Branch\",\n            \"label\": \"Branch\"\n        },\n        {\n            \"fieldname\": \"division\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Division\",\n            \"label\": \"Division\"\n        },\n        {\n            \"fieldname\": \"department\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Department\",\n            \"label\": \"Department\",\n            \"get_query\": function() {\n                var company = frappe.query_report.get_filter_value(\"company\");\n                if (!company) {\n                    frappe.throw(__(\"Please select a company first\"));\n                }\n                return {\n                    filters: [\n                        [\"Department\", \"company\", \"=\", company]\n                    ]\n                };\n            }\n        },\n        {\n            \"fieldname\": \"employee\",\n            \"fieldtype\": \"Link\",\n            \"options\": \"Employee\",\n            \"label\": \"Employee\",\n            \"get_query\": function() {\n                var company = frappe.query_report.get_filter_value(\"company\");\n                if (!company) {\n                    frappe.throw(__(\"Please select a company first\"));\n                }\n                return {\n                    filters: [\n                        [\"Employee\", \"company\", \"=\", company]\n                    ]\n                };\n            }\n        },\n        {\n            \"fieldname\": \"month\",\n            \"fieldtype\": \"Select\",\n            \"label\": \"Month\",\n            \"options\": [\"Jan\", \"Feb\", \"Mar\", \"Apr\",\"May\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"],\n            \"reqd\": 1\n        },\n        {\n            \"fieldname\": \"year\",\n            \"fieldtype\": \"Select\",\n            \"label\": \"Year\",\n            \"options\": [\"2023\", \"2024\"],\n            \"reqd\": 1\n        }\n    ]\n}\n",
   "json": null,
@@ -100,7 +155,7 @@
  {
   "add_total_row": 0,
   "columns": [],
-  "disabled": 0,
+  "disabled": 1,
   "docstatus": 0,
   "doctype": "Report",
   "filters": [],
@@ -1029,7 +1084,7 @@
  {
   "add_total_row": 0,
   "columns": [],
-  "disabled": 0,
+  "disabled": 1,
   "docstatus": 0,
   "doctype": "Report",
   "filters": [],
@@ -1115,7 +1170,7 @@
  {
   "add_total_row": 0,
   "columns": [],
-  "disabled": 0,
+  "disabled": 1,
   "docstatus": 0,
   "doctype": "Report",
   "filters": [],
@@ -1292,7 +1347,7 @@
  {
   "add_total_row": 0,
   "columns": [],
-  "disabled": 0,
+  "disabled": 1,
   "docstatus": 0,
   "doctype": "Report",
   "filters": [],
