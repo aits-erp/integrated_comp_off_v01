@@ -44,6 +44,7 @@ def validate(doc, method=None):
     doc.attendance_device_id = doc.name
     doc.employee_number = doc.name
     validate_employee_data(doc)
+    validate_unique_pran(doc)
     validate_aadhar(doc)
 
 
@@ -124,13 +125,42 @@ def validate_employee_data(doc):
     if allocation_percentage != 100:
         frappe.throw(frappe._("Incorrect Nominee Allocation Percentage, It shoud be 100% only."))
 
-    aadhar_number = (doc.custom_aadhar_number or "").strip()
+    validate_exact_digits(getattr(doc, "custom_aadhar_number", None), "Aadhar Number", required=True)
+    validate_exact_digits(getattr(doc, "custom_pran", None), "PRAN")
 
-    if len(aadhar_number) != 12:
-        frappe.throw(frappe._("Aadhar Number should have 12 digits"))
 
-    if not aadhar_number.isdigit():
-        frappe.throw(frappe._("Aadhar Number should have only digits"))
+def validate_exact_digits(value, label, length=12, required=False):
+    value = str(value or "").strip()
+
+    if not value:
+        if required:
+            frappe.throw(frappe._("{0} should have exactly {1} digits").format(label, length))
+        return
+
+    if len(value) != length:
+        frappe.throw(frappe._("{0} should have exactly {1} digits").format(label, length))
+
+    if not value.isascii() or not value.isdigit():
+        frappe.throw(frappe._("{0} should have only digits").format(label))
+
+
+def validate_unique_pran(doc):
+    pran_number = str(getattr(doc, "custom_pran", None) or "").strip()
+    if not pran_number:
+        return
+
+    duplicate_prans = frappe.get_all(
+        "Employee",
+        filters={
+            "custom_pran": pran_number,
+            "name": ["!=", doc.name],
+        },
+        fields=["name"],
+    )
+
+    if duplicate_prans:
+        links = [get_link_to_form("Employee", d["name"]) for d in duplicate_prans]
+        frappe.throw(f"Same PRAN {pran_number} already exists in Employee Records: " + ", ".join(links))
 
 
 def update_leave_approvers_on_save(doc):

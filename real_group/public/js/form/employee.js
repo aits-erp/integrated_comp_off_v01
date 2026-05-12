@@ -87,6 +87,18 @@ frappe.ui.form.on("Employee", {
       frm.set_df_property("custom_weekly_holiday_list", "read_only", 1);
     }
   },
+  validate(frm) {
+    keepOnlyDigits(frm, "custom_aadhar_number", 12);
+    keepOnlyDigits(frm, "custom_pran", 12);
+    validateExactDigits(frm, "custom_aadhar_number", "Aadhar Number", 12, true);
+    validateExactDigits(frm, "custom_pran", "PRAN", 12);
+  },
+  custom_aadhar_number(frm) {
+    keepOnlyDigits(frm, "custom_aadhar_number", 12);
+  },
+  custom_pran(frm) {
+    keepOnlyDigits(frm, "custom_pran", 12);
+  },
   branch: function (frm) {
     if (frm.doc.branch) {
       frappe.db.get_value("Branch", frm.doc.branch, "custom_holiday_list").then((res) => {
@@ -438,6 +450,33 @@ function capitalizeWords(str) {
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
+}
+
+function keepOnlyDigits(frm, fieldname, maxLength) {
+  const value = frm.doc[fieldname];
+  if (value === undefined || value === null || value === "") {
+    return;
+  }
+
+  const digits = String(value).replace(/[^0-9]/g, "").slice(0, maxLength);
+  if (String(value) !== digits) {
+    frm.set_value(fieldname, digits);
+  }
+}
+
+function validateExactDigits(frm, fieldname, label, length, required = false) {
+  const value = frm.doc[fieldname] === undefined || frm.doc[fieldname] === null ? "" : String(frm.doc[fieldname]).trim();
+
+  if (!value) {
+    if (required) {
+      frappe.throw(__("{0} should have exactly {1} digits", [label, length]));
+    }
+    return;
+  }
+
+  if (!new RegExp(`^\\d{${length}}$`).test(value)) {
+    frappe.throw(__("{0} should have exactly {1} digits", [label, length]));
+  }
 }
 
 frappe.ui.form.on("Employee Family Details", {
