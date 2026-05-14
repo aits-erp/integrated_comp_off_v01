@@ -86,18 +86,16 @@ frappe.ui.form.on("Employee", {
     if (!frm.doc.__islocal && frm.doc.custom_weekly_holiday_list) {
       frm.set_df_property("custom_weekly_holiday_list", "read_only", 1);
     }
+
+    restrictToDigits(frm, "custom_pran", 12);
   },
   validate(frm) {
-    keepOnlyDigits(frm, "custom_aadhar_number", 12);
-    keepOnlyDigits(frm, "custom_pran", 12);
+    sanitizeDigitField(frm, "custom_pran", 12);
     validateExactDigits(frm, "custom_aadhar_number", "Aadhar Number", 12, true);
     validateExactDigits(frm, "custom_pran", "PRAN", 12);
   },
-  custom_aadhar_number(frm) {
-    keepOnlyDigits(frm, "custom_aadhar_number", 12);
-  },
   custom_pran(frm) {
-    keepOnlyDigits(frm, "custom_pran", 12);
+    sanitizeDigitField(frm, "custom_pran", 12);
   },
   branch: function (frm) {
     if (frm.doc.branch) {
@@ -452,18 +450,6 @@ function capitalizeWords(str) {
     .join(" ");
 }
 
-function keepOnlyDigits(frm, fieldname, maxLength) {
-  const value = frm.doc[fieldname];
-  if (value === undefined || value === null || value === "") {
-    return;
-  }
-
-  const digits = String(value).replace(/[^0-9]/g, "").slice(0, maxLength);
-  if (String(value) !== digits) {
-    frm.set_value(fieldname, digits);
-  }
-}
-
 function validateExactDigits(frm, fieldname, label, length, required = false) {
   const value = frm.doc[fieldname] === undefined || frm.doc[fieldname] === null ? "" : String(frm.doc[fieldname]).trim();
 
@@ -476,6 +462,40 @@ function validateExactDigits(frm, fieldname, label, length, required = false) {
 
   if (!new RegExp(`^\\d{${length}}$`).test(value)) {
     frappe.throw(__("{0} should have exactly {1} digits", [label, length]));
+  }
+}
+
+function restrictToDigits(frm, fieldname, length) {
+  const field = frm.get_field(fieldname);
+  if (!field || !field.$input) {
+    return;
+  }
+
+  field.$input.attr({
+    inputmode: "numeric",
+    maxlength: length,
+    pattern: "[0-9]*",
+  });
+
+  field.$input.off(`input.${fieldname}_digits`);
+  field.$input.on(`input.${fieldname}_digits`, () => {
+    const value = field.$input.val() || "";
+    const sanitizedValue = value.replace(/\D/g, "").slice(0, length);
+
+    if (value !== sanitizedValue) {
+      field.$input.val(sanitizedValue);
+      frm.doc[fieldname] = sanitizedValue;
+    }
+  });
+}
+
+function sanitizeDigitField(frm, fieldname, length) {
+  const value = frm.doc[fieldname] === undefined || frm.doc[fieldname] === null ? "" : String(frm.doc[fieldname]);
+  const sanitizedValue = value.replace(/\D/g, "").slice(0, length);
+
+  if (value !== sanitizedValue) {
+    frm.doc[fieldname] = sanitizedValue;
+    frm.set_value(fieldname, sanitizedValue);
   }
 }
 

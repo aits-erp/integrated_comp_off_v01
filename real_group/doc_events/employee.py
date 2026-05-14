@@ -130,18 +130,15 @@ def validate_employee_data(doc):
 
 
 def validate_exact_digits(value, label, length=12, required=False):
-    value = str(value or "").strip()
+    value = "" if value is None else str(value)
 
     if not value:
         if required:
             frappe.throw(frappe._("{0} should have exactly {1} digits").format(label, length))
         return
 
-    if len(value) != length:
+    if value != value.strip() or len(value) != length or not value.isascii() or not value.isdigit():
         frappe.throw(frappe._("{0} should have exactly {1} digits").format(label, length))
-
-    if not value.isascii() or not value.isdigit():
-        frappe.throw(frappe._("{0} should have only digits").format(label))
 
 
 def validate_unique_pran(doc):
