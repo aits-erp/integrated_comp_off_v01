@@ -908,7 +908,7 @@ def should_consider_holiday(employee: str, date, weekly_holiday_name=None):
 
 def get_mark_to_absent(employee, for_date):
     weekly_off_name = get_weekly_off_based_on_date(employee, for_date)
-    safe_limit = add_days(for_date, -30)
+    safe_limit = add_days(for_date, -10)
     holidays = get_holiday_dates_for_employee(employee, safe_limit, for_date)
     filters = [
         ["employee", "=", employee],
