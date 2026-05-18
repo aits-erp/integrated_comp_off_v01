@@ -7,8 +7,11 @@ frappe.ui.form.on("Employee Performance Feedback", {
           const appraisal_template = r.message.appraisal_template;
 
           frappe.db.get_doc("Appraisal Template", appraisal_template).then((doc) => {
-            if (doc && doc.appraiser_feedback_criteria) {
-              doc.appraiser_feedback_criteria.forEach((afc) => {
+            const appraiser_feedback_criteria =
+              doc.custom_appraiser_feedback_criteria || doc.appraiser_feedback_criteria || [];
+
+            if (appraiser_feedback_criteria.length) {
+              appraiser_feedback_criteria.forEach((afc) => {
                 let child = frm.add_child("custom_appraiser_feedback_criteria");
                 child.feedback_criteria = afc.feedback_criteria;
               });

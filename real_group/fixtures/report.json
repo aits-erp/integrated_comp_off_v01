@@ -7,6 +7,177 @@
   "doctype": "Report",
   "filters": [],
   "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-10-27 13:41:34.639119",
+  "module": "Real Group",
+  "name": "Leave Ledger",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Leave Ledger Entry",
+  "reference_report": null,
+  "report_name": "Leave Ledger",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Leave Ledger",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "Leave Ledger",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "Leave Ledger",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": "",
+  "json": null,
+  "letter_head": null,
+  "modified": "2026-03-02 10:15:36.529674",
+  "module": "Real Group",
+  "name": "[New] Day Wise Attendance",
+  "prepared_report": 1,
+  "query": null,
+  "ref_doctype": "Attendance",
+  "reference_report": null,
+  "report_name": "[New] Day Wise Attendance",
+  "report_script": "",
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Payroll-CREASX"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "EmployeeMaster-CRES"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "CoreMaster-R"
+   },
+   {
+    "parent": "[New] Day Wise Attendance",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "ITAdmin-CREX"
+   }
+  ],
+  "timeout": 3000
+ },
+ {
+  "add_total_row": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2026-03-26 12:59:18.813979",
+  "module": "Real Group",
+  "name": "[New] Monthly Attendance Report",
+  "prepared_report": 1,
+  "query": null,
+  "ref_doctype": "Attendance",
+  "reference_report": null,
+  "report_name": "[New] Monthly Attendance Report",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
+   },
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Employee Self Service"
+   },
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Payroll-CREASX"
+   },
+   {
+    "parent": "[New] Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "ITAdmin-CREX"
+   }
+  ],
+  "timeout": 3000
+ },
+ {
+  "add_total_row": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
   "javascript": "function getYearList(range = 3) {\n\tconst currentYear = new Date().getFullYear();\n\tconst years = [];\n\n\tfor (let i = currentYear - range; i <= currentYear + range; i++) {\n\t\tyears.push(i);\n\t}\n\n\treturn years;\n}\n\nfrappe.query_reports[\"Late Arrival\"] = {\n\tfilters: [\n\t\t{\n\t\t\t\"fieldname\": \"company\",\n\t\t\t\"fieldtype\": \"Link\",\n\t\t\t\"options\": \"Company\",\n\t\t\t\"label\": \"Company\",\n\t\t\t\"reqd\": 0,\n\t\t\t\"on_change\": function () {\n\t\t\t\tfrappe.query_report.set_filter_value(\"department\", null);\n\t\t\t\tfrappe.query_report.set_filter_value(\"employee\", null);\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"fieldname\": \"branch\",\n\t\t\t\"fieldtype\": \"Link\",\n\t\t\t\"options\": \"Branch\",\n\t\t\t\"label\": \"Branch\",\n\t\t\t\"reqd\": 1,\n\t\t\t\"on_change\": function () {\n\t\t\t\tfrappe.query_report.set_filter_value(\"employee\", null);\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"fieldname\": \"division\",\n\t\t\t\"fieldtype\": \"Link\",\n\t\t\t\"options\": \"Division\",\n\t\t\t\"label\": \"Division\"\n\t\t},\n\n\t\t{\n\t\t\t\"fieldname\": \"department\",\n\t\t\t\"fieldtype\": \"Link\",\n\t\t\t\"options\": \"Department\",\n\t\t\t\"label\": \"Department\",\n\t\t\t\"get_query\": function () {\n\t\t\t\tvar company = frappe.query_report.get_filter_value(\"company\");\n\t\t\t\tif (company) {\n\t\t\t\t\treturn {\n\t\t\t\t\t\tfilters: [\n\t\t\t\t\t\t\t[\"Department\", \"company\", \"=\", company]\n\t\t\t\t\t\t]\n\t\t\t\t\t};\n\t\t\t\t}\n\n\t\t\t\treturn {};\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"fieldname\": \"employee\",\n\t\t\t\"fieldtype\": \"Link\",\n\t\t\t\"options\": \"Employee\",\n\t\t\t\"label\": \"Employee\",\n\t\t\t\"get_query\": function () {\n\t\t\t\tvar company = frappe.query_report.get_filter_value(\"company\");\n\t\t\t\tvar branch = frappe.query_report.get_filter_value(\"branch\");\n\t\t\t\tvar filters = [];\n\n\t\t\t\tif (company) {\n\t\t\t\t\tfilters.push([\"Employee\", \"company\", \"=\", company]);\n\t\t\t\t}\n\t\t\t\tif (branch) {\n\t\t\t\t\tfilters.push([\"Employee\", \"branch\", \"=\", branch]);\n\t\t\t\t}\n\n\t\t\t\treturn { filters: filters };\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"fieldname\": \"month\",\n\t\t\t\"fieldtype\": \"Select\",\n\t\t\t\"label\": \"Month\",\n\t\t\t\"options\": [\"Jan\", \"Feb\", \"Mar\", \"Apr\", \"May\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"],\n\t\t\t\"reqd\": 1\n\t\t},\n\t\t{\n\t\t\t\"fieldname\": \"year\",\n\t\t\t\"fieldtype\": \"Select\",\n\t\t\t\"label\": \"Year\",\n\t\t\t\"options\": getYearList(),\n\t\t\t\"reqd\": 1\n\t\t}\n\t]\n}\n",
   "json": null,
   "letter_head": null,
@@ -597,183 +768,6 @@
    }
   ],
   "timeout": 3000
- },
- {
-  "add_total_row": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "Yes",
-  "javascript": null,
-  "json": null,
-  "letter_head": null,
-  "modified": "2025-12-25 19:10:05.514731",
-  "module": "Real Group",
-  "name": "[New] Monthly Attendance Report",
-  "prepared_report": 1,
-  "query": null,
-  "ref_doctype": "Attendance",
-  "reference_report": null,
-  "report_name": "[New] Monthly Attendance Report",
-  "report_script": null,
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "[New] Monthly Attendance Report",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
-   },
-   {
-    "parent": "[New] Monthly Attendance Report",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "HR User"
-   },
-   {
-    "parent": "[New] Monthly Attendance Report",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "HR Manager"
-   },
-   {
-    "parent": "[New] Monthly Attendance Report",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Employee Self Service"
-   },
-   {
-    "parent": "[New] Monthly Attendance Report",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Payroll-CREASX"
-   },
-   {
-    "parent": "[New] Monthly Attendance Report",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "ITAdmin-CREX"
-   }
-  ],
-  "timeout": 3000
- },
- {
-  "add_total_row": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "Yes",
-  "javascript": "",
-  "json": null,
-  "letter_head": null,
-  "modified": "2025-10-31 19:03:54.361030",
-  "module": "Real Group",
-  "name": "[New] Day Wise Attendance",
-  "prepared_report": 1,
-  "query": null,
-  "ref_doctype": "Attendance",
-  "reference_report": null,
-  "report_name": "[New] Day Wise Attendance",
-  "report_script": "",
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "[New] Day Wise Attendance",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
-   },
-   {
-    "parent": "[New] Day Wise Attendance",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "HR User"
-   },
-   {
-    "parent": "[New] Day Wise Attendance",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "HR Manager"
-   },
-   {
-    "parent": "[New] Day Wise Attendance",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "Payroll-CREASX"
-   },
-   {
-    "parent": "[New] Day Wise Attendance",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "EmployeeMaster-CRES"
-   },
-   {
-    "parent": "[New] Day Wise Attendance",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "CoreMaster-R"
-   },
-   {
-    "parent": "[New] Day Wise Attendance",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "ITAdmin-CREX"
-   }
-  ],
-  "timeout": 3000
- },
- {
-  "add_total_row": 0,
-  "columns": [],
-  "disabled": 0,
-  "docstatus": 0,
-  "doctype": "Report",
-  "filters": [],
-  "is_standard": "Yes",
-  "javascript": null,
-  "json": null,
-  "letter_head": null,
-  "modified": "2025-10-22 16:02:37.724691",
-  "module": "Real Group",
-  "name": "Leave Ledger",
-  "prepared_report": 0,
-  "query": null,
-  "ref_doctype": "Leave Ledger Entry",
-  "reference_report": null,
-  "report_name": "Leave Ledger",
-  "report_script": null,
-  "report_type": "Script Report",
-  "roles": [
-   {
-    "parent": "Leave Ledger",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "System Manager"
-   },
-   {
-    "parent": "Leave Ledger",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "HR Manager"
-   },
-   {
-    "parent": "Leave Ledger",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "HR User"
-   },
-   {
-    "parent": "Leave Ledger",
-    "parentfield": "roles",
-    "parenttype": "Report",
-    "role": "All"
-   }
-  ],
-  "timeout": 0
  },
  {
   "add_total_row": 0,

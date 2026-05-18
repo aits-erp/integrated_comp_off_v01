@@ -3633,22 +3633,6 @@
  },
  {
   "default_value": null,
-  "doc_type": "Appraisal Template",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocType",
-  "field_name": null,
-  "is_system_generated": 0,
-  "modified": "2025-07-15 13:41:20.038032",
-  "module": "Real Group",
-  "name": "Appraisal Template-main-field_order",
-  "property": "field_order",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "[\"template_title\", \"section_break_5\", \"description\", \"section_break_7\", \"goals\", \"rating_criteria\", null]"
- },
- {
-  "default_value": null,
   "doc_type": "Appraisal",
   "docstatus": 0,
   "doctype": "Property Setter",
@@ -3671,13 +3655,13 @@
   "doctype_or_field": "DocType",
   "field_name": null,
   "is_system_generated": 0,
-  "modified": "2025-07-15 13:41:19.994190",
+  "modified": "2026-05-16 15:06:13.305476",
   "module": "Real Group",
   "name": "Employee Feedback Rating-main-field_order",
   "property": "field_order",
   "property_type": "Data",
   "row_name": null,
-  "value": "[\"criteria\", \"per_weightage\", \"rating\", \"custom_rating_\"]"
+  "value": "[\"criteria\", \"per_weightage\", \"rating\"]"
  },
  {
   "default_value": null,
@@ -3703,13 +3687,13 @@
   "doctype_or_field": "DocField",
   "field_name": "rating",
   "is_system_generated": 0,
-  "modified": "2025-06-12 10:24:12.695360",
+  "modified": "2026-05-16 11:22:48.293828",
   "module": "Real Group",
   "name": "Employee Feedback Rating-rating-in_list_view",
   "property": "in_list_view",
   "property_type": "Check",
   "row_name": null,
-  "value": "0"
+  "value": "1"
  },
  {
   "default_value": null,
@@ -3719,13 +3703,13 @@
   "doctype_or_field": "DocField",
   "field_name": "rating",
   "is_system_generated": 0,
-  "modified": "2025-06-12 10:24:03.220044",
+  "modified": "2026-05-16 11:22:48.275134",
   "module": "Real Group",
   "name": "Employee Feedback Rating-rating-hidden",
   "property": "hidden",
   "property_type": "Check",
   "row_name": null,
-  "value": "1"
+  "value": "0"
  },
  {
   "default_value": null,

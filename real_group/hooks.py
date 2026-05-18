@@ -171,6 +171,9 @@ override_doctype_class = {
 # }
 
 doc_events = {
+    "Appraisal": {
+        "before_insert": "real_group.doc_events.appraisal.before_insert",
+    },
     "Employee": {
         "autoname": "real_group.doc_events.employee.autoname",
         "after_insert": [
