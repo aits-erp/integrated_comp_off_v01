@@ -156,6 +156,7 @@ override_doctype_class = {
     "Attendance Request": "real_group.overrides.attendance_request.AttendanceRequestOverride",
     "Employee Transfer": "real_group.overrides.employee_transfer.EmployeeTransferOverride",
     "Salary Slip": "real_group.overrides.salary_slip.SalarySlipOverride",
+    "Appraisal": "real_group.overrides.appraisal.AppraisalOverride",
 }
 
 # Document Events
@@ -173,6 +174,7 @@ override_doctype_class = {
 doc_events = {
     "Appraisal": {
         "before_insert": "real_group.doc_events.appraisal.before_insert",
+        "before_submit": "real_group.doc_events.appraisal.before_submit",
     },
     "Employee": {
         "autoname": "real_group.doc_events.employee.autoname",
