@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from importlib import import_module
 
 import frappe
-from frappe.utils import cint, format_date, get_timedelta, getdate
+from frappe.utils import cint, format_date, get_datetime, get_timedelta, getdate
 
 from real_group.utils import is_holiday_for_employee
 
@@ -330,8 +330,8 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
                 code = "A"
             elif normal_code == "A1":
                 code = "A1"
-    presence_first_half, presence_second_half = infer_presence_halves(checkins)
     leave_presence_confirmed = has_confirmed_presence(worked_hours, checkins)
+    presence_first_half, presence_second_half = infer_presence_halves(checkins)
     leave_presence_first_half = presence_first_half if leave_presence_confirmed else False
     leave_presence_second_half = presence_second_half if leave_presence_confirmed else False
     presence = presence_first_half or presence_second_half or (worked_hours and worked_hours > 0)
@@ -367,7 +367,7 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
                 leave_code,
                 leave_presence_first_half,
                 leave_presence_second_half,
-                default_present_first=True,
+                default_present_first=leave_presence_confirmed,
                 half_type=half_type_code,
             ),
             presence_first_half,
@@ -467,12 +467,12 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
 
 
 def infer_presence_halves(checkins):
-    if not checkins:
+    valid_pairs = get_valid_in_out_pairs(checkins)
+    if not valid_pairs:
         return False, False
     has_first = False
     has_second = False
-    in_logs = [log for log in checkins if (_get_field(log, "log_type", "") or "").upper() == "IN"]
-    logs_for_presence = in_logs or checkins
+    logs_for_presence = [pair[0] for pair in valid_pairs]
     try:
         for log in sorted(logs_for_presence, key=_get_time_from_log):
             ts = _get_time_from_log(log)
@@ -498,12 +498,39 @@ def infer_presence_halves(checkins):
 
 
 def has_confirmed_presence(worked_hours, checkins):
-    checker = getattr(dw, "_has_confirmed_presence", None)
-    if callable(checker):
-        return checker(worked_hours, checkins)
     if worked_hours and worked_hours > 0:
         return True
-    return bool(checkins and len(checkins) >= 2)
+    return has_valid_in_out_pair(checkins)
+
+
+def has_valid_in_out_pair(checkins):
+    return bool(get_valid_in_out_pairs(checkins))
+
+
+def get_valid_in_out_pairs(checkins):
+    if not checkins:
+        return []
+
+    in_logs = sorted(
+        [log for log in checkins if (_get_field(log, "log_type", "") or "").upper() == "IN"],
+        key=_get_time_from_log,
+    )
+    out_logs = sorted(
+        [log for log in checkins if (_get_field(log, "log_type", "") or "").upper() == "OUT"],
+        key=_get_time_from_log,
+    )
+
+    valid_pairs = []
+    for idx in range(min(len(in_logs), len(out_logs))):
+        in_time = _get_time_from_log(in_logs[idx])
+        out_time = _get_time_from_log(out_logs[idx])
+        if not in_time or not out_time:
+            continue
+
+        if get_datetime(out_time) > get_datetime(in_time):
+            valid_pairs.append((in_logs[idx], out_logs[idx]))
+
+    return valid_pairs
 
 
 def rebalance_presence_halves(pair, presence_first_half, force_order=False):
