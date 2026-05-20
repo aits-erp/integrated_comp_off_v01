@@ -3,6 +3,21 @@ from hrms.hr.doctype.appraisal.appraisal import Appraisal
 
 
 class AppraisalOverride(Appraisal):
+    def calculate_self_appraisal_score(self):
+        score = 0
+        weightage = 0
+
+        for rating in self.self_ratings:
+            if rating.per_weightage is not None and rating.rating:
+                weightage += flt(rating.per_weightage)
+                score += flt(rating.per_weightage) * flt(rating.rating)
+
+        self_score = int((score / weightage) + 0.5) if score and weightage else 0
+
+        self.self_score = self_score
+        if self.meta.has_field("custom_self_score"):
+            self.custom_self_score = self_score
+
     def calculate_final_score(self):
         goal_score = flt(self.total_score)
         feedback_score = flt(self.avg_feedback_score)
