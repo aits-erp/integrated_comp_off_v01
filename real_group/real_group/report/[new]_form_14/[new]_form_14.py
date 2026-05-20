@@ -121,7 +121,7 @@ def build_day_snapshot(employee, target_date, emp_data, attendance_requests_map,
         half_type = derive_half_day_present_half(attendance_doc, checkins_on_date, shift_name, shift_map)
 
     first_half, second_half = map_status_to_halves(
-        processed_status, status_value, checkins_on_date, worked_hours, holiday_info, half_type
+        processed_status, status_value, checkins_on_date, worked_hours, holiday_info, half_type, attendance_doc
     )
 
     return {
@@ -303,7 +303,9 @@ def get_employee_row(idx, employee):
     }
 
 
-def map_status_to_halves(processed_status, normal_status, checkins, worked_hours, holiday_info, half_type=None):
+def map_status_to_halves(
+    processed_status, normal_status, checkins, worked_hours, holiday_info, half_type=None, attendance_doc=None
+):
     half_type_code = _normalize_half_type(half_type)
     processed_code = (processed_status or "").upper()
     normal_code = (normal_status or "").upper()
@@ -330,7 +332,7 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
                 code = "A"
             elif normal_code == "A1":
                 code = "A1"
-    leave_presence_confirmed = has_confirmed_presence(worked_hours, checkins)
+    leave_presence_confirmed = has_half_day_qualifying_presence(attendance_doc, worked_hours, checkins)
     presence_first_half, presence_second_half = infer_presence_halves(checkins)
     leave_presence_first_half = presence_first_half if leave_presence_confirmed else False
     leave_presence_second_half = presence_second_half if leave_presence_confirmed else False
@@ -341,6 +343,7 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
     leave_half_map = {"HEL": "EL", "HCL": "CL", "HCO": "CO"}
     processed_leave_half_map = {"PEL": "EL", "PCL": "CL", "PCO": "CO"}
     processed_official_half_map = {"POD": "OD"}
+    mis_punch_regularized = normal_code == "MIS"
 
     if code == "HD" and half_type_code:
         base_pair = ("P", "A") if half_type_code == "FIRST" else ("A", "P")
@@ -367,7 +370,7 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
                 leave_code,
                 leave_presence_first_half,
                 leave_presence_second_half,
-                default_present_first=leave_presence_confirmed,
+                default_present_first=leave_presence_confirmed or mis_punch_regularized,
                 half_type=half_type_code,
             ),
             presence_first_half,
@@ -381,7 +384,7 @@ def map_status_to_halves(processed_status, normal_status, checkins, worked_hours
                 official_code,
                 leave_presence_first_half,
                 leave_presence_second_half,
-                default_present_first=True,
+                default_present_first=leave_presence_confirmed,
                 half_type=half_type_code,
             ),
             presence_first_half,
@@ -501,6 +504,13 @@ def has_confirmed_presence(worked_hours, checkins):
     if worked_hours and worked_hours > 0:
         return True
     return has_valid_in_out_pair(checkins)
+
+
+def has_half_day_qualifying_presence(attendance_doc, worked_hours, checkins):
+    checker = getattr(dw, "_has_half_day_qualifying_presence", None)
+    if callable(checker):
+        return checker(attendance_doc, checkins, worked_hours)
+    return has_confirmed_presence(worked_hours, checkins)
 
 
 def has_valid_in_out_pair(checkins):
