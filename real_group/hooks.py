@@ -54,6 +54,7 @@ doctype_js = {
     "Leave Type": "public/js/form/leave_type.js",
     "Employee Transfer": "public/js/form/employee_transfer.js",
     "Employee Checkin": "public/js/form/employee_checkin.js",
+    "Training Event": "public/js/form/training_event.js",
 }
 doctype_list_js = {
     "Leave Application": "public/js/list/leave_application.js",
@@ -139,14 +140,18 @@ on_session_creation = [
 # }
 #
 # has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
+#     "Event": "frappe.desk.doctype.event.event.has_permission",
 # }
+has_permission = {
+    "Notification Settings": "real_group.overrides.notification_settings.has_permission",
+}
 
 # DocType Class
 # ---------------
 # Override standard doctype classes
 
 override_doctype_class = {
+    "Notification Settings": "real_group.overrides.notification_settings.NotificationSettingsOverride",
     "User": "real_group.overrides.user.UserOverride",
     "Employee Checkin": "real_group.overrides.employee_checkin.EmployeeCheckinOverride",
     "Compensatory Leave Request": "real_group.overrides.compensatory_leave_request.CompensatoryLeaveRequestOverride",
@@ -244,6 +249,9 @@ doc_events = {
     },
     "Employee Grade": {
         "validate": "real_group.doc_events.employee_grade.validate",
+    },
+    "Training Event": {
+        "validate": "real_group.doc_events.training_event.validate",
     },
     "Branch": {
         "on_update": "real_group.doc_events.branch.on_update",
