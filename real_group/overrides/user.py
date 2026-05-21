@@ -1,7 +1,12 @@
 import frappe
-from frappe import _
+from frappe import STANDARD_USERS, _
 from frappe.core.doctype.user.user import User
 from frappe.utils import cint, validate_email_address
+
+
+def has_itadmin_role(user=None):
+    user = user or frappe.session.user
+    return any(role.startswith("ITAdmin") for role in frappe.get_roles(user))
 
 
 class UserOverride(User):
@@ -32,6 +37,20 @@ class UserOverride(User):
     def validate_email_type(self, email):
         # No need to validate email, since it is not used.
         pass
+
+    def check_enable_disable(self):
+        if not cint(self.enabled) and self.name in STANDARD_USERS:
+            frappe.throw(_("User {0} cannot be disabled").format(self.name))
+
+        if not cint(self.enabled):
+            self.a_system_manager_should_exist()
+
+        if not cint(self.enabled) and getattr(frappe.local, "login_manager", None):
+            frappe.local.login_manager.logout(user=self.name)
+
+        from real_group.overrides.notification_settings import toggle_notifications
+
+        toggle_notifications(self.name, enable=cint(self.enabled))
 
     def _validate_email_policy(self, target_email):
         if not target_email:
