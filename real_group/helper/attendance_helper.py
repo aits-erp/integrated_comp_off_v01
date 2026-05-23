@@ -123,6 +123,20 @@ def get_specific_multi_checkin_override(existing_attendance):
     return get_specific_multi_checkin_override_fields(linked_logs, shift)
 
 
+def should_revert_previous_holiday_sandwich(employee, attendance_date, shift) -> bool:
+    if not shift:
+        return False
+
+    is_cross_day_shift = cint(
+        frappe.db.get_value("Shift Type", shift, "custom_is_cross_day")
+    )
+    if not is_cross_day_shift:
+        return False
+
+    previous_date = add_days(attendance_date, -1)
+    return bool(is_holiday_for_employee(employee, previous_date))
+
+
 # Main function to create or update attendance
 def create_attendance(
     employee: str, date: str | date, logs: list[dict] | None, reprocess_ref=None
@@ -143,6 +157,7 @@ def create_attendance(
 
     if existing_attendance:
         existing_attendance = frappe.get_doc("Attendance", existing_attendance)
+        should_revert_sandwich = False
 
         # Important for reprocess: attendance for a date may be created earlier in the same
         # job as Absent (no logs found yet) and later the correct logs arrive (e.g. night shift).
@@ -169,6 +184,12 @@ def create_attendance(
                 ):
                     # On full holidays/weekly-offs, low hours should not keep status as Absent.
                     final_status = "Present"
+                should_revert_sandwich = (
+                    final_status != "Absent"
+                    and should_revert_previous_holiday_sandwich(
+                        employee, date, shift
+                    )
+                )
                 existing_attendance.db_set(
                     {
                         "status": final_status,
@@ -242,10 +263,15 @@ def create_attendance(
                 from real_group.doc_events.attendance import (
                     allocate_c_off,
                     allocate_incentive,
+                    revert_sandwich_attendance,
                     update_attendance_tag,
                 )
 
+                if should_revert_sandwich:
+                    existing_attendance.reload()
                 update_attendance_tag(existing_attendance)
+                if should_revert_sandwich and not reprocess_ref:
+                    revert_sandwich_attendance(existing_attendance)
                 if not reprocess_ref:
                     allocate_incentive(existing_attendance)
                     allocate_c_off(existing_attendance)
