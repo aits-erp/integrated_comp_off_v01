@@ -1057,7 +1057,7 @@
   "doctype": "Workflow",
   "document_type": "Attendance Request",
   "is_active": 1,
-  "modified": "2026-03-10 14:52:16.842806",
+  "modified": "2026-05-28 12:01:00.978419",
   "name": "Attendance Request",
   "override_status": 0,
   "send_email_alert": 0,
@@ -1095,7 +1095,7 @@
    {
     "allow_edit": "AttendanceApprover-RA",
     "avoid_status_override": 0,
-    "doc_status": "0",
+    "doc_status": "1",
     "is_optional_state": 0,
     "message": null,
     "next_action_email_template": null,
@@ -1110,7 +1110,7 @@
    {
     "allow_edit": "Gate-RA",
     "avoid_status_override": 0,
-    "doc_status": "0",
+    "doc_status": "1",
     "is_optional_state": 0,
     "message": null,
     "next_action_email_template": null,
@@ -1155,7 +1155,7 @@
    {
     "allow_edit": "Payroll-CREASX",
     "avoid_status_override": 0,
-    "doc_status": "0",
+    "doc_status": "1",
     "is_optional_state": 0,
     "message": null,
     "next_action_email_template": null,
@@ -1290,7 +1290,7 @@
   "doctype": "Workflow",
   "document_type": "Leave Application",
   "is_active": 1,
-  "modified": "2025-12-17 14:18:47.844164",
+  "modified": "2026-05-28 12:01:52.149105",
   "name": "Leave Application",
   "override_status": 0,
   "send_email_alert": 0,
@@ -1328,7 +1328,7 @@
    {
     "allow_edit": "Leave Approver",
     "avoid_status_override": 0,
-    "doc_status": "0",
+    "doc_status": "1",
     "is_optional_state": 0,
     "message": null,
     "next_action_email_template": null,

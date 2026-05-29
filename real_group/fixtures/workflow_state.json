@@ -30,24 +30,6 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-08-17 13:18:28.297566",
-  "name": "Rejected at Gate",
-  "style": "Danger",
-  "workflow_state_name": "Rejected at Gate"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
-  "icon": "",
-  "modified": "2024-08-17 13:18:23.905435",
-  "name": "Cancelled",
-  "style": "Danger",
-  "workflow_state_name": "Cancelled"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
-  "icon": "",
   "modified": "2024-06-27 16:52:22.429184",
   "name": "Gate Pass",
   "style": "",
@@ -56,11 +38,11 @@
  {
   "docstatus": 0,
   "doctype": "Workflow State",
-  "icon": "ok-sign",
-  "modified": "2024-01-23 12:16:06.089462",
-  "name": "Approved",
-  "style": "Success",
-  "workflow_state_name": "Approved"
+  "icon": "",
+  "modified": "2024-08-17 13:18:28.297566",
+  "name": "Rejected at Gate",
+  "style": "Danger",
+  "workflow_state_name": "Rejected at Gate"
  },
  {
   "docstatus": 0,
@@ -75,15 +57,6 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-05-14 18:45:31.837011",
-  "name": "Pending at HR",
-  "style": "",
-  "workflow_state_name": "Pending at HR"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
-  "icon": "",
   "modified": "2024-08-17 13:18:17.405639",
   "name": "Rejected by HOD",
   "style": "Danger",
@@ -93,10 +66,28 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-05-14 18:45:21.801825",
-  "name": "Pending at HOD",
+  "modified": "2024-08-17 13:18:23.905435",
+  "name": "Cancelled",
+  "style": "Danger",
+  "workflow_state_name": "Cancelled"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "ok-sign",
+  "modified": "2024-01-23 12:16:06.089462",
+  "name": "Approved",
+  "style": "Success",
+  "workflow_state_name": "Approved"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2024-05-14 18:45:31.837011",
+  "name": "Pending at HR",
   "style": "",
-  "workflow_state_name": "Pending at HOD"
+  "workflow_state_name": "Pending at HR"
  },
  {
   "docstatus": 0,
@@ -106,5 +97,14 @@
   "name": "Draft",
   "style": "",
   "workflow_state_name": "Draft"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2024-05-14 18:45:21.801825",
+  "name": "Pending at HOD",
+  "style": "",
+  "workflow_state_name": "Pending at HOD"
  }
 ]
