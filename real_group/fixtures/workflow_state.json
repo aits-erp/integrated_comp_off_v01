@@ -93,18 +93,18 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-05-14 18:46:53.948112",
-  "name": "Draft",
+  "modified": "2024-05-14 18:45:21.801825",
+  "name": "Pending at HOD",
   "style": "",
-  "workflow_state_name": "Draft"
+  "workflow_state_name": "Pending at HOD"
  },
  {
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-05-14 18:45:21.801825",
-  "name": "Pending at HOD",
+  "modified": "2024-05-14 18:46:53.948112",
+  "name": "Draft",
   "style": "",
-  "workflow_state_name": "Pending at HOD"
+  "workflow_state_name": "Draft"
  }
 ]
