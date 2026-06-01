@@ -6,6 +6,7 @@ from frappe.utils import date_diff, get_link_to_form, getdate
 def validate(doc, method=None):
     validate_zero_punch_employee(doc)
     validate_change_request_day(doc)
+    validate_workflow_state(doc)
     validate_date(doc)
     validate_attendance(doc)
 
@@ -30,6 +31,15 @@ def on_submit(doc, method=None):
 
 def on_cancel(doc, method=None):
     doc.status = "Cancelled"
+
+
+def validate_workflow_state(doc):
+    if doc.workflow_state in (
+        "Rejected by HOD",
+        "Rejected by HR",
+        "Rejected at Gate",
+    ) and not (doc.custom_reason_for_rejection or "").strip():
+        frappe.throw(frappe._("Kindly set the reason for rejection"))
 
 
 def validate_zero_punch_employee(doc):
