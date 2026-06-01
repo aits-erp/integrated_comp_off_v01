@@ -62,8 +62,12 @@ class ReprocessAttendance(Document):
         )
 
     def run_process(self):
-        self.process_removal()
-        self.reprocess()
+        frappe.flags.reprocess_attendance_reference = self.name
+        try:
+            self.process_removal()
+            self.reprocess()
+        finally:
+            frappe.flags.reprocess_attendance_reference = None
 
     def get_leave_applications(self, from_date, to_date):
         leave_applications = frappe.get_all(
@@ -559,6 +563,7 @@ class ReprocessAttendance(Document):
 
         for attendance in attendances:
             doc = frappe.get_doc("Attendance", attendance)
+            doc.db_set("custom_reprocess_reference", self.name)
             doc.cancel()
             doc.add_comment(
                 comment_type="Comment",

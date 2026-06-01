@@ -78,6 +78,17 @@ def on_submit(doc, method=None):
         )
 
 
+def get_reprocess_reference(doc):
+    return getattr(frappe.flags, "reprocess_attendance_reference", None) or getattr(
+        doc, "custom_reprocess_reference", None
+    )
+
+
+def set_doc_reprocess_reference(doc, reprocess_reference):
+    if reprocess_reference and doc.meta.has_field("custom_reprocess_reference"):
+        doc.db_set("custom_reprocess_reference", reprocess_reference)
+
+
 def is_salary_processed(doc):
     return frappe.db.exists(
         "Salary Slip",
@@ -91,6 +102,7 @@ def is_salary_processed(doc):
 
 
 def cancel_incentive_or_c_off(doc):
+    reprocess_reference = get_reprocess_reference(doc)
     c_offs = frappe.db.get_all(
         "Compensatory Leave Request",
         filters={
@@ -102,6 +114,7 @@ def cancel_incentive_or_c_off(doc):
     )
     for c_off in c_offs:
         c_off_doc = frappe.get_doc("Compensatory Leave Request", c_off.name)
+        set_doc_reprocess_reference(c_off_doc, reprocess_reference)
         c_off_doc.cancel()
 
     incentive_logs = frappe.db.get_all(
@@ -114,6 +127,7 @@ def cancel_incentive_or_c_off(doc):
     )
     for incentive_log in incentive_logs:
         incentive_log_doc = frappe.get_doc("Incentive Log", incentive_log.name)
+        set_doc_reprocess_reference(incentive_log_doc, reprocess_reference)
         # incentive_log_doc.cancel()
         additional_salary = frappe.db.get_value(
             "Additional Salary",
@@ -384,6 +398,8 @@ def update_attendance_tag(doc):
 
 
 def allocate_incentive(doc):
+    reprocess_reference = get_reprocess_reference(doc)
+
     def _create_additional_salary(employee: str, amount, incentive_log_name):
         new_additional_salary = frappe.get_doc(
             dict(
@@ -393,7 +409,7 @@ def allocate_incentive(doc):
                 salary_component="Incentives",
                 amount=amount,
                 custom_incentive_reference=incentive_log_name,
-                custom_reprocess_reference=doc.custom_reprocess_reference,
+                custom_reprocess_reference=reprocess_reference,
                 overwrite_salary_structure_amount=0,
             )
         )
@@ -421,6 +437,7 @@ def allocate_incentive(doc):
                 status=status,
                 credit=credit,
                 extra_worked_hours=hours_worked,
+                custom_reprocess_reference=reprocess_reference,
             )
         )
         incentive_log.insert(ignore_permissions=True)
@@ -591,6 +608,7 @@ def allocate_incentive(doc):
 
 
 def allocate_c_off(doc):
+    reprocess_reference = get_reprocess_reference(doc)
     employee = frappe.get_cached_doc("Employee", doc.employee, for_update=False)
     grade = employee.grade
     branch = employee.branch
@@ -685,6 +703,7 @@ def allocate_c_off(doc):
             existing_c_off_doc = frappe.get_doc(
                 "Compensatory Leave Request", existing_c_off
             )
+            set_doc_reprocess_reference(existing_c_off_doc, reprocess_reference)
             existing_c_off_doc.cancel()
 
     comp_off = frappe.get_doc(
@@ -701,6 +720,7 @@ def allocate_c_off(doc):
             ),
             "reason": status,
             "custom_extra_work_hours": worked_hrs_in_delta,
+            "custom_reprocess_reference": reprocess_reference,
         }
     )
     comp_off.insert(ignore_permissions=True, ignore_if_duplicate=True)
