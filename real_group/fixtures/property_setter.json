@@ -4878,37 +4878,5 @@
   "property_type": "Check",
   "row_name": null,
   "value": "1"
- },
- {
-  "default_value": null,
-  "doc_type": "Compensatory Leave Request",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocType",
-  "field_name": null,
-  "is_system_generated": 0,
-  "modified": "2026-05-30 16:18:44.273238",
-  "module": "Real Group",
-  "name": "Compensatory Leave Request-main-field_order",
-  "property": "field_order",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "[\"employee\", \"employee_name\", \"department\", \"column_break_2\", \"leave_type\", \"leave_allocation\", \"reprocess_reference\", \"worked_on\", \"work_from_date\", \"work_end_date\", \"half_day\", \"half_day_date\", \"column_break_4\", \"reason\", \"amended_from\", \"custom_section_break_a4tlc\", \"credit\", \"status\", \"expiry\", \"custom_is_expired\", \"custom_utilised\", \"custom_balance\", \"custom_expired_leaves\", \"custom_section_break_bf0rr\", \"custom_leave_application_details\", \"custom_extra_work_hours\"]"
- },
- {
-  "default_value": null,
-  "doc_type": "Incentive Log",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocType",
-  "field_name": null,
-  "is_system_generated": 0,
-  "modified": "2026-05-30 16:18:51.524163",
-  "module": "Real Group",
-  "name": "Incentive Log-main-field_order",
-  "property": "field_order",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "[\"employee\", \"column_break_w4iw\", \"employee_name\", \"section_break_baoo\", \"from_date\", \"work_date\", \"column_break_ukn8\", \"to_date\", \"reprocess_reference\", \"section_break_7bte\", \"incentive\", \"extra_worked_hours\", \"incentive_original_value\", \"extra_incentive\", \"column_break_enqq\", \"credit\", \"total_incentive\", \"amended_from\", \"status\"]"
  }
 ]

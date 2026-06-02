@@ -57,19 +57,19 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-08-17 13:18:17.405639",
-  "name": "Rejected by HOD",
+  "modified": "2024-08-17 13:18:23.905435",
+  "name": "Cancelled",
   "style": "Danger",
-  "workflow_state_name": "Rejected by HOD"
+  "workflow_state_name": "Cancelled"
  },
  {
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-08-17 13:18:23.905435",
-  "name": "Cancelled",
+  "modified": "2024-08-17 13:18:17.405639",
+  "name": "Rejected by HOD",
   "style": "Danger",
-  "workflow_state_name": "Cancelled"
+  "workflow_state_name": "Rejected by HOD"
  },
  {
   "docstatus": 0,
@@ -93,18 +93,18 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-05-14 18:45:21.801825",
-  "name": "Pending at HOD",
+  "modified": "2024-05-14 18:46:53.948112",
+  "name": "Draft",
   "style": "",
-  "workflow_state_name": "Pending at HOD"
+  "workflow_state_name": "Draft"
  },
  {
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-05-14 18:46:53.948112",
-  "name": "Draft",
+  "modified": "2024-05-14 18:45:21.801825",
+  "name": "Pending at HOD",
   "style": "",
-  "workflow_state_name": "Draft"
+  "workflow_state_name": "Pending at HOD"
  }
 ]
