@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from importlib import import_module
 from types import SimpleNamespace
 from unittest import TestCase
@@ -30,6 +30,105 @@ class TestLeaveApplicationValidation(TestCase):
 
         with patch.object(leave_application.frappe, "get_all", return_value=[existing]):
             leave_application.validate_el_and_cl(doc)
+
+    def test_validate_el_and_cl_fetches_only_relevant_opposite_boundaries(self):
+        doc = SimpleNamespace(
+            leave_type="Casual Leave - Plant",
+            employee="230011",
+            name="LAP-NEW",
+            from_date=date(2026, 5, 20),
+            to_date=date(2026, 5, 20),
+            half_day=0,
+            half_day_date=None,
+            custom_half_type=None,
+        )
+
+        with patch.object(leave_application.frappe, "get_all", return_value=[]) as get_all:
+            leave_application.validate_el_and_cl(doc)
+
+        leave_filters = [
+            call.kwargs["filters"]
+            for call in get_all.call_args_list
+            if call.args and call.args[0] == "Leave Application"
+        ]
+        self.assertEqual(len(leave_filters), 3)
+        self.assertTrue(all(filters["leave_type"] == ["like", "%Earned%"] for filters in leave_filters))
+        self.assertIn("from_date", leave_filters[0])
+        self.assertIn("to_date", leave_filters[0])
+        self.assertEqual(leave_filters[1]["to_date"], ["<", doc.from_date])
+        self.assertEqual(leave_filters[2]["from_date"], [">", doc.to_date])
+
+    def test_second_half_leave_allows_first_half_presence_on_boundary(self):
+        earlier = SimpleNamespace(
+            leave_type="Earned Leave - Plant",
+            from_date=date(2026, 5, 1),
+            to_date=date(2026, 5, 1),
+            half_day=0,
+            half_day_date=None,
+            custom_half_type=None,
+        )
+        later = SimpleNamespace(
+            leave_type="Casual Leave - Plant",
+            from_date=date(2026, 5, 3),
+            to_date=date(2026, 5, 3),
+            half_day=1,
+            half_day_date=date(2026, 5, 3),
+            custom_half_type="Second Half",
+        )
+
+        def has_separator(employee, separator_date, required_half=None):
+            return separator_date == date(2026, 5, 3) and required_half == "First Half"
+
+        with patch.object(
+            leave_application, "has_present_or_approved_request", side_effect=has_separator
+        ):
+            self.assertTrue(
+                leave_application.has_valid_el_cl_separator("230011", earlier, later)
+            )
+
+    def test_first_half_leave_rejects_second_half_presence_on_boundary(self):
+        earlier = SimpleNamespace(
+            leave_type="Earned Leave - Plant",
+            from_date=date(2026, 5, 1),
+            to_date=date(2026, 5, 1),
+            half_day=0,
+            half_day_date=None,
+            custom_half_type=None,
+        )
+        later = SimpleNamespace(
+            leave_type="Casual Leave - Plant",
+            from_date=date(2026, 5, 3),
+            to_date=date(2026, 5, 3),
+            half_day=1,
+            half_day_date=date(2026, 5, 3),
+            custom_half_type="First Half",
+        )
+
+        def has_separator(employee, separator_date, required_half=None):
+            return separator_date == date(2026, 5, 3) and required_half == "Second Half"
+
+        with patch.object(
+            leave_application, "has_present_or_approved_request", side_effect=has_separator
+        ):
+            self.assertFalse(
+                leave_application.has_valid_el_cl_separator("230011", earlier, later)
+            )
+
+    def test_infers_second_half_presence_from_attendance_times(self):
+        attendance = SimpleNamespace(
+            shift="G",
+            attendance_date=date(2026, 5, 6),
+            in_time=datetime(2026, 5, 6, 13, 35, 40),
+            out_time=datetime(2026, 5, 6, 18, 0, 57),
+        )
+        shift = SimpleNamespace(start_time="9:00:00", end_time="18:00:00")
+
+        frappe_db = SimpleNamespace(get_value=lambda *args, **kwargs: shift)
+        with patch.object(leave_application.frappe, "db", frappe_db):
+            self.assertEqual(
+                leave_application.infer_present_half_from_attendance(attendance),
+                "Second Half",
+            )
 
     def test_validate_el_and_cl_allows_casual_leave_with_opposite_half_lwp(self):
         doc = SimpleNamespace(

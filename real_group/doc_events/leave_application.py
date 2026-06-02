@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import frappe
 from frappe import _
 from frappe.utils import (
@@ -5,18 +7,26 @@ from frappe.utils import (
     cint,
     date_diff,
     formatdate,
+    get_datetime,
     get_link_to_form,
+    get_timedelta,
     getdate,
 )
 
-from real_group.utils import is_holiday_for_employee
+from real_group.utils import (
+    half_types_match,
+    is_holiday_for_employee,
+    normalize_half_type,
+)
+
+
+EL_CL_REJECTED_STATES = ["Cancelled", "Rejected by HOD", "Rejected by HR"]
 
 
 def validate(doc, method=None):
     validate_change_request_day(doc)
     validate_cl(doc)
     validate_el_and_cl(doc)
-    validate_el_cl_gap_non_working_day(doc)
     validate_compensation_leave(doc)
     validate_workflow_state(doc)
     validate_attendance(doc)
@@ -162,96 +172,306 @@ def validate_cl(doc):
 
 
 def validate_el_and_cl(doc):
-    leave_type = doc.leave_type
-
-    leave_type_lower = leave_type.lower()
-    is_el = "earned" in leave_type_lower
-    is_cl = "casual" in leave_type_lower
-
-    if not (is_el or is_cl):
+    if not is_el_or_cl(doc.leave_type):
         return
 
-    # Check for overlapping or adjacent leave applications
-    overlapping_leaves = frappe.get_all(
-        "Leave Application",
-        filters={
-            "employee": doc.employee,
-            "docstatus": ["!=", 2],
-            "workflow_state": [
-                "not in",
-                ["Cancelled", "Rejected by HOD", "Rejected by HR"],
-            ],
-            "name": ["!=", doc.name],
-        },
-        fields=[
-            "name",
-            "leave_type",
-            "from_date",
-            "to_date",
-            "half_day",
-            "half_day_date",
-        ],
-    )
-    doc_from = getdate(doc.from_date)
-    doc_to = getdate(doc.to_date)
-
-    for leave in overlapping_leaves:
-        other_type = leave.leave_type.lower()
-        other_is_el = "earned" in other_type
-        other_is_cl = "casual" in other_type
-
-        # Only compare EL <-> CL. Do not block EL/CL against other leave types
-        # like Comp Off or LWP when the opposite half is still free.
-        if is_el and not other_is_cl:
-            continue
-        if is_cl and not other_is_el:
+    for leave in get_relevant_opposite_el_cl_leaves(doc):
+        if not is_opposite_el_cl(doc.leave_type, leave.leave_type):
             continue
 
-        other_from = getdate(leave.from_date)
-        other_to = getdate(leave.to_date)
-
-        # ---- 1️⃣ SAME DATE (FULL-DAY OR HALF-DAY) ----
-        # Case: Half-day on same date
-        if doc.half_day and leave.half_day:
-            if doc.half_day_date == leave.half_day_date:
-                frappe.throw(
-                    _(
-                        "EL and CL cannot be applied on the same date for different half. "
-                        "One Present day is mandatory between EL and CL."
-                    )
+        if leaves_overlap(doc, leave):
+            frappe.throw(
+                _(
+                    "EL and CL cannot be applied on the same date. One Present day is mandatory between EL and CL."
                 )
+            )
 
-        # Case: full-day overlap or same single date
-        if doc_from <= other_to and other_from <= doc_to:
-            # Only treat it as violation if actual date intersection (not range overlap logic)
-            # means one of the dates is exactly same
-            if (
-                doc_from == other_from
-                or doc_from == other_to
-                or doc_to == other_from
-                or doc_to == other_to
-            ):
-                frappe.throw(
-                    _(
-                        "EL and CL cannot be applied on the same date. One Present day is mandatory between EL and CL."
-                    )
-                )
-
-        # ---- 2️⃣ ADJACENT (Continuation) ----
-        earlier_end = min(doc_to, other_to)
-        later_start = max(doc_from, other_from)
-
-        if (other_is_cl or other_is_el) and not has_present_day_between(
-            doc.employee, earlier_end, later_start
-        ):
+        earlier, later = order_leaves_by_date(doc, leave)
+        if not has_valid_el_cl_separator(doc.employee, earlier, later):
             frappe.throw(
                 _(
                     "EL and CL cannot be applied. One Present day is mandatory between EL and CL from {0} to {1}.".format(
-                        format_display_date(earlier_end),
-                        format_display_date(later_start),
+                        format_display_date(earlier.to_date),
+                        format_display_date(later.from_date),
                     )
                 )
             )
+
+
+def is_el_or_cl(leave_type):
+    leave_type = (leave_type or "").lower()
+    return "earned" in leave_type or "casual" in leave_type
+
+
+def is_opposite_el_cl(current_leave_type, other_leave_type):
+    current_leave_type = (current_leave_type or "").lower()
+    other_leave_type = (other_leave_type or "").lower()
+    return (
+        ("earned" in current_leave_type and "casual" in other_leave_type)
+        or ("casual" in current_leave_type and "earned" in other_leave_type)
+    )
+
+
+def get_relevant_opposite_el_cl_leaves(doc):
+    fields = [
+        "name",
+        "leave_type",
+        "from_date",
+        "to_date",
+        "half_day",
+        "half_day_date",
+        "custom_half_type",
+    ]
+    base_filters = {
+        "employee": doc.employee,
+        "docstatus": ["!=", 2],
+        "workflow_state": ["not in", EL_CL_REJECTED_STATES],
+        "name": ["!=", doc.name],
+        "leave_type": ["like", get_opposite_el_cl_pattern(doc.leave_type)],
+    }
+
+    leaves = []
+    for extra_filters, order_by, limit in (
+        (
+            {
+                "from_date": ["<=", doc.to_date],
+                "to_date": [">=", doc.from_date],
+            },
+            None,
+            None,
+        ),
+        ({"to_date": ["<", doc.from_date]}, "to_date desc, from_date desc", 1),
+        ({"from_date": [">", doc.to_date]}, "from_date asc, to_date asc", 1),
+    ):
+        filters = base_filters.copy()
+        filters.update(extra_filters)
+        leaves.extend(
+            frappe.get_all(
+                "Leave Application",
+                filters=filters,
+                fields=fields,
+                order_by=order_by,
+                limit=limit,
+            )
+        )
+
+    unique_leaves = []
+    seen = set()
+    for leave in leaves:
+        if leave.name in seen:
+            continue
+        seen.add(leave.name)
+        unique_leaves.append(leave)
+    return unique_leaves
+
+
+def get_opposite_el_cl_pattern(leave_type):
+    leave_type = (leave_type or "").lower()
+    if "earned" in leave_type:
+        return "%Casual%"
+    if "casual" in leave_type:
+        return "%Earned%"
+    return "%"
+
+
+def leaves_overlap(first, second):
+    return getdate(first.from_date) <= getdate(second.to_date) and getdate(
+        second.from_date
+    ) <= getdate(first.to_date)
+
+
+def order_leaves_by_date(first, second):
+    first_start = getdate(first.from_date)
+    second_start = getdate(second.from_date)
+    if first_start < second_start:
+        return first, second
+    if first_start > second_start:
+        return second, first
+    if getdate(first.to_date) <= getdate(second.to_date):
+        return first, second
+    return second, first
+
+
+def has_valid_el_cl_separator(employee, earlier, later):
+    earlier_end = getdate(earlier.to_date)
+    later_start = getdate(later.from_date)
+
+    after_earlier_half = get_required_present_half_after_leave(earlier, earlier_end)
+    if after_earlier_half and has_present_or_approved_request(
+        employee, earlier_end, after_earlier_half
+    ):
+        return True
+
+    current_date = add_days(earlier_end, 1)
+    while current_date < later_start:
+        if has_present_or_approved_request(employee, current_date):
+            return True
+        current_date = add_days(current_date, 1)
+
+    before_later_half = get_required_present_half_before_leave(later, later_start)
+    if before_later_half and has_present_or_approved_request(
+        employee, later_start, before_later_half
+    ):
+        return True
+
+    return False
+
+
+def get_required_present_half_after_leave(leave, date):
+    if not is_half_day_leave_on(leave, date):
+        return None
+
+    if half_types_match(getattr(leave, "custom_half_type", None), "First Half"):
+        return "Second Half"
+    return None
+
+
+def get_required_present_half_before_leave(leave, date):
+    if not is_half_day_leave_on(leave, date):
+        return None
+
+    if half_types_match(getattr(leave, "custom_half_type", None), "Second Half"):
+        return "First Half"
+    return None
+
+
+def is_half_day_leave_on(leave, date):
+    return (
+        cint(getattr(leave, "half_day", 0))
+        and getattr(leave, "half_day_date", None)
+        and getdate(leave.half_day_date) == getdate(date)
+    )
+
+
+def has_present_or_approved_request(employee, date, required_half=None):
+    if has_present_attendance(employee, date, required_half):
+        return True
+
+    return has_approved_attendance_request(employee, date, required_half)
+
+
+def has_present_attendance(employee, date, required_half=None):
+    attendances = frappe.get_all(
+        "Attendance",
+        filters={
+            "employee": employee,
+            "attendance_date": date,
+            "status": ["in", ["Present", "Half Day"]],
+            "docstatus": 1,
+        },
+        fields=[
+            "status",
+            "custom_half_type",
+            "leave_application",
+            "attendance_request",
+            "shift",
+            "attendance_date",
+            "in_time",
+            "out_time",
+        ],
+        limit=10,
+    )
+
+    for attendance in attendances:
+        if attendance.status == "Present":
+            return True
+
+        present_half = get_present_half_from_attendance(attendance)
+        if not required_half:
+            return True
+        if half_types_match(present_half, required_half):
+            return True
+
+    return False
+
+
+def get_present_half_from_attendance(attendance):
+    if attendance.leave_application:
+        leave_half = attendance.custom_half_type or frappe.db.get_value(
+            "Leave Application", attendance.leave_application, "custom_half_type"
+        )
+        return get_opposite_half(leave_half)
+
+    if attendance.attendance_request:
+        return frappe.db.get_value(
+            "Attendance Request", attendance.attendance_request, "custom_half_type"
+        )
+
+    return infer_present_half_from_attendance(attendance)
+
+
+def infer_present_half_from_attendance(attendance):
+    if not (attendance.shift and attendance.in_time and attendance.out_time):
+        return None
+
+    shift = frappe.db.get_value(
+        "Shift Type", attendance.shift, ["start_time", "end_time"], as_dict=True
+    )
+    if not (shift and shift.start_time and shift.end_time):
+        return None
+
+    attendance_date = getdate(attendance.attendance_date)
+    shift_start = get_datetime(attendance_date) + get_timedelta(shift.start_time)
+    shift_end = get_datetime(attendance_date) + get_timedelta(shift.end_time)
+    if shift_end <= shift_start:
+        shift_end = shift_end + timedelta(days=1)
+
+    midpoint = shift_start + ((shift_end - shift_start) / 2)
+    in_time = get_datetime(attendance.in_time)
+    out_time = get_datetime(attendance.out_time)
+
+    if in_time >= midpoint:
+        return "Second Half"
+    if out_time <= midpoint:
+        return "First Half"
+
+    first_overlap = max(
+        0, (min(out_time, midpoint) - max(in_time, shift_start)).total_seconds()
+    )
+    second_overlap = max(
+        0, (min(out_time, shift_end) - max(in_time, midpoint)).total_seconds()
+    )
+    if first_overlap > second_overlap:
+        return "First Half"
+    if second_overlap > first_overlap:
+        return "Second Half"
+    return None
+
+
+def has_approved_attendance_request(employee, date, required_half=None):
+    requests = frappe.get_all(
+        "Attendance Request",
+        filters={
+            "employee": employee,
+            "from_date": ["<=", date],
+            "to_date": [">=", date],
+            "docstatus": 1,
+            "workflow_state": "Approved",
+        },
+        fields=["half_day", "half_day_date", "custom_half_type"],
+        limit=10,
+    )
+
+    for request in requests:
+        if not cint(request.half_day):
+            return True
+        if getdate(request.half_day_date) != getdate(date):
+            continue
+        if not required_half:
+            return True
+        if half_types_match(request.custom_half_type, required_half):
+            return True
+
+    return False
+
+
+def get_opposite_half(half_type):
+    half_type = normalize_half_type(half_type)
+    if half_type == "first half":
+        return "Second Half"
+    if half_type == "second half":
+        return "First Half"
+    return None
 
 
 def validate_change_request_day(doc):
@@ -276,101 +496,10 @@ def validate_change_request_day(doc):
         )
 
 
-def validate_el_cl_gap_non_working_day(doc):
-    leave_type = (doc.leave_type or "").lower()
-    is_el = "earned" in leave_type
-    is_cl = "casual" in leave_type
-
-    if not (is_el or is_cl):
-        return
-
-    opposite_leaves = frappe.get_all(
-        "Leave Application",
-        filters={
-            "employee": doc.employee,
-            "docstatus": ["!=", 2],
-            "workflow_state": [
-                "not in",
-                ["Cancelled", "Rejected by HOD", "Rejected by HR"],
-            ],
-            "name": ["!=", doc.name],
-        },
-        fields=["leave_type", "from_date", "to_date"],
-    )
-
-    doc_from = getdate(doc.from_date)
-    doc_to = getdate(doc.to_date)
-
-    for leave in opposite_leaves:
-        other_type = (leave.leave_type or "").lower()
-        other_is_el = "earned" in other_type
-        other_is_cl = "casual" in other_type
-
-        # Only EL ↔ CL comparison
-        if is_el and not other_is_cl:
-            continue
-        if is_cl and not other_is_el:
-            continue
-
-        other_from = getdate(leave.from_date)
-        other_to = getdate(leave.to_date)
-
-        gap_date = None
-
-        # Doc AFTER other
-        if doc_from > other_to:
-            if date_diff(doc_from, other_to) == 2:
-                gap_date = add_days(other_to, 1)
-
-        # Doc BEFORE other
-        elif other_from > doc_to:
-            if date_diff(other_from, doc_to) == 2:
-                gap_date = add_days(doc_to, 1)
-
-        # Only validate EXACT one-day gap
-        if not gap_date:
-            continue
-
-        reason = get_non_working_gap_reason(doc.employee, gap_date)
-        if reason:
-            frappe.throw(
-                frappe._(
-                    "EL and CL must be separated by a Present working day. {0}"
-                ).format(reason)
-            )
-
-
 def format_display_date(value):
     if not value:
         return ""
     return formatdate(value, "dd-MM-yyyy")
-
-
-def get_non_working_gap_reason(employee, gap_date):
-    attendance_status = frappe.db.get_value(
-        "Attendance",
-        {
-            "employee": employee,
-            "attendance_date": gap_date,
-            "docstatus": ["!=", 2],
-        },
-        "status",
-    )
-
-    if attendance_status in ("Absent"):
-        return frappe._("Attendance on {0} is marked {1}.").format(
-            format_display_date(gap_date), attendance_status
-        )
-
-    holiday = is_holiday_for_employee(employee, gap_date)
-    if holiday:
-        if holiday.get("is_weekly_off"):
-            return frappe._("{0} is a Weekly Off.").format(
-                format_display_date(gap_date)
-            )
-        return frappe._("{0} is a Holiday.").format(format_display_date(gap_date))
-
-    return None
 
 
 def validate_attendance_request(doc):
