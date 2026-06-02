@@ -413,6 +413,7 @@ def get_attendance_requests(employees: list, start_date: date, end_date: date):
             "half_day",
             "half_day_date",
             "custom_half_type",
+            "docstatus",
         ],
     )
 
@@ -551,6 +552,11 @@ def get_status(employee, date, data_on_date, day_status, attendance_requests_map
                     status = "LW"
                     if leave_application_doc.half_day_date == date and len(checkins) > 0:
                         status = "HLW"
+                    lwp_counterpart = get_lwp_half_day_counterpart(
+                        employee, date, leave_application_doc, attendance_requests_map
+                    )
+                    if lwp_counterpart:
+                        status = lwp_counterpart.get("status") or status
 
                 if is_compensatory:
                     status = "CO"
@@ -861,6 +867,113 @@ def get_half_day_combo_status(employee, target_date, primary_application, primar
             return "ELCO"
         if codes == {"CL", "CO"}:
             return "CLCO"
+
+    return None
+
+
+def get_lwp_half_day_counterpart_for_attendance(
+    employee, target_date, attendance_doc, attendance_requests_map=None
+):
+    if not attendance_doc or not attendance_doc.get("leave_application") or not attendance_doc.get("leave_type"):
+        return None
+
+    leave_type_doc = frappe.get_cached_doc("Leave Type", attendance_doc.get("leave_type"))
+    if not leave_type_doc or not leave_type_doc.is_lwp:
+        return None
+
+    leave_application_doc = frappe.get_cached_doc("Leave Application", attendance_doc.get("leave_application"))
+    return get_lwp_half_day_counterpart(
+        employee,
+        target_date,
+        leave_application_doc,
+        attendance_requests_map,
+    )
+
+
+def get_lwp_half_day_counterpart(employee, target_date, lwp_application, attendance_requests_map=None):
+    if not employee or not target_date or not lwp_application:
+        return None
+    if not getattr(lwp_application, "half_day", False):
+        return None
+
+    half_day_date = getattr(lwp_application, "half_day_date", None)
+    if not half_day_date or getdate(half_day_date) != target_date:
+        return None
+
+    lwp_half_type = (getattr(lwp_application, "custom_half_type", None) or "").strip()
+    other_leaves = get_approved_half_day_leave_applications(
+        employee, target_date, getattr(lwp_application, "name", None)
+    )
+    for other in other_leaves:
+        other_half_type = (getattr(other, "custom_half_type", None) or "").strip()
+        if lwp_half_type and other_half_type and other_half_type == lwp_half_type:
+            continue
+
+        other_leave_type = frappe.get_cached_doc("Leave Type", other.leave_type)
+        other_code = get_leave_code(other_leave_type)
+        if other_code in {"CL", "EL", "CO"}:
+            return {
+                "status": f"H{other_code}",
+                "half_type": other_half_type,
+                "source": "Leave Application",
+                "name": other.name,
+            }
+
+    attendance_request = get_lwp_half_day_attendance_request_counterpart(
+        employee, target_date, lwp_half_type, attendance_requests_map
+    )
+    if attendance_request:
+        return {
+            "status": "HOD",
+            "half_type": (attendance_request.get("custom_half_type") or "").strip(),
+            "source": "Attendance Request",
+            "name": attendance_request.get("name"),
+        }
+
+    return None
+
+
+def get_lwp_half_day_attendance_request_counterpart(
+    employee, target_date, lwp_half_type=None, attendance_requests_map=None
+):
+    requests_on_date = []
+    if attendance_requests_map:
+        requests_on_date = attendance_requests_map.get(employee, {}).get(format_date(target_date), []) or []
+
+    if not requests_on_date:
+        requests_on_date = frappe.get_all(
+            "Attendance Request",
+            filters={
+                "employee": employee,
+                "docstatus": 1,
+                "from_date": ["<=", target_date],
+                "to_date": [">=", target_date],
+                "half_day": 1,
+                "half_day_date": target_date,
+            },
+            fields=["name", "reason", "half_day", "half_day_date", "custom_half_type", "docstatus"],
+        )
+
+    for request in requests_on_date:
+        reason = (request.get("reason") or "").strip().lower()
+        if reason not in {"official", "tour"}:
+            continue
+
+        request_docstatus = request.get("docstatus")
+        if request_docstatus is None and request.get("name"):
+            request_docstatus = frappe.get_cached_value("Attendance Request", request.get("name"), "docstatus")
+        if cint(request_docstatus) != 1:
+            continue
+        if not request.get("half_day"):
+            continue
+        request_half_day_date = request.get("half_day_date")
+        if not request_half_day_date or getdate(request_half_day_date) != target_date:
+            continue
+
+        request_half_type = (request.get("custom_half_type") or "").strip()
+        if lwp_half_type and request_half_type and request_half_type == lwp_half_type:
+            continue
+        return request
 
     return None
 

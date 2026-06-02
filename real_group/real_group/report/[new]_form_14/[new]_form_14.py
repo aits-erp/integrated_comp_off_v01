@@ -137,6 +137,12 @@ def resolve_half_type(attendance_on_date, attendance_requests_map, employee_name
     """Pick the explicit half-day type, preferring attendance, then requests."""
 
     attendance_doc = attendance_on_date[0] if attendance_on_date else None
+    lwp_counterpart = dw.get_lwp_half_day_counterpart_for_attendance(
+        employee_name, target_date, attendance_doc, attendance_requests_map
+    )
+    if lwp_counterpart and lwp_counterpart.get("half_type"):
+        return lwp_counterpart.get("half_type")
+
     half_type = _extract_half_type(attendance_doc)
 
     leave_application = _get_field(attendance_doc, "leave_application")

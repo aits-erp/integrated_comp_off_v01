@@ -14,6 +14,7 @@ month_wise_attendance = import_module(
 monthly_attendance_report = import_module(
     "real_group.real_group.report.[new]_monthly_attendance_report.[new]_monthly_attendance_report"
 )
+form_14 = import_module("real_group.real_group.report.[new]_form_14.[new]_form_14")
 
 
 def get_leave_type_doc(name):
@@ -23,6 +24,8 @@ def get_leave_type_doc(name):
         return SimpleNamespace(is_earned_leave=True, is_compensatory=False, is_lwp=False, name=name)
     if name == "Casual Leave - Plant":
         return SimpleNamespace(is_earned_leave=False, is_compensatory=False, is_lwp=False, name=name)
+    if name == "Leave Without Pay":
+        return SimpleNamespace(is_earned_leave=False, is_compensatory=False, is_lwp=True, name=name)
     raise AssertionError(f"Unexpected leave type requested in test: {name}")
 
 
@@ -144,6 +147,242 @@ class TestDayWiseAttendanceReport(TestCase):
             result = day_wise_attendance.get_status("10079", target_date, data_on_date, "P", request_map)
 
         self.assertEqual(result, "OD")
+
+    def test_get_status_uses_approved_paid_half_when_other_half_is_lwp(self):
+        target_date = date(2026, 5, 4)
+        lwp_application = SimpleNamespace(
+            name="RB-LAP-LWP",
+            half_day=1,
+            half_day_date=target_date,
+            custom_half_type="Second Half",
+            from_date=target_date,
+            to_date=target_date,
+        )
+        other_leave = SimpleNamespace(
+            name="RB-LAP-CL",
+            leave_type="Casual Leave - Plant",
+            status="Approved",
+            docstatus=1,
+            custom_half_type="First Half",
+        )
+        data_on_date = {
+            "attendance": [
+                day_wise_attendance.frappe._dict(
+                    {
+                        "leave_application": "RB-LAP-LWP",
+                        "leave_type": "Leave Without Pay",
+                        "attendance_request": None,
+                        "custom_attendance_tag": "LWP",
+                        "status": "Half Day",
+                    }
+                )
+            ],
+            "checkins": [],
+        }
+
+        def get_cached_doc(doctype, name):
+            if doctype == "Leave Application":
+                return lwp_application
+            if doctype == "Leave Type":
+                return get_leave_type_doc(name)
+            raise AssertionError(f"Unexpected cached doc: {doctype} {name}")
+
+        with (
+            patch.object(day_wise_attendance.frappe, "get_cached_doc", side_effect=get_cached_doc),
+            patch.object(day_wise_attendance.frappe, "get_all", return_value=[other_leave]),
+            patch.object(day_wise_attendance, "is_holiday_for_employee", return_value={"is_holiday": False}),
+        ):
+            result = day_wise_attendance.get_status("12654", target_date, data_on_date, "LWP", {})
+
+        self.assertEqual(result, "HCL")
+
+    def test_get_status_uses_approved_od_half_when_other_half_is_lwp(self):
+        target_date = date(2026, 5, 4)
+        date_key = target_date.strftime("%d-%m-%Y")
+        lwp_application = SimpleNamespace(
+            name="RB-LAP-LWP",
+            half_day=1,
+            half_day_date=target_date,
+            custom_half_type="Second Half",
+            from_date=target_date,
+            to_date=target_date,
+        )
+        request_map = {
+            "12654": {
+                date_key: [
+                    day_wise_attendance.frappe._dict(
+                        {
+                            "name": "HR-ARQ-OD",
+                            "reason": "Official",
+                            "half_day": 1,
+                            "half_day_date": target_date,
+                            "custom_half_type": "First Half",
+                            "docstatus": 1,
+                        }
+                    )
+                ]
+            }
+        }
+        data_on_date = {
+            "attendance": [
+                day_wise_attendance.frappe._dict(
+                    {
+                        "leave_application": "RB-LAP-LWP",
+                        "leave_type": "Leave Without Pay",
+                        "attendance_request": None,
+                        "custom_attendance_tag": "LWP",
+                        "status": "Half Day",
+                    }
+                )
+            ],
+            "checkins": [],
+        }
+
+        def get_cached_doc(doctype, name):
+            if doctype == "Leave Application":
+                return lwp_application
+            if doctype == "Leave Type":
+                return get_leave_type_doc(name)
+            raise AssertionError(f"Unexpected cached doc: {doctype} {name}")
+
+        with (
+            patch.object(day_wise_attendance.frappe, "get_cached_doc", side_effect=get_cached_doc),
+            patch.object(day_wise_attendance.frappe, "get_all", return_value=[]),
+            patch.object(day_wise_attendance, "format_date", side_effect=lambda value: value.strftime("%d-%m-%Y")),
+            patch.object(day_wise_attendance, "is_holiday_for_employee", return_value={"is_holiday": False}),
+        ):
+            result = day_wise_attendance.get_status("12654", target_date, data_on_date, "LWP", request_map)
+
+        self.assertEqual(result, "HOD")
+
+    def test_form14_places_approved_paid_half_against_lwp_half(self):
+        target_date = date(2026, 5, 4)
+        date_key = target_date.strftime("%d-%m-%Y")
+        employee = day_wise_attendance.frappe._dict({"name": "12654"})
+        lwp_application = SimpleNamespace(
+            name="RB-LAP-LWP",
+            half_day=1,
+            half_day_date=target_date,
+            custom_half_type="Second Half",
+            from_date=target_date,
+            to_date=target_date,
+        )
+        other_leave = SimpleNamespace(
+            name="RB-LAP-CL",
+            leave_type="Casual Leave - Plant",
+            status="Approved",
+            docstatus=1,
+            custom_half_type="First Half",
+        )
+        attendance = day_wise_attendance.frappe._dict(
+            {
+                "employee": "12654",
+                "attendance_date": target_date,
+                "leave_application": "RB-LAP-LWP",
+                "leave_type": "Leave Without Pay",
+                "attendance_request": None,
+                "custom_attendance_tag": "LWP",
+                "status": "Half Day",
+                "working_hours": 0.0,
+                "shift": None,
+            }
+        )
+        emp_data = {
+            date_key: {
+                "attendance": [attendance],
+                "checkins": [],
+            }
+        }
+
+        def get_cached_doc(doctype, name):
+            if doctype == "Leave Application":
+                return lwp_application
+            if doctype == "Leave Type":
+                return get_leave_type_doc(name)
+            raise AssertionError(f"Unexpected cached doc: {doctype} {name}")
+
+        with (
+            patch.object(day_wise_attendance.frappe, "get_cached_doc", side_effect=get_cached_doc),
+            patch.object(day_wise_attendance.frappe, "get_all", return_value=[other_leave]),
+            patch.object(day_wise_attendance, "format_date", side_effect=lambda value: value.strftime("%d-%m-%Y")),
+            patch.object(form_14, "format_date", side_effect=lambda value: value.strftime("%d-%m-%Y")),
+            patch.object(day_wise_attendance, "is_holiday_for_employee", return_value={"is_holiday": False}),
+            patch.object(form_14, "is_holiday_for_employee", return_value={"is_holiday": False}),
+        ):
+            snapshot = form_14.build_day_snapshot(employee, target_date, emp_data, {}, {})
+
+        self.assertEqual(snapshot["processed_status"], "HCL")
+        self.assertEqual(snapshot["first_half"], "CL")
+        self.assertEqual(snapshot["second_half"], "A")
+
+    def test_form14_places_approved_od_half_against_lwp_half(self):
+        target_date = date(2026, 5, 4)
+        date_key = target_date.strftime("%d-%m-%Y")
+        employee = day_wise_attendance.frappe._dict({"name": "12654"})
+        lwp_application = SimpleNamespace(
+            name="RB-LAP-LWP",
+            half_day=1,
+            half_day_date=target_date,
+            custom_half_type="Second Half",
+            from_date=target_date,
+            to_date=target_date,
+        )
+        attendance = day_wise_attendance.frappe._dict(
+            {
+                "employee": "12654",
+                "attendance_date": target_date,
+                "leave_application": "RB-LAP-LWP",
+                "leave_type": "Leave Without Pay",
+                "attendance_request": None,
+                "custom_attendance_tag": "LWP",
+                "status": "Half Day",
+                "working_hours": 0.0,
+                "shift": None,
+            }
+        )
+        request_map = {
+            "12654": {
+                date_key: [
+                    day_wise_attendance.frappe._dict(
+                        {
+                            "name": "HR-ARQ-OD",
+                            "reason": "Official",
+                            "half_day": 1,
+                            "half_day_date": target_date,
+                            "custom_half_type": "First Half",
+                            "docstatus": 1,
+                        }
+                    )
+                ]
+            }
+        }
+        emp_data = {
+            date_key: {
+                "attendance": [attendance],
+                "checkins": [],
+            }
+        }
+
+        def get_cached_doc(doctype, name):
+            if doctype == "Leave Application":
+                return lwp_application
+            if doctype == "Leave Type":
+                return get_leave_type_doc(name)
+            raise AssertionError(f"Unexpected cached doc: {doctype} {name}")
+
+        with (
+            patch.object(day_wise_attendance.frappe, "get_cached_doc", side_effect=get_cached_doc),
+            patch.object(day_wise_attendance.frappe, "get_all", return_value=[]),
+            patch.object(day_wise_attendance, "format_date", side_effect=lambda value: value.strftime("%d-%m-%Y")),
+            patch.object(form_14, "format_date", side_effect=lambda value: value.strftime("%d-%m-%Y")),
+            patch.object(day_wise_attendance, "is_holiday_for_employee", return_value={"is_holiday": False}),
+            patch.object(form_14, "is_holiday_for_employee", return_value={"is_holiday": False}),
+        ):
+            snapshot = form_14.build_day_snapshot(employee, target_date, emp_data, request_map, {})
+
+        self.assertEqual(snapshot["processed_status"], "HOD")
+        self.assertEqual(snapshot["first_half"], "OD")
+        self.assertEqual(snapshot["second_half"], "A")
 
     @patch.object(day_wise_attendance.frappe, "get_all")
     def test_day_wise_get_employees_excludes_records_outside_report_month(self, mock_get_all):
