@@ -36,6 +36,8 @@ HR_ACTUAL_ORDER = [
     "Children Hostel Allowance",
 ]
 
+REPORT_DATE_FORMAT = "%d/%m/%Y"
+
 
 # ---------------- Public API ----------------
 def execute(filters=None):
@@ -751,6 +753,7 @@ def get_data(filters, columns=None):
             (res.get("weekly_off") or 0) + (res.get("holiday") or 0)
         )
 
+        apply_report_date_format(res)
         apply_column_precision(res, precision_map)
         result.append(res)
 
@@ -950,6 +953,17 @@ def accumulate_numeric_fields(total_row, source_row, numeric_fields):
         total_row[fieldname] = flt(total_row.get(fieldname)) + flt(
             source_row.get(fieldname)
         )
+
+
+def apply_report_date_format(row):
+    for fieldname in ("date_of_birth", "date_of_joining"):
+        row[fieldname] = format_report_date(row.get(fieldname))
+
+
+def format_report_date(value):
+    if not value:
+        return value
+    return getdate(value).strftime(REPORT_DATE_FORMAT)
 
 
 # ---------------- Salary Structure helpers ----------------
