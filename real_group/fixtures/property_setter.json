@@ -4878,5 +4878,53 @@
   "property_type": "Check",
   "row_name": null,
   "value": "1"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Salary Structure Assignment",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "base",
+  "is_system_generated": 0,
+  "modified": "2026-06-03 11:38:39.029540",
+  "module": "Real Group",
+  "name": "Salary Structure Assignment-base-fetch_from",
+  "property": "fetch_from",
+  "property_type": "Small Text",
+  "row_name": null,
+  "value": "salary_structure.total_earning"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Salary Structure Assignment",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "base",
+  "is_system_generated": 0,
+  "modified": "2026-06-03 11:38:50.906151",
+  "module": "Real Group",
+  "name": "Salary Structure Assignment-base-non_negative",
+  "property": "non_negative",
+  "property_type": "Check",
+  "row_name": null,
+  "value": "1"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Salary Structure Assignment",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "base",
+  "is_system_generated": 0,
+  "modified": "2026-06-03 11:38:44.833697",
+  "module": "Real Group",
+  "name": "Salary Structure Assignment-base-read_only",
+  "property": "read_only",
+  "property_type": "Check",
+  "row_name": null,
+  "value": "1"
  }
 ]
