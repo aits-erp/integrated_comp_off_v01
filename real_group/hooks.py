@@ -38,6 +38,7 @@ doctype_js = {
     "Employee Grade": "public/js/form/employee_grade.js",
     "Attendance Request": "public/js/form/attendance_request.js",
     "Salary Structure": "public/js/form/salary_structure.js",
+    "Salary Structure Assignment": "public/js/form/salary_structure_assignment.js",
     "Interview": "public/js/form/interview.js",
     "Compensation Matrix": "public/js/form/compensation_matrix.js",
     "Arrear Slip": "public/js/form/arrear_slip.js",
@@ -230,7 +231,7 @@ doc_events = {
     },
     "Salary Structure Assignment": {
         "before_save": [
-            # "real_group.real_group.arrears.process_arrear",
+            "real_group.doc_events.salary_structure_assignment.before_save",
         ],
         "before_submit": ["real_group.real_group.integration.insert_salary_structure"],
     },
