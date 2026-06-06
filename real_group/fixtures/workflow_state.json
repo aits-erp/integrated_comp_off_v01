@@ -2,29 +2,11 @@
  {
   "docstatus": 0,
   "doctype": "Workflow State",
-  "icon": "",
-  "modified": "2025-05-30 12:34:41.897975",
-  "name": "Submitted",
-  "style": "Success",
-  "workflow_state_name": "Submitted"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
   "icon": "question-sign",
   "modified": "2024-01-23 12:16:06.088016",
   "name": "Pending",
   "style": "",
   "workflow_state_name": "Pending"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
-  "icon": "remove",
-  "modified": "2024-01-23 12:16:06.090761",
-  "name": "Rejected",
-  "style": "Danger",
-  "workflow_state_name": "Rejected"
  },
  {
   "docstatus": 0,
@@ -57,15 +39,6 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-08-17 13:18:23.905435",
-  "name": "Cancelled",
-  "style": "Danger",
-  "workflow_state_name": "Cancelled"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
-  "icon": "",
   "modified": "2024-08-17 13:18:17.405639",
   "name": "Rejected by HOD",
   "style": "Danger",
@@ -93,18 +66,45 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-05-14 18:46:53.948112",
-  "name": "Draft",
+  "modified": "2024-05-14 18:45:21.801825",
+  "name": "Pending at HOD",
   "style": "",
-  "workflow_state_name": "Draft"
+  "workflow_state_name": "Pending at HOD"
  },
  {
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2024-05-14 18:45:21.801825",
-  "name": "Pending at HOD",
+  "modified": "2024-08-17 13:18:23.905435",
+  "name": "Cancelled",
+  "style": "Danger",
+  "workflow_state_name": "Cancelled"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "remove",
+  "modified": "2024-01-23 12:16:06.090761",
+  "name": "Rejected",
+  "style": "Danger",
+  "workflow_state_name": "Rejected"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2025-05-30 12:34:41.897975",
+  "name": "Submitted",
+  "style": "Success",
+  "workflow_state_name": "Submitted"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2024-05-14 18:46:53.948112",
+  "name": "Draft",
   "style": "",
-  "workflow_state_name": "Pending at HOD"
+  "workflow_state_name": "Draft"
  }
 ]
