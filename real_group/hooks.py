@@ -56,6 +56,7 @@ doctype_js = {
     "Employee Transfer": "public/js/form/employee_transfer.js",
     "Employee Checkin": "public/js/form/employee_checkin.js",
     "Training Event": "public/js/form/training_event.js",
+    "Branch": "public/js/form/branch.js",
 }
 doctype_list_js = {
     "Leave Application": "public/js/list/leave_application.js",
@@ -255,6 +256,7 @@ doc_events = {
         "validate": "real_group.doc_events.training_event.validate",
     },
     "Branch": {
+        "validate": "real_group.doc_events.branch.validate",
         "on_update": "real_group.doc_events.branch.on_update",
     },
 }
