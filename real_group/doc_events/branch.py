@@ -1,9 +1,12 @@
 import frappe
 
 
+MAX_ALLOWED_MIS_PUNCH_DAYS = 28
+
+
 def validate(doc, method):
     value = doc.get("custom_allowed_mis_punch_days")
-    doc.custom_allowed_mis_punch_days = get_two_digit_value(value)
+    doc.custom_allowed_mis_punch_days = validate_allowed_mis_punch_days(value)
 
 
 def on_update(doc, method):
@@ -22,3 +25,12 @@ def get_two_digit_value(value):
         return None
 
     return int(digits[:2])
+
+
+def validate_allowed_mis_punch_days(value):
+    value = get_two_digit_value(value)
+
+    if value is not None and value > MAX_ALLOWED_MIS_PUNCH_DAYS:
+        frappe.throw(frappe._("Maximum allowed MIS punch days is 28."))
+
+    return value

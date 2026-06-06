@@ -1,3 +1,5 @@
+const MAX_ALLOWED_MIS_PUNCH_DAYS = 28;
+
 frappe.ui.form.on("Branch", {
 	refresh(frm) {
 		setup_allowed_mis_punch_days_limit(frm);
@@ -26,8 +28,9 @@ function setup_allowed_mis_punch_days_limit(frm) {
 		const start = input.selectionStart || 0;
 		const end = input.selectionEnd || 0;
 		const next_value = `${input.value.slice(0, start)}${event.data}${input.value.slice(end)}`;
+		const next_digits = get_digits(next_value);
 
-		if (get_digits(next_value).length > 2) {
+		if (next_digits.length > 2 || cint(next_digits) > MAX_ALLOWED_MIS_PUNCH_DAYS) {
 			event.preventDefault();
 		}
 	});
@@ -58,7 +61,7 @@ function get_limited_value(value) {
 		return "";
 	}
 
-	return cint(digits);
+	return Math.min(cint(digits), MAX_ALLOWED_MIS_PUNCH_DAYS);
 }
 
 function get_digits(value) {
