@@ -4305,22 +4305,6 @@
  },
  {
   "default_value": null,
-  "doc_type": "Branch",
-  "docstatus": 0,
-  "doctype": "Property Setter",
-  "doctype_or_field": "DocType",
-  "field_name": null,
-  "is_system_generated": 0,
-  "modified": "2025-11-27 11:08:50.427256",
-  "module": "Real Group",
-  "name": "Branch-main-field_order",
-  "property": "field_order",
-  "property_type": "Data",
-  "row_name": null,
-  "value": "[\"branch\", \"custom_skip_gate_pass\", \"custom_column_break_wrbvc\", \"custom_holiday_list\", \"custom_change_request\"]"
- },
- {
-  "default_value": null,
   "doc_type": "Company",
   "docstatus": 0,
   "doctype": "Property Setter",
@@ -4926,5 +4910,21 @@
   "property_type": "Check",
   "row_name": null,
   "value": "1"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Branch",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocType",
+  "field_name": null,
+  "is_system_generated": 0,
+  "modified": "2026-06-06 12:02:06.000036",
+  "module": "Real Group",
+  "name": "Branch-main-field_order",
+  "property": "field_order",
+  "property_type": "Data",
+  "row_name": null,
+  "value": "[\"branch\", \"custom_skip_gate_pass\", \"custom_column_break_wrbvc\", \"custom_holiday_list\", \"custom_change_request\", \"custom_allowed_mis_punch_days\"]"
  }
 ]
