@@ -1,5 +1,7 @@
+from datetime import timedelta
+
 import frappe
-from frappe.utils import flt, today
+from frappe.utils import flt, getdate, today
 
 
 def get_total_comp_off_outflow(employee: str) -> float:
@@ -143,8 +145,13 @@ def mark_request_expired(
         )
 
 
-def expire_unused_comp_off():
-    today_date = today()
+def get_previous_month_end(as_of_date=None):
+    run_date = getdate(as_of_date or today())
+    return run_date.replace(day=1) - timedelta(days=1)
+
+
+def expire_unused_comp_off(as_of_date=None):
+    expiry_cutoff_date = get_previous_month_end(as_of_date)
     clr_meta = frappe.get_meta("Compensatory Leave Request")
     has_custom_balance = clr_meta.has_field("custom_balance")
     has_custom_is_expired = clr_meta.has_field("custom_is_expired")
@@ -153,8 +160,9 @@ def expire_unused_comp_off():
     requests = frappe.get_all(
         "Compensatory Leave Request",
         filters={
-            # Expire on configured expiry date.
-            "expiry": today_date,
+            # Monthly expiry run: expire requests whose configured expiry date
+            # is up to the last day of the previous month.
+            "expiry": ["<=", expiry_cutoff_date],
             "docstatus": 1,
             "status": ["!=", "Expired"],
         },
@@ -241,9 +249,8 @@ def expire_unused_comp_off():
             )
             continue
 
-        # Rule:
-        # If expiry date is today, expire only when available C-Off balance
-        # is enough to cover this request's remaining expiry balance.
+        # Rule: expire only when available C-Off balance is enough to cover
+        # this request's remaining expiry balance.
         if allocation_balance < request_balance:
             continue
 
@@ -269,7 +276,7 @@ def expire_unused_comp_off():
             employee_name=employee_doc.employee_name,
             company=employee_doc.company,
             expire_qty=expire_qty,
-            date=today_date,
+            date=req.expiry,
             transaction_type="Leave Allocation",
             transaction_name=req.leave_allocation,
         )
