@@ -1,6 +1,14 @@
 import frappe
 from frappe import _
-from frappe.utils import date_diff, get_link_to_form, getdate
+from frappe.utils import date_diff, get_first_day, get_last_day, get_link_to_form, getdate
+
+
+MIS_PUNCH_LIMIT_REACHED_MESSAGE = "Mis Punch application limit reached for this month."
+REJECTED_ATTENDANCE_REQUEST_STATES = (
+    "Rejected by HOD",
+    "Rejected at Gate",
+    "Rejected by HR",
+)
 
 
 def validate(doc, method=None):
@@ -13,6 +21,7 @@ def validate(doc, method=None):
     if doc.reason == "Mis Punch":
         if getdate(doc.from_date) != getdate(doc.to_date):
             frappe.throw(frappe._("Attendance Request for Mis Punch can be marked for single day only!!"))
+        validate_mis_punch_monthly_limit(doc)
 
 
 def before_cancel(doc, method=None):
@@ -188,6 +197,60 @@ def validate_change_request_day(doc):
     diff = date_diff(getdate(), doc.from_date)
     if diff > allowed_days:
         frappe.throw(frappe._("You can only change attendance request within {0} days.").format(allowed_days))
+
+
+def validate_mis_punch_monthly_limit(doc):
+    allowed_mis_punch_days = get_allowed_mis_punch_days(doc.employee)
+    if not allowed_mis_punch_days:
+        return
+
+    request_date = getdate(doc.from_date)
+    existing_mis_punch_requests = get_monthly_mis_punch_request_count(
+        doc.employee,
+        request_date,
+        doc.name,
+    )
+
+    if existing_mis_punch_requests >= allowed_mis_punch_days:
+        frappe.throw(frappe._(MIS_PUNCH_LIMIT_REACHED_MESSAGE))
+
+
+def get_allowed_mis_punch_days(employee):
+    branch = frappe.get_value("Employee", employee, "branch")
+    if not branch:
+        return 0
+
+    return frappe.get_value("Branch", branch, "custom_allowed_mis_punch_days") or 0
+
+
+def get_monthly_mis_punch_request_count(employee, request_date, current_request=None):
+    month_start = get_first_day(request_date)
+    month_end = get_last_day(request_date)
+    rejected_states = ", ".join(["%s"] * len(REJECTED_ATTENDANCE_REQUEST_STATES))
+
+    return frappe.db.sql(
+        f"""
+        SELECT COUNT(name)
+        FROM `tabAttendance Request`
+        WHERE employee = %s
+            AND reason = 'Mis Punch'
+            AND docstatus != 2
+            AND name != %s
+            AND from_date BETWEEN %s AND %s
+            AND (
+                workflow_state IS NULL
+                OR workflow_state = ''
+                OR workflow_state NOT IN ({rejected_states})
+            )
+        """,
+        (
+            employee,
+            current_request or "",
+            month_start,
+            month_end,
+            *REJECTED_ATTENDANCE_REQUEST_STATES,
+        ),
+    )[0][0]
 
 
 def is_salary_processed(doc):

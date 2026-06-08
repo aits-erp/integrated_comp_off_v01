@@ -42,3 +42,36 @@ class TestAttendanceRequestValidation(TestCase):
             attendance_request.validate_workflow_state(doc)
 
         throw.assert_not_called()
+
+    def test_mis_punch_limit_zero_allows_unlimited_requests(self):
+        doc = SimpleNamespace(employee="EMP-001", from_date="2026-06-06", name="HR-ARQ-001")
+
+        with patch.object(attendance_request, "get_allowed_mis_punch_days", return_value=0):
+            with patch.object(attendance_request, "get_monthly_mis_punch_request_count") as count:
+                with patch.object(attendance_request.frappe, "throw") as throw:
+                    attendance_request.validate_mis_punch_monthly_limit(doc)
+
+        count.assert_not_called()
+        throw.assert_not_called()
+
+    def test_mis_punch_limit_allows_request_when_count_is_below_limit(self):
+        doc = SimpleNamespace(employee="EMP-001", from_date="2026-06-06", name="HR-ARQ-001")
+
+        with patch.object(attendance_request, "get_allowed_mis_punch_days", return_value=3):
+            with patch.object(attendance_request, "get_monthly_mis_punch_request_count", return_value=2):
+                with patch.object(attendance_request.frappe, "throw") as throw:
+                    attendance_request.validate_mis_punch_monthly_limit(doc)
+
+        throw.assert_not_called()
+
+    def test_mis_punch_limit_rejects_request_when_count_reaches_limit(self):
+        doc = SimpleNamespace(employee="EMP-001", from_date="2026-06-06", name="HR-ARQ-001")
+
+        with patch.object(attendance_request, "get_allowed_mis_punch_days", return_value=3):
+            with patch.object(attendance_request, "get_monthly_mis_punch_request_count", return_value=3):
+                with patch.object(attendance_request.frappe, "_", side_effect=lambda message: message):
+                    with patch.object(attendance_request.frappe, "throw", side_effect=Exception) as throw:
+                        with self.assertRaises(Exception):
+                            attendance_request.validate_mis_punch_monthly_limit(doc)
+
+        throw.assert_called_once_with(attendance_request.MIS_PUNCH_LIMIT_REACHED_MESSAGE)
