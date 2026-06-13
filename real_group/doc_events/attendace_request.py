@@ -131,7 +131,7 @@ def validate_date(doc):
                             ).format(get_link_to_form("Leave Application", l.name))
                         )
 
-    requests = frappe.get_all(
+    requests = frappe.get_all( 
         "Attendance Request",
         filters={
             "employee": doc.employee,
