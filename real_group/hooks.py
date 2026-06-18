@@ -230,6 +230,9 @@ doc_events = {
         "on_update": ["real_group.real_group.integration.update_user"],
         "update_password": ["real_group.real_group.integration.update_user_password"],
     },
+    "Salary Structure": {
+        "validate": ["real_group.doc_events.salary_structure.validate"],
+    },
     "Salary Structure Assignment": {
         "before_save": [
             "real_group.doc_events.salary_structure_assignment.before_save",
