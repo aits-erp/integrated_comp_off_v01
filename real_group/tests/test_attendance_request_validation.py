@@ -76,7 +76,7 @@ class TestAttendanceRequestValidation(TestCase):
 
         throw.assert_called_once_with(attendance_request.MIS_PUNCH_LIMIT_REACHED_MESSAGE)
 
-    def test_mis_punch_rejects_request_when_valid_checkin_pair_exists(self):
+    def test_mis_punch_rejects_request_when_checkin_and_checkout_exist(self):
         doc = SimpleNamespace(employee="EMP-001", from_date="2026-06-06")
         checkins = [
             SimpleNamespace(log_type="IN", time="2026-06-06 09:00:00"),
@@ -87,9 +87,20 @@ class TestAttendanceRequestValidation(TestCase):
             with patch.object(attendance_request.frappe, "_", side_effect=lambda message: message):
                 with patch.object(attendance_request.frappe, "throw", side_effect=Exception) as throw:
                     with self.assertRaises(Exception):
-                        attendance_request.validate_mis_punch_checkin_pair(doc)
+                        attendance_request.validate_mis_punch_checkins(doc)
 
         throw.assert_called_once_with(attendance_request.MIS_PUNCH_VALID_PAIR_EXISTS_MESSAGE)
+
+    def test_mis_punch_rejects_request_when_no_checkin_or_checkout_exists(self):
+        doc = SimpleNamespace(employee="EMP-001", from_date="2026-06-06")
+
+        with patch.object(attendance_request, "get_mis_punch_checkins", return_value=[]):
+            with patch.object(attendance_request.frappe, "_", side_effect=lambda message: message):
+                with patch.object(attendance_request.frappe, "throw", side_effect=Exception) as throw:
+                    with self.assertRaises(Exception):
+                        attendance_request.validate_mis_punch_checkins(doc)
+
+        throw.assert_called_once_with(attendance_request.MIS_PUNCH_NO_CHECKIN_EXISTS_MESSAGE)
 
     def test_mis_punch_allows_request_when_checkout_is_missing(self):
         doc = SimpleNamespace(employee="EMP-001", from_date="2026-06-06")
@@ -97,19 +108,16 @@ class TestAttendanceRequestValidation(TestCase):
 
         with patch.object(attendance_request, "get_mis_punch_checkins", return_value=checkins):
             with patch.object(attendance_request.frappe, "throw") as throw:
-                attendance_request.validate_mis_punch_checkin_pair(doc)
+                attendance_request.validate_mis_punch_checkins(doc)
 
         throw.assert_not_called()
 
-    def test_mis_punch_does_not_treat_out_before_in_as_valid_pair(self):
-        checkins = [
-            SimpleNamespace(log_type="OUT", time="2026-06-06 08:00:00"),
-            SimpleNamespace(log_type="IN", time="2026-06-06 09:00:00"),
-        ]
+    def test_mis_punch_allows_request_when_checkin_is_missing(self):
+        doc = SimpleNamespace(employee="EMP-001", from_date="2026-06-06")
+        checkins = [SimpleNamespace(log_type="OUT", time="2026-06-06 18:00:00")]
 
         with patch.object(attendance_request, "get_mis_punch_checkins", return_value=checkins):
-            has_valid_pair = attendance_request.has_valid_mis_punch_checkin_pair(
-                "EMP-001", "2026-06-06"
-            )
+            with patch.object(attendance_request.frappe, "throw") as throw:
+                attendance_request.validate_mis_punch_checkins(doc)
 
-        self.assertFalse(has_valid_pair)
+        throw.assert_not_called()

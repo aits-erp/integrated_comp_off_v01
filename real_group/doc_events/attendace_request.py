@@ -7,6 +7,10 @@ MIS_PUNCH_LIMIT_REACHED_MESSAGE = "Mis Punch application limit reached for this 
 MIS_PUNCH_VALID_PAIR_EXISTS_MESSAGE = (
     "Mis Punch request cannot be created when both check-in and check-out are available for the selected date."
 )
+MIS_PUNCH_NO_CHECKIN_EXISTS_MESSAGE = (
+    "Mis Punch request cannot be created when no check-in or check-out is available for the selected date. "
+    "Please apply Official attendance request."
+)
 REJECTED_ATTENDANCE_REQUEST_STATES = (
     "Rejected by HOD",
     "Rejected at Gate",
@@ -24,7 +28,7 @@ def validate(doc, method=None):
     if doc.reason == "Mis Punch":
         if getdate(doc.from_date) != getdate(doc.to_date):
             frappe.throw(frappe._("Attendance Request for Mis Punch can be marked for single day only!!"))
-        validate_mis_punch_checkin_pair(doc)
+        validate_mis_punch_checkins(doc)
         validate_mis_punch_monthly_limit(doc)
 
 
@@ -219,33 +223,23 @@ def validate_mis_punch_monthly_limit(doc):
         frappe.throw(frappe._(MIS_PUNCH_LIMIT_REACHED_MESSAGE))
 
 
-def validate_mis_punch_checkin_pair(doc):
-    if has_valid_mis_punch_checkin_pair(doc.employee, getdate(doc.from_date)):
+def validate_mis_punch_checkins(doc):
+    has_in, has_out = get_mis_punch_checkin_flags(doc.employee, getdate(doc.from_date))
+
+    if has_in and has_out:
         frappe.throw(frappe._(MIS_PUNCH_VALID_PAIR_EXISTS_MESSAGE))
 
+    if not has_in and not has_out:
+        frappe.throw(frappe._(MIS_PUNCH_NO_CHECKIN_EXISTS_MESSAGE))
 
-def has_valid_mis_punch_checkin_pair(employee, request_date):
-    checkins = get_mis_punch_checkins(employee, request_date)
-    in_logs = sorted(
-        [checkin for checkin in checkins if get_checkin_log_type(checkin) == "IN"],
-        key=get_checkin_time,
-    )
-    out_logs = sorted(
-        [checkin for checkin in checkins if get_checkin_log_type(checkin) == "OUT"],
-        key=get_checkin_time,
-    )
 
-    for in_log in in_logs:
-        in_time = get_checkin_time(in_log)
-        if not in_time:
-            continue
+def get_mis_punch_checkin_flags(employee, request_date):
+    log_types = {
+        get_checkin_log_type(checkin)
+        for checkin in get_mis_punch_checkins(employee, request_date)
+    }
 
-        for out_log in out_logs:
-            out_time = get_checkin_time(out_log)
-            if out_time and out_time > in_time:
-                return True
-
-    return False
+    return "IN" in log_types, "OUT" in log_types
 
 
 def get_mis_punch_checkins(employee, request_date):
@@ -266,11 +260,6 @@ def get_mis_punch_checkins(employee, request_date):
 
 def get_checkin_log_type(checkin):
     return (get_checkin_value(checkin, "log_type") or "").upper()
-
-
-def get_checkin_time(checkin):
-    time = get_checkin_value(checkin, "time")
-    return get_datetime(time) if time else None
 
 
 def get_checkin_value(checkin, fieldname):
