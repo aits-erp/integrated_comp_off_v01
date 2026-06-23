@@ -52,6 +52,7 @@ class GatePass(Document):
                 ["employee", "=", self.employee],
                 ["date", "=", self.date],
                 ["docstatus", "in", [0, 1]],
+                ["status", "!=", "Rejected"],
                 ["name", "!=", self.name or ""],
             ],
             pluck="name",
@@ -132,6 +133,7 @@ def get_existing_gate_pass_count(employee: str, date: str, exclude_name: str | N
         ["employee", "=", employee],
         ["date", "=", date],
         ["docstatus", "in", [0, 1]],
+        ["status", "!=", "Rejected"],
     ]
     if exclude_name:
         filters.append(["name", "!=", exclude_name])
