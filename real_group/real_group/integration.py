@@ -4,6 +4,7 @@ from datetime import datetime
 
 import cx_Oracle
 import frappe
+from frappe.utils import flt
 
 from real_group.real_group.employee_map import (
     ACCOUNT_MAP,
@@ -1220,6 +1221,54 @@ def cancel_salary_slip(doc, method):
                 con.close()
 
 
+# ERP 'Loan' component code (Salary Component "Loan" -> custom_erp_code = 'LOAN').
+LOAN_AFCODE = "LOAN"
+
+
+def _get_lending_loan_repayment(docname):
+    """Return the total loan repayment captured by the Lending app for this Salary Slip.
+
+    The Lending app stores its repayment in the Salary Slip `loans` child table and
+    exposes the slip-level sum as `total_loan_repayment`. This amount is NOT part of the
+    slip `deductions` table, so the ERP salary transaction query never sees it. We read it
+    here so it can be merged into the ERP 'Loan' component (AFCODE = 'LOAN') alongside any
+    Additional Salary based 'Loan' deduction.
+    """
+    if "lending" not in frappe.get_installed_apps():
+        return 0
+    return flt(frappe.db.get_value("Salary Slip", docname, "total_loan_repayment"))
+
+
+def _merge_lending_loan_into_erp_rows(salary_slips, docname):
+    """Add the Lending app loan repayment onto the ERP 'Loan' row's AFIELD.
+
+    AFIELD (= SUM of the slip's actual 'Loan' deduction amounts) is the field that carries
+    the real deducted loan amount to Oracle; AFRATE/ACTUALS are 0/NULL for the Loan row.
+    A single 'Loan' row in EMP_SAL_TRAN should therefore reflect both the Additional Salary
+    'Loan' installment and the Lending app repayment.
+    """
+    lending_loan_repayment = _get_lending_loan_repayment(docname)
+    if not lending_loan_repayment:
+        return
+
+    loan_row = next(
+        (item for item in salary_slips if item.get("afcode") == LOAN_AFCODE), None
+    )
+    if loan_row:
+        loan_row["afield"] = flt(loan_row.get("afield")) + lending_loan_repayment
+    else:
+        # No 'Loan' component in this employee's salary structure: there is no ERP row to
+        # carry the lending repayment. Surface it instead of silently dropping the amount.
+        frappe.log_error(
+            title="ERP Loan sync: no 'Loan' component row",
+            message=(
+                f"Salary Slip {docname} has a Lending app loan repayment of "
+                f"{lending_loan_repayment} but no 'Loan' (AFCODE='{LOAN_AFCODE}') component "
+                f"in its salary structure, so the lending repayment was NOT sent to ERP."
+            ),
+        )
+
+
 def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure):
     salary_slips = frappe.db.sql(
         """
@@ -1301,6 +1350,9 @@ def get_salary_slip_insert_query(map, table_name, docname, doc_salary_structure)
             elif item.get("actuals") is None:
                 item["actuals"] = 0
                 item["afrate"] = 0
+
+    # Merge the Lending app loan repayment into the ERP 'Loan' component.
+    _merge_lending_loan_into_erp_rows(salary_slips, docname)
 
     sql_queries = []
     for salary_slip in salary_slips:
@@ -1444,6 +1496,9 @@ def get_salary_slip_update_query(map, table_name, docname, doc_salary_structure)
             elif item.get("actuals") is None:
                 item["actuals"] = 0
                 item["afrate"] = 0
+
+    # Merge the Lending app loan repayment into the ERP 'Loan' component.
+    _merge_lending_loan_into_erp_rows(salary_slips, docname)
 
     sql_queries = []
     for salary_slip in salary_slips:

@@ -13,7 +13,6 @@ class RealGroupSettings(Document):
 
     if TYPE_CHECKING:
         from frappe.types import DF
-
         from real_group.real_group.doctype.oracle_credentials.oracle_credentials import OracleCredentials
 
         birthday_wish_message: DF.HTMLEditor | None
@@ -22,6 +21,7 @@ class RealGroupSettings(Document):
         email_account: DF.Link | None
         esic_deduction_limit: DF.Float
         oracle_credentials_details: DF.Table[OracleCredentials]
+        pf_basic_limit: DF.Int
         time_pro_database: DF.Data | None
         time_pro_host: DF.Data | None
         time_pro_last_sync_on: DF.Datetime | None
