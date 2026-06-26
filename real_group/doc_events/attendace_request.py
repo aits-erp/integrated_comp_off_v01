@@ -16,6 +16,14 @@ REJECTED_ATTENDANCE_REQUEST_STATES = (
     "Rejected at Gate",
     "Rejected by HR",
 )
+INACTIVE_OVERLAP_STATES = (
+    "Rejected",
+    "Cancelled",
+    "Reject by HOD",
+    "Reject by HR",
+    "Reject at Gate",
+    *REJECTED_ATTENDANCE_REQUEST_STATES,
+)
 
 
 def validate(doc, method=None):
@@ -100,7 +108,7 @@ def validate_date(doc):
             "from_date": ["<=", doc.to_date],
             "to_date": [">=", doc.from_date],
             "docstatus": ["!=", 2],
-            "workflow_state": ["not in", ["Rejected", "Cancelled", "Reject by HOD", "Reject by HR", "Reject at Gate"]],
+            "workflow_state": ["not in", INACTIVE_OVERLAP_STATES],
         },
         fields=["docstatus", "name", "half_day_date", "custom_half_type", "half_day", "from_date", "to_date"],
     )
@@ -143,7 +151,7 @@ def validate_date(doc):
             "to_date": [">=", doc.from_date],
             "docstatus": ["!=", 2],
             "name": ["!=", doc.name],
-            "workflow_state": ["not in", ["Rejected", "Cancelled", "Reject by HOD", "Reject by HR", "Reject at Gate"]],
+            "workflow_state": ["not in", INACTIVE_OVERLAP_STATES],
         },
         fields=["name", "from_date", "to_date", "half_day_date", "custom_half_type", "half_day"],
     )

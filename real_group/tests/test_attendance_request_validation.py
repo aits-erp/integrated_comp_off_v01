@@ -43,6 +43,31 @@ class TestAttendanceRequestValidation(TestCase):
 
         throw.assert_not_called()
 
+    def test_validate_date_ignores_rejected_attendance_request_states(self):
+        doc = SimpleNamespace(
+            employee="EMP-001",
+            from_date="2026-06-20",
+            to_date="2026-06-20",
+            name="new-attendance-request",
+            half_day=0,
+            half_day_date=None,
+            custom_half_type="",
+        )
+
+        def get_all(doctype, filters, fields):
+            if doctype == "Leave Application":
+                return []
+
+            self.assertEqual(doctype, "Attendance Request")
+            self.assertIn("Rejected by HOD", filters["workflow_state"][1])
+            return []
+
+        with patch.object(attendance_request.frappe, "get_all", side_effect=get_all):
+            with patch.object(attendance_request.frappe, "throw") as throw:
+                attendance_request.validate_date(doc)
+
+        throw.assert_not_called()
+
     def test_mis_punch_limit_zero_allows_unlimited_requests(self):
         doc = SimpleNamespace(employee="EMP-001", from_date="2026-06-06", name="HR-ARQ-001")
 
