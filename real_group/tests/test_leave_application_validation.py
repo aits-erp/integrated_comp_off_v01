@@ -130,6 +130,57 @@ class TestLeaveApplicationValidation(TestCase):
                 "Second Half",
             )
 
+    def test_present_attendance_without_evidence_is_not_a_valid_separator(self):
+        attendance = SimpleNamespace(
+            status="Present",
+            custom_half_type=None,
+            leave_application=None,
+            attendance_request=None,
+            shift=None,
+            attendance_date=date(2026, 5, 10),
+            in_time=None,
+            out_time=None,
+        )
+
+        with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
+            self.assertFalse(
+                leave_application.has_present_attendance("12654", date(2026, 5, 10))
+            )
+
+    def test_present_attendance_with_checkin_evidence_is_a_valid_separator(self):
+        attendance = SimpleNamespace(
+            status="Present",
+            custom_half_type=None,
+            leave_application=None,
+            attendance_request=None,
+            shift="G",
+            attendance_date=date(2026, 5, 12),
+            in_time=datetime(2026, 5, 12, 9, 1, 0),
+            out_time=datetime(2026, 5, 12, 18, 3, 0),
+        )
+
+        with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
+            self.assertTrue(
+                leave_application.has_present_attendance("12654", date(2026, 5, 12))
+            )
+
+    def test_present_attendance_with_attendance_request_is_a_valid_separator(self):
+        attendance = SimpleNamespace(
+            status="Present",
+            custom_half_type=None,
+            leave_application=None,
+            attendance_request="HR-ARQ-26-05-00089",
+            shift=None,
+            attendance_date=date(2026, 5, 15),
+            in_time=None,
+            out_time=None,
+        )
+
+        with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
+            self.assertTrue(
+                leave_application.has_present_attendance("12654", date(2026, 5, 15))
+            )
+
     def test_validate_el_and_cl_allows_casual_leave_with_opposite_half_lwp(self):
         doc = SimpleNamespace(
             leave_type="Casual Leave - Plant",

@@ -374,15 +374,25 @@ def has_present_attendance(employee, date, required_half=None):
 
     for attendance in attendances:
         if attendance.status == "Present":
-            return True
+            present_half = "Full Day" if is_attendance_evidence_backed(attendance) else None
+        else:
+            present_half = get_present_half_from_attendance(attendance)
 
-        present_half = get_present_half_from_attendance(attendance)
+        if not present_half:
+            continue
         if not required_half:
             return True
-        if half_types_match(present_half, required_half):
+        if present_half == "Full Day" or half_types_match(present_half, required_half):
             return True
 
     return False
+
+
+def is_attendance_evidence_backed(attendance):
+    return bool(
+        attendance.attendance_request
+        or (attendance.shift and attendance.in_time and attendance.out_time)
+    )
 
 
 def get_present_half_from_attendance(attendance):
