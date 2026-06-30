@@ -70,19 +70,6 @@ frappe.ui.form.on("Employee", {
       frm.set_df_property("custom_linked_pan", "hidden", 1); // hide if no Pan
     }
 
-    frappe
-      .call("get_employee_chart_data", {
-        employee: frm.doc.name,
-      })
-      .then((resp) => {
-        resp.message.factors.forEach((f) => {
-          $(cur_frm.fields_dict["custom_bp_chart"].wrapper).append(
-            `<div id="${f}"></div><div class="form-column col-sm-4">`
-          );
-          new frappe.Chart(`#${f}`, resp.message.charts[f]);
-        });
-      });
-
     if (!frm.doc.__islocal && frm.doc.custom_weekly_holiday_list) {
       frm.set_df_property("custom_weekly_holiday_list", "read_only", 1);
     }

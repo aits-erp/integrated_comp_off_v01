@@ -34,7 +34,6 @@ doctype_js = {
     "Employee": "public/js/form/employee.js",
     "Employee Performance Feedback": "public/js/form/employee_performance_feedback.js",
     "Appraisal Template": "public/js/form/appraisal_template.js",
-    "Employee Advance": "public/js/form/employee_advance.js",
     "Employee Grade": "public/js/form/employee_grade.js",
     "Attendance Request": "public/js/form/attendance_request.js",
     "Salary Structure": "public/js/form/salary_structure.js",
@@ -92,7 +91,7 @@ doctype_list_js = {
 # ----------
 
 # add methods and filters to jinja environment
-jinja = {"methods": ["real_group.real_group.utils.get_qr_code", "real_group.real_group.utils.employee_advance_details"]}
+jinja = {"methods": ["real_group.real_group.utils.get_qr_code"]}
 
 # Installation
 # ------------
