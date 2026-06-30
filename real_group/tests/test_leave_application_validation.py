@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-
 leave_application = import_module("real_group.doc_events.leave_application")
 
 
@@ -80,11 +79,11 @@ class TestLeaveApplicationValidation(TestCase):
             return separator_date == date(2026, 5, 3) and required_half == "First Half"
 
         with patch.object(
-            leave_application, "has_present_or_approved_request", side_effect=has_separator
+            leave_application,
+            "has_present_or_approved_request",
+            side_effect=has_separator,
         ):
-            self.assertTrue(
-                leave_application.has_valid_el_cl_separator("230011", earlier, later)
-            )
+            self.assertTrue(leave_application.has_valid_el_cl_separator("230011", earlier, later))
 
     def test_first_half_leave_rejects_second_half_presence_on_boundary(self):
         earlier = SimpleNamespace(
@@ -108,11 +107,11 @@ class TestLeaveApplicationValidation(TestCase):
             return separator_date == date(2026, 5, 3) and required_half == "Second Half"
 
         with patch.object(
-            leave_application, "has_present_or_approved_request", side_effect=has_separator
+            leave_application,
+            "has_present_or_approved_request",
+            side_effect=has_separator,
         ):
-            self.assertFalse(
-                leave_application.has_valid_el_cl_separator("230011", earlier, later)
-            )
+            self.assertFalse(leave_application.has_valid_el_cl_separator("230011", earlier, later))
 
     def test_infers_second_half_presence_from_attendance_times(self):
         attendance = SimpleNamespace(
@@ -143,9 +142,7 @@ class TestLeaveApplicationValidation(TestCase):
         )
 
         with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
-            self.assertFalse(
-                leave_application.has_present_attendance("12654", date(2026, 5, 10))
-            )
+            self.assertFalse(leave_application.has_present_attendance("12654", date(2026, 5, 10)))
 
     def test_present_attendance_with_checkin_evidence_is_a_valid_separator(self):
         attendance = SimpleNamespace(
@@ -160,9 +157,7 @@ class TestLeaveApplicationValidation(TestCase):
         )
 
         with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
-            self.assertTrue(
-                leave_application.has_present_attendance("12654", date(2026, 5, 12))
-            )
+            self.assertTrue(leave_application.has_present_attendance("12654", date(2026, 5, 12)))
 
     def test_present_attendance_with_attendance_request_is_a_valid_separator(self):
         attendance = SimpleNamespace(
@@ -177,9 +172,7 @@ class TestLeaveApplicationValidation(TestCase):
         )
 
         with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
-            self.assertTrue(
-                leave_application.has_present_attendance("12654", date(2026, 5, 15))
-            )
+            self.assertTrue(leave_application.has_present_attendance("12654", date(2026, 5, 15)))
 
     def test_validate_el_and_cl_allows_casual_leave_with_opposite_half_lwp(self):
         doc = SimpleNamespace(
