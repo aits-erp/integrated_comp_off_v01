@@ -1,9 +1,20 @@
 import frappe
-from frappe.utils import getdate
+from frappe.utils import flt, getdate
 from hrms.payroll.doctype.salary_slip.salary_slip import SalarySlip
 
 
 class SalarySlipOverride(SalarySlip):
+    def validate(self):
+        super().validate()
+        self.set_total_deduction_with_loan()
+
+    def set_total_deduction_with_loan(self):
+        total_loan_repayment = flt(self.get("total_loan_repayment"))
+        if not total_loan_repayment:
+            self.custom_total_deduction_with_loan = flt(self.total_deduction)
+            return
+        self.custom_total_deduction_with_loan = flt(self.total_deduction) + total_loan_repayment
+
     def calculate_lwp_ppl_and_absent_days_based_on_attendance(
         self,
         holidays,
