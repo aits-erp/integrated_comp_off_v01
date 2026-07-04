@@ -1,10 +1,12 @@
 frappe.ui.form.on("Leave Application", {
   from_date: function (frm) {
     validate_dates(frm);
+    validate_employee_not_resigned(frm);
   },
 
   to_date: function (frm) {
     validate_dates(frm);
+    validate_employee_not_resigned(frm);
   },
   half_day: function (frm) {
     if (frm.doc.half_day === 0) {
@@ -78,6 +80,36 @@ frappe.ui.form.on("Leave Application", {
     }
   },
 });
+
+function validate_employee_not_resigned(frm) {
+  if (!frm.doc.employee || !frm.doc.to_date || !frm.doc.__islocal) {
+    return;
+  }
+  frappe.db
+    .get_value("Employee", frm.doc.employee, [
+      "resignation_letter_date",
+      "relieving_date",
+    ])
+    .then((r) => {
+      const values = r.message || {};
+      const dates = [values.resignation_letter_date, values.relieving_date].filter(
+        Boolean
+      );
+      if (!dates.length) {
+        return;
+      }
+      const cutoff_date = dates.sort()[0];
+      if (frm.doc.to_date >= cutoff_date) {
+        frm.set_value("to_date", "");
+        frappe.throw(
+          __(
+            "Cannot apply for leave on or after {0} as Resignation Letter Date/Relieving Date is set in the Employee master.",
+            [frappe.datetime.str_to_user(cutoff_date)]
+          )
+        );
+      }
+    });
+}
 
 function validate_dates(frm) {
   if (frm.doc.from_date || frm.doc.to_date) {

@@ -24,6 +24,7 @@ EL_CL_REJECTED_STATES = ["Cancelled", "Rejected by HOD", "Rejected by HR"]
 
 
 def validate(doc, method=None):
+    validate_employee_not_resigned(doc)
     validate_change_request_day(doc)
     validate_cl(doc)
     validate_el_and_cl(doc)
@@ -34,6 +35,27 @@ def validate(doc, method=None):
     validate_attendance_request(doc)
     validate_leave_overlap(doc)
     validate_leave_balance(doc)
+
+
+def validate_employee_not_resigned(doc):
+    if not doc.is_new():
+        return
+
+    resignation_letter_date, relieving_date = frappe.db.get_value(
+        "Employee",
+        doc.employee,
+        ["resignation_letter_date", "relieving_date"],
+    )
+
+    set_dates = [d for d in (resignation_letter_date, relieving_date) if d]
+    cutoff_date = min(set_dates) if set_dates else None
+
+    if cutoff_date and getdate(doc.to_date) >= getdate(cutoff_date):
+        frappe.throw(
+            frappe._(
+                "Employee {0} cannot apply for leave on or after {1} as Resignation Letter Date/Relieving Date is set in the Employee master."
+            ).format(doc.employee, formatdate(cutoff_date))
+        )
 
 
 def before_cancel(doc, method=None):
