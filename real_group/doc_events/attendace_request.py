@@ -232,7 +232,11 @@ def validate_mis_punch_monthly_limit(doc):
 
 
 def validate_mis_punch_checkins(doc):
-    has_in, has_out = get_mis_punch_checkin_flags(doc.employee, getdate(doc.from_date))
+    has_in, has_out = get_mis_punch_checkin_flags(
+        doc.employee,
+        getdate(doc.from_date),
+        getattr(doc, "shift", None),
+    )
 
     if has_in and has_out:
         frappe.throw(frappe._(MIS_PUNCH_VALID_PAIR_EXISTS_MESSAGE))
@@ -241,26 +245,29 @@ def validate_mis_punch_checkins(doc):
         frappe.throw(frappe._(MIS_PUNCH_NO_CHECKIN_EXISTS_MESSAGE))
 
 
-def get_mis_punch_checkin_flags(employee, request_date):
+def get_mis_punch_checkin_flags(employee, request_date, shift=None):
     log_types = {
         get_checkin_log_type(checkin)
-        for checkin in get_mis_punch_checkins(employee, request_date)
+        for checkin in get_mis_punch_checkins(employee, request_date, shift)
     }
 
     return "IN" in log_types, "OUT" in log_types
 
 
-def get_mis_punch_checkins(employee, request_date):
+def get_mis_punch_checkins(employee, request_date, shift=None):
     day_start = get_datetime(f"{request_date} 00:00:00")
     day_end = get_datetime(f"{request_date} 23:59:59")
+    filters = {
+        "employee": employee,
+        "shift_start": ["between", [day_start, day_end]],
+    }
+
+    if shift:
+        filters["shift"] = shift
 
     return frappe.get_all(
         "Employee Checkin",
-        filters={"employee": employee},
-        or_filters=[
-            ["shift_start", "between", [day_start, day_end]],
-            ["time", "between", [day_start, day_end]],
-        ],
+        filters=filters,
         fields=["time", "log_type", "shift_start"],
         order_by="time asc",
     )

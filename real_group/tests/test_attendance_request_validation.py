@@ -146,3 +146,13 @@ class TestAttendanceRequestValidation(TestCase):
                 attendance_request.validate_mis_punch_checkins(doc)
 
         throw.assert_not_called()
+
+    def test_mis_punch_checkins_are_fetched_by_shift_start_and_request_shift(self):
+        with patch.object(attendance_request.frappe, "get_all", return_value=[]) as get_all:
+            attendance_request.get_mis_punch_checkins("12730", "2026-06-15", "N")
+
+        _, kwargs = get_all.call_args
+        self.assertEqual(kwargs["filters"]["employee"], "12730")
+        self.assertEqual(kwargs["filters"]["shift"], "N")
+        self.assertIn("shift_start", kwargs["filters"])
+        self.assertNotIn("or_filters", kwargs)
