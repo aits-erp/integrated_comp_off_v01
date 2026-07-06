@@ -390,6 +390,7 @@ def has_present_attendance(employee, date, required_half=None):
             "attendance_date",
             "in_time",
             "out_time",
+            "custom_attendance_tag",
         ],
         limit=10,
     )
@@ -410,11 +411,19 @@ def has_present_attendance(employee, date, required_half=None):
     return False
 
 
+_GENUINE_PRESENCE_TAGS = {"P", "POW", "POH"}
+
+
 def is_attendance_evidence_backed(attendance):
-    return bool(
-        attendance.attendance_request
-        or (attendance.shift and attendance.in_time and attendance.out_time)
-    )
+    # No-punch / single-checkin employees use custom_attendance_tag instead of bio-times.
+    # "P" = regular workday, "POW"/"POH" = worked on WO/holiday. "WO"/"HO" must be excluded.
+    if getattr(attendance, "custom_attendance_tag", None) in _GENUINE_PRESENCE_TAGS:
+        return True
+    if attendance.shift and attendance.in_time and attendance.out_time:
+        return True
+    if attendance.attendance_request:
+        return True
+    return False
 
 
 def get_present_half_from_attendance(attendance):

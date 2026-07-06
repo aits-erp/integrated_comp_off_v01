@@ -139,6 +139,7 @@ class TestLeaveApplicationValidation(TestCase):
             attendance_date=date(2026, 5, 10),
             in_time=None,
             out_time=None,
+            custom_attendance_tag="WO",
         )
 
         with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
@@ -154,6 +155,7 @@ class TestLeaveApplicationValidation(TestCase):
             attendance_date=date(2026, 5, 12),
             in_time=datetime(2026, 5, 12, 9, 1, 0),
             out_time=datetime(2026, 5, 12, 18, 3, 0),
+            custom_attendance_tag=None,
         )
 
         with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
@@ -169,10 +171,43 @@ class TestLeaveApplicationValidation(TestCase):
             attendance_date=date(2026, 5, 15),
             in_time=None,
             out_time=None,
+            custom_attendance_tag=None,
         )
 
         with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
             self.assertTrue(leave_application.has_present_attendance("12654", date(2026, 5, 15)))
+
+    def test_present_attendance_with_no_punch_tag_is_a_valid_separator(self):
+        attendance = SimpleNamespace(
+            status="Present",
+            custom_half_type=None,
+            leave_application=None,
+            attendance_request=None,
+            shift=None,
+            attendance_date=date(2026, 5, 5),
+            in_time=None,
+            out_time=None,
+            custom_attendance_tag="P",
+        )
+
+        with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
+            self.assertTrue(leave_application.has_present_attendance("10085", date(2026, 5, 5)))
+
+    def test_present_attendance_with_wo_tag_is_not_a_valid_separator(self):
+        attendance = SimpleNamespace(
+            status="Present",
+            custom_half_type=None,
+            leave_application=None,
+            attendance_request=None,
+            shift=None,
+            attendance_date=date(2026, 5, 3),
+            in_time=None,
+            out_time=None,
+            custom_attendance_tag="WO",
+        )
+
+        with patch.object(leave_application.frappe, "get_all", return_value=[attendance]):
+            self.assertFalse(leave_application.has_present_attendance("10085", date(2026, 5, 3)))
 
     def test_validate_el_and_cl_allows_casual_leave_with_opposite_half_lwp(self):
         doc = SimpleNamespace(
