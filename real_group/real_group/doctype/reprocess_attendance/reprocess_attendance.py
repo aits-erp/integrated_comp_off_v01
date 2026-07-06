@@ -277,6 +277,7 @@ class ReprocessAttendance(Document):
                 ["employee", "=", self.employee],
                 ["shift_start", ">=", start_time],
                 ["shift_end", "<", end_time],
+                ["attendance", "is", "not set"],
             ]
             checkins = frappe.get_all(
                 "Employee Checkin", filters=filters, fields=["name", "shift_start", "log_type"], order_by="shift_start asc"
