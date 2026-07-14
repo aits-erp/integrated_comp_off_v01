@@ -712,7 +712,7 @@
   "doctype_event": "Before Save",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2026-07-07 00:00:00.000000",
+  "modified": "2026-07-07 00:00:00",
   "module": "Real Group",
   "name": "Salary Structure Assignment - PF",
   "rate_limit_count": 5,

@@ -4,13 +4,13 @@
   "doctype": "Workflow",
   "document_type": "Salary Structure Assignment",
   "is_active": 1,
-  "modified": "2026-06-05 10:02:27.638410",
+  "modified": "2026-07-14 12:31:22.587486",
   "name": "Salary Structure Approval",
   "override_status": 0,
   "send_email_alert": 0,
   "states": [
    {
-    "allow_edit": "EmployeeApproval-Plant",
+    "allow_edit": "EmployeeApproval-L1-Plant",
     "avoid_status_override": 0,
     "doc_status": "0",
     "is_optional_state": 0,
@@ -25,7 +25,7 @@
     "workflow_builder_id": null
    },
    {
-    "allow_edit": "EmployeeApproval-CO",
+    "allow_edit": "EmployeeApproval-L1-CO",
     "avoid_status_override": 0,
     "doc_status": "0",
     "is_optional_state": 0,
@@ -35,6 +35,36 @@
     "parentfield": "states",
     "parenttype": "Workflow",
     "state": "Draft",
+    "update_field": null,
+    "update_value": null,
+    "workflow_builder_id": null
+   },
+   {
+    "allow_edit": "EmployeeApproval-Plant",
+    "avoid_status_override": 0,
+    "doc_status": "0",
+    "is_optional_state": 0,
+    "message": null,
+    "next_action_email_template": null,
+    "parent": "Salary Structure Approval",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "state": "Pending",
+    "update_field": null,
+    "update_value": null,
+    "workflow_builder_id": null
+   },
+   {
+    "allow_edit": "EmployeeApproval-CO",
+    "avoid_status_override": 0,
+    "doc_status": "0",
+    "is_optional_state": 0,
+    "message": null,
+    "next_action_email_template": null,
+    "parent": "Salary Structure Approval",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "state": "Pending",
     "update_field": null,
     "update_value": null,
     "workflow_builder_id": null
@@ -89,9 +119,9 @@
    {
     "action": "Approve",
     "allow_self_approval": 1,
-    "allowed": "EmployeeApproval-Plant",
+    "allowed": "EmployeeApproval-L1-Plant",
     "condition": "doc.custom_branch == \"Plant Site\"",
-    "next_state": "Submitted",
+    "next_state": "Pending",
     "parent": "Salary Structure Approval",
     "parentfield": "transitions",
     "parenttype": "Workflow",
@@ -101,7 +131,7 @@
    {
     "action": "Reject",
     "allow_self_approval": 1,
-    "allowed": "EmployeeApproval-Plant",
+    "allowed": "EmployeeApproval-L1-Plant",
     "condition": "doc.custom_branch == \"Plant Site\"",
     "next_state": "Rejected",
     "parent": "Salary Structure Approval",
@@ -113,13 +143,61 @@
    {
     "action": "Approve",
     "allow_self_approval": 1,
+    "allowed": "EmployeeApproval-L1-CO",
+    "condition": "doc.custom_branch == \"Corporate Office\"",
+    "next_state": "Pending",
+    "parent": "Salary Structure Approval",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Draft",
+    "workflow_builder_id": null
+   },
+   {
+    "action": "Reject",
+    "allow_self_approval": 1,
+    "allowed": "EmployeeApproval-L1-CO",
+    "condition": "doc.custom_branch == \"Corporate Office\"",
+    "next_state": "Rejected",
+    "parent": "Salary Structure Approval",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Draft",
+    "workflow_builder_id": null
+   },
+   {
+    "action": "Approve",
+    "allow_self_approval": 1,
+    "allowed": "EmployeeApproval-Plant",
+    "condition": "doc.custom_branch == \"Plant Site\"",
+    "next_state": "Submitted",
+    "parent": "Salary Structure Approval",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Pending",
+    "workflow_builder_id": null
+   },
+   {
+    "action": "Reject",
+    "allow_self_approval": 1,
+    "allowed": "EmployeeApproval-Plant",
+    "condition": "doc.custom_branch == \"Plant Site\"",
+    "next_state": "Rejected",
+    "parent": "Salary Structure Approval",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Pending",
+    "workflow_builder_id": null
+   },
+   {
+    "action": "Approve",
+    "allow_self_approval": 1,
     "allowed": "EmployeeApproval-CO",
     "condition": "doc.custom_branch == \"Corporate Office\"",
     "next_state": "Submitted",
     "parent": "Salary Structure Approval",
     "parentfield": "transitions",
     "parenttype": "Workflow",
-    "state": "Draft",
+    "state": "Pending",
     "workflow_builder_id": null
    },
    {
@@ -131,7 +209,7 @@
     "parent": "Salary Structure Approval",
     "parentfield": "transitions",
     "parenttype": "Workflow",
-    "state": "Draft",
+    "state": "Pending",
     "workflow_builder_id": null
    },
    {
