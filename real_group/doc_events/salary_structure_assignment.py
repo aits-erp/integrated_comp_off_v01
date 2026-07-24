@@ -11,6 +11,12 @@ def before_save(doc, method=None):
     doc.custom_basic_pay = values.get("basic_pay")
     doc.base = values.get("base")
     set_esic_exit_date(doc)
+    validate_workflow_state(doc)
+
+
+def validate_workflow_state(doc):
+    if doc.workflow_state == "Rejected" and not (doc.custom_reject_reason or "").strip():
+        frappe.throw(frappe._("Kindly set the reason for rejection"))
 
 
 @frappe.whitelist()
