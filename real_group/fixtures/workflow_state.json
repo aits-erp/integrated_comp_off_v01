@@ -2,15 +2,6 @@
  {
   "docstatus": 0,
   "doctype": "Workflow State",
-  "icon": "question-sign",
-  "modified": "2024-01-23 12:16:06.088016",
-  "name": "Pending",
-  "style": "",
-  "workflow_state_name": "Pending"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
   "icon": "",
   "modified": "2024-06-27 16:52:22.429184",
   "name": "Gate Pass",
@@ -61,6 +52,15 @@
   "name": "Rejected",
   "style": "Danger",
   "workflow_state_name": "Rejected"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "question-sign",
+  "modified": "2024-01-23 12:16:06.088016",
+  "name": "Pending",
+  "style": "",
+  "workflow_state_name": "Pending"
  },
  {
   "docstatus": 0,
