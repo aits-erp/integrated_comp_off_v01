@@ -151,6 +151,12 @@ class AttendanceRequestOverride(AttendanceRequest):
             )
 
     def create_or_update_attendance(self, date: str):
+        # Attendance links back to this request, so a cancelled (or not yet
+        # submitted) request must never reach here - the link would be rejected
+        # with CancelledLinkError and roll back the caller's transaction.
+        if self.docstatus != 1:
+            return
+
         attendance_name = self.get_attendance_record(date)
         status = self.get_attendance_status(date)
         attendance = None
@@ -296,21 +302,31 @@ class AttendanceRequestOverride(AttendanceRequest):
         if getattr(frappe.flags, "in_reprocess_attendance", False):
             return
 
-        attendance_list = frappe.get_all(
-            "Attendance",
-            filters={"employee": self.employee, "attendance_request": self.name, "docstatus": 1},
-            fields=["name", "attendance_date", "status"],
-        )
         from_date = getdate(self.from_date)
         to_date = getdate(self.to_date)
 
         half_day_date = getdate(self.half_day_date) if self.half_day else None
         while from_date <= to_date:
-            attendance = next((att for att in attendance_list if getdate(att.attendance_date) == from_date), None)
             day_checkins = get_checkins_for_employee_date(self.employee, from_date)
-            if attendance:
-                old_attendance = frappe.get_doc("Attendance", attendance.name)
-                old_attendance.cancel()
+            other_requests = self.get_other_submitted_requests(from_date)
+
+            # Attendance stores a single `attendance_request` link, so when two
+            # half-day requests share a date only the last-submitted one owns it
+            # (and the two halves were merged into a full-day "Present"). Look
+            # for the day's Attendance under either link, otherwise cancelling
+            # one half finds nothing and the merged "Present" survives.
+            attendance_name = frappe.db.get_value(
+                "Attendance",
+                {
+                    "employee": self.employee,
+                    "attendance_date": from_date,
+                    "docstatus": 1,
+                    "attendance_request": ("in", [self.name, *other_requests]),
+                },
+                "name",
+            )
+            if attendance_name:
+                frappe.get_doc("Attendance", attendance_name).cancel()
 
             # CASE 1: For leave
             leave = frappe.db.get_value(
@@ -334,7 +350,31 @@ class AttendanceRequestOverride(AttendanceRequest):
                 create_attendance(self.employee, from_date, day_checkins)
             else:
                 create_attendance(self.employee, from_date, [])
+
+            # Re-apply the requests that are still approved for this date, so the
+            # half they cover is restored on the rebuilt Attendance instead of
+            # being lost along with the cancelled one.
+            for request_name in other_requests:
+                request_doc = frappe.get_doc("Attendance Request", request_name)
+                if request_doc.should_mark_attendance(from_date):
+                    request_doc.create_or_update_attendance(from_date)
+
             from_date = add_days(from_date, 1)
+
+    def get_other_submitted_requests(self, date):
+        """Still-approved Attendance Requests, other than this one, covering `date`."""
+        return frappe.get_all(
+            "Attendance Request",
+            filters={
+                "employee": self.employee,
+                "name": ("!=", self.name),
+                "docstatus": 1,
+                "from_date": ("<=", date),
+                "to_date": (">=", date),
+            },
+            pluck="name",
+            order_by="creation asc",
+        )
 
     def create_leave_attendance(self, leave, from_date, half_day_date, has_checkins):
         if leave.half_day:
