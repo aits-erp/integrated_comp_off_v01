@@ -181,6 +181,9 @@ def execute(filters=None):
                 emp_checkins,
                 worked_hours_value,
                 holiday_info,
+                employee=employee.name,
+                target_date=_date,
+                attendance_requests_map=attendance_requests_map,
             )
             summary_status_value = processed_status_value if include_processed_status else status_value
             add_top_row_status_totals(extra_status_totals, summary_status_value)
@@ -616,14 +619,14 @@ def get_status(employee, date, data_on_date, day_status, attendance_requests_map
         if optional_status:
             status = optional_status
 
-    day_off_status = get_employee_day_off_status(employee, date, checkins)
+    day_off_status = get_employee_day_off_status(employee, date, checkins, current_status=status)
     if day_off_status:
         status = day_off_status
 
     return status
 
 
-def get_employee_day_off_status(employee: str, target_date, checkins=None):
+def get_employee_day_off_status(employee: str, target_date, checkins=None, current_status=None):
     day_off_data = is_holiday_for_employee(employee, target_date)
     if not day_off_data or not day_off_data.get("is_holiday"):
         return None
@@ -642,6 +645,14 @@ def get_employee_day_off_status(employee: str, target_date, checkins=None):
                 return "POW"
             if tag == "HO" and not day_off_data.get("is_weekly_off") and has_checkins:
                 return "POH"
+            # An approved Official/Tour half-day request combined with a leave
+            # half already produced a richer combo status upstream (e.g.
+            # "ODCL"). custom_attendance_tag only ever stores the bare leave
+            # code, so falling back to it here would silently drop the OD
+            # half just because the day also happens to be a holiday/weekly-off.
+            od_combo_map = {"EL": "ODEL", "CL": "ODCL", "CO": "ODCO"}
+            if current_status and current_status.strip().upper() == od_combo_map.get(tag.upper()):
+                return current_status
             return tag
         if getattr(attendance_on_day_off, "custom_marked_absent_by_sandwich", 0):
             return "A1"
@@ -1123,7 +1134,17 @@ def _get_employee_and_date_for_short_leave(attendance_doc, checkins):
     return employee, getdate(for_date)
 
 
-def derive_processed_status(status_code, processed_code, attendance_doc, checkins, worked_hours, holiday_info):
+def derive_processed_status(
+    status_code,
+    processed_code,
+    attendance_doc,
+    checkins,
+    worked_hours,
+    holiday_info,
+    employee=None,
+    target_date=None,
+    attendance_requests_map=None,
+):
     display_status = (status_code or "").strip()
     business_status = (processed_code or "").strip()
     primary_status = business_status or display_status
@@ -1167,7 +1188,9 @@ def derive_processed_status(status_code, processed_code, attendance_doc, checkin
         )
 
     if primary_status == "MIS":
-        return _derive_mis_processed_status(attendance_doc, presence)
+        return _derive_mis_processed_status(
+            attendance_doc, presence, employee, target_date, attendance_requests_map
+        )
 
     return business_status or display_status
 
@@ -1223,7 +1246,9 @@ def _has_physical_presence(worked_hours, checkins):
     return bool(checkins)
 
 
-def _derive_mis_processed_status(attendance_doc, presence):
+def _derive_mis_processed_status(
+    attendance_doc, presence, employee=None, target_date=None, attendance_requests_map=None
+):
     if not attendance_doc:
         return "MIS"
     request_doc = _get_attendance_request_doc(attendance_doc.get("attendance_request"))
@@ -1234,7 +1259,21 @@ def _derive_mis_processed_status(attendance_doc, presence):
     if request_doc and request_reason == "mis punch":
         if request_half_day:
             combo = _map_leave_code_combo(leave_code)
-            return combo or "HD"
+            if combo:
+                return combo
+            # The other half may be covered by its own approved Official/Tour
+            # request even though only this Mis Punch request is linked on the
+            # Attendance record (Attendance can only store one linked request,
+            # so a second half-day request silently displaces the first one).
+            other_half_request = get_complementary_official_half_request(
+                attendance_requests_map,
+                employee,
+                target_date,
+                getattr(request_doc, "custom_half_type", None),
+            )
+            if other_half_request:
+                return "POD"
+            return "HD"
         return "P"
 
     if request_doc and request_half_day and request_reason in {"official", "tour"}:
@@ -1246,6 +1285,36 @@ def _derive_mis_processed_status(attendance_doc, presence):
             return combo
 
     return "MIS"
+
+
+def get_complementary_official_half_request(
+    attendance_requests_map, employee, target_date, exclude_half_type=None
+):
+    """Find an approved Official/Tour half-day request covering the other half of the day.
+
+    Attendance only stores a single ``attendance_request`` link, so when two
+    half-day requests exist for the same date (e.g. Tour for the first half,
+    Mis Punch for the second), only one survives on the Attendance record.
+    This looks at every request for the date instead of just the linked one.
+    """
+    if not attendance_requests_map or not employee or not target_date:
+        return None
+
+    requests_on_date = attendance_requests_map.get(employee, {}).get(format_date(target_date), [])
+    exclude_half_type = (exclude_half_type or "").strip().lower()
+
+    for request in requests_on_date:
+        if not request.get("half_day"):
+            continue
+        reason = (request.get("reason") or "").strip().lower()
+        if reason not in {"official", "tour"}:
+            continue
+        half_type = (request.get("custom_half_type") or "").strip().lower()
+        if exclude_half_type and half_type == exclude_half_type:
+            continue
+        return request
+
+    return None
 
 
 def _map_leave_code_combo(leave_code):
