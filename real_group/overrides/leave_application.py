@@ -187,14 +187,19 @@ class LeaveApplicationOverride(LeaveApplication):
             )
 
             # Match Attendance Request behavior for half-day merge:
-            # existing half-day attendance + half-day leave => present.
+            # existing half-day attendance + half-day leave => present,
+            # but only when the existing half is actually backed by presence
+            # (an Attendance Request - e.g. half-day OD/Tour). Two pure leave
+            # halves (e.g. half-day EL + half-day CO) involve no physical
+            # presence at all, so they should combine into "On Leave", not
+            # "Present" - the employee didn't work either half of the day.
             if doc.status == "Half Day" and status == "Half Day":
                 if (
                     not current_leave_is_lwp
                     and not existing_leave_is_lwp
                     and not holiday_matches_requested_half(holiday, self.custom_half_type)
                 ):
-                    final_status = "Present"
+                    final_status = "Present" if doc.attendance_request else "On Leave"
 
             doc.db_set(
                 {
@@ -284,16 +289,24 @@ class LeaveApplicationOverride(LeaveApplication):
                 continue
             checkins = checkin_map.get(start_date, [])
             create_attendance(self.employee, start_date, checkins)
-            attendance_request = frappe.db.get_value(
+            # Only submitted requests may drive attendance: a cancelled request
+            # cannot be linked at all (CancelledLinkError), and a draft one has
+            # not been approved yet. A date can legitimately carry more than one
+            # request (overlap validation is disabled), e.g. a First Half and a
+            # Second Half request - re-apply every one of them so the day is
+            # rebuilt completely.
+            attendance_requests = frappe.get_all(
                 "Attendance Request",
-                {
+                filters={
                     "employee": self.employee,
                     "from_date": ["<=", start_date],
                     "to_date": [">=", start_date],
+                    "docstatus": 1,
                 },
-                "name",
+                pluck="name",
+                order_by="creation asc",
             )
-            if attendance_request:
+            for attendance_request in attendance_requests:
                 request_doc = frappe.get_doc("Attendance Request", attendance_request)
                 request_doc.create_or_update_attendance(start_date)
 
