@@ -182,7 +182,15 @@ def execute(filters=None):
             status[date_str] = status_value
             attendance_doc = attendance_on_date[0] if attendance_on_date else None
             processed_status[date_str] = day_wise_attendance.derive_processed_status(
-                status_value, processed_value, attendance_doc, emp_checkins, worked_hours_value, holiday_info
+                status_value,
+                processed_value,
+                attendance_doc,
+                emp_checkins,
+                worked_hours_value,
+                holiday_info,
+                employee=employee.name,
+                target_date=_date,
+                attendance_requests_map=attendance_requests_map,
             )
         summary_dates = []
         temp_date = dates[0]
