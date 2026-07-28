@@ -145,6 +145,13 @@ def create_attendance(
 
     if isinstance(date, str):
         date = getdate(date)
+
+    # Night shift processing looks back up to 2 days, which can land before the
+    # employee's joining date for newly joined employees. Skip silently instead of
+    # letting Attendance.validate_attendance_date raise.
+    if employee_doc.date_of_joining and date < employee_doc.date_of_joining:
+        return
+
     existing_attendance = has_attendance(employee, date)
 
     holiday = is_holiday_for_employee(employee, date)
