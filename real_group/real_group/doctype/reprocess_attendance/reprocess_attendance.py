@@ -11,6 +11,7 @@ from real_group.api.overrides.leave_application import get_leave_balance_on
 from real_group.doc_events.attendance import (
     allocate_c_off,
     allocate_incentive,
+    is_absence_side_status,
     revert_sandwich_attendance,
     sandwich_attendance,
 )
@@ -392,7 +393,9 @@ class ReprocessAttendance(Document):
             doc = frappe.get_doc("Attendance", attendance)
             allocate_c_off(doc)
             allocate_incentive(doc)
-            if doc.status == "Absent":
+            if is_absence_side_status(
+                doc.status, doc.leave_application, doc.attendance_request
+            ):
                 sandwich_attendance(doc)
             else:
                 revert_sandwich_attendance(doc)
@@ -461,8 +464,9 @@ class ReprocessAttendance(Document):
                     new_leave.to_date = doc.to_date
 
                     leave_type = doc.leave_type
-                    has_leave_balance = self.get_leave_type_balance(leave_type)
-                    if has_leave_balance and has_leave_balance > 0:
+                    is_lwp = frappe.db.get_value("Leave Type", leave_type, "is_lwp")
+                    has_leave_balance = 0 if is_lwp else self.get_leave_type_balance(leave_type)
+                    if is_lwp or (has_leave_balance and has_leave_balance > 0):
                         new_leave.status = "Approved"
                         workflow_name = new_leave.meta.get_workflow()
                         field_name = get_workflow_state_field(workflow_name)
@@ -583,4 +587,4 @@ class ReprocessAttendance(Document):
             consider_all_leaves_in_the_allocation_period=True,
             for_consumption=True,
         )
-        return balance.get("leave_balance_for_consumption") or balance
+        return balance.get("leave_balance_for_consumption", 0.0)
