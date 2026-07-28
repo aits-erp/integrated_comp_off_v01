@@ -14,7 +14,6 @@ from frappe.utils import (
 from real_group.helper.attendance_helper import create_attendance
 from real_group.utils import (
     convert_time_to_hours,
-    get_holiday_dates_for_employee,
     get_weekly_off_based_on_date,
     half_types_differ,
     is_holiday_for_employee,
@@ -68,7 +67,11 @@ def on_submit(doc, method=None):
     frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
 
-    if doc.status == "Absent":
+    # Any absence-side status can bracket a Weekly-Off/Holiday and trigger a
+    # sandwich mark - not just "Absent". A full-day leave ("On Leave") or a
+    # leave-driven Half Day is equally an absence for sandwich purposes, so
+    # gate on the same predicate the sandwich helpers use internally.
+    if is_absence_side_status(doc.status, doc.leave_application, doc.attendance_request):
         frappe.enqueue(
             sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True
         )
@@ -735,38 +738,88 @@ def allocate_c_off(doc):
         )
 
 
-def sandwich_attendance(doc):
-    """Mark holidays/weekly-offs as Absent by sandwich policy when an absence is submitted."""
-    grade = frappe.get_value("Employee", doc.employee, "grade")
-    if not grade:
-        return
+def is_absence_side_status(status, leave_application=None, attendance_request=None):
+    """Absence-side test for one attendance's own fields.
 
-    is_sandwich = frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag")
-    if not is_sandwich or doc.status != "Absent":
-        return
+    Callers that already hold the Attendance document should use this instead
+    of re-reading it via is_sandwich_absence_side, so that the condition used
+    to decide between applying and reverting a sandwich mark stays identical
+    to the condition sandwich_attendance/revert_sandwich_attendance apply
+    internally.
+    """
+    if status in ("Absent", "On Leave"):
+        return True
+    if status == "Half Day" and leave_application and not attendance_request:
+        return True
+    return False
 
-    to_mark_absent = get_mark_to_absent(doc.employee, doc.attendance_date)
-    if not to_mark_absent:
-        return
 
-    for _date in to_mark_absent:
+def is_sandwich_absence_side(employee, date):
+    """True only for Absent, On Leave, or a Half Day caused by an approved
+    Leave Application. Present/Work From Home/On Duty, a physical Half Day,
+    or a Half/Full Day covered by an approved Attendance Request all count
+    as "presence" and return False - they block or revert a sandwich mark
+    on an adjacent Weekly-Off/Holiday instead of triggering/maintaining one.
+    """
+    att = frappe.db.get_value(
+        "Attendance",
+        {"employee": employee, "attendance_date": date, "docstatus": 1},
+        ["status", "leave_application", "attendance_request"],
+        as_dict=True,
+    )
+    if not att:
+        return False
+    return is_absence_side_status(att.status, att.leave_application, att.attendance_request)
+
+
+def get_holiday_block(employee, date):
+    """Contiguous holiday/weekly-off block containing `date`, as (start, end),
+    or None if `date` itself isn't a holiday for the employee. Bounded by
+    construction - only ever walks through consecutive holiday days on each
+    side, never further back/forward than the block itself."""
+    weekly_off_name = get_weekly_off_based_on_date(employee, date)
+    if not should_consider_holiday(employee, date, weekly_off_name):
+        return None
+
+    block_start = block_end = getdate(date)
+
+    prev_day = add_days(block_start, -1)
+    while should_consider_holiday(
+        employee, prev_day, get_weekly_off_based_on_date(employee, prev_day)
+    ):
+        block_start = prev_day
+        prev_day = add_days(block_start, -1)
+
+    next_day = add_days(block_end, 1)
+    while should_consider_holiday(
+        employee, next_day, get_weekly_off_based_on_date(employee, next_day)
+    ):
+        block_end = next_day
+        next_day = add_days(block_end, 1)
+
+    return block_start, block_end
+
+
+def _mark_date_absent_by_sandwich(employee, _date):
+    """Cancel any existing attendance for `_date` and create a fresh Absent
+    record tagged as sandwich-marked. Isolated per-date so one bad date
+    (e.g. a duplicate/link error) can't abort the rest of the block."""
+    try:
         attendance_name = frappe.db.exists(
             "Attendance",
-            {"employee": doc.employee, "attendance_date": _date, "docstatus": 1},
+            {"employee": employee, "attendance_date": _date, "docstatus": 1},
         )
-
         if attendance_name:
             existing = frappe.get_doc("Attendance", attendance_name)
-            # Only override if not already marked by sandwich
             try:
                 existing.cancel()
             except SandwichPolicyError:
-                continue  # Skip if cannot cancel due to salary processed
-        # Create fresh Absent
+                return  # Skip if cannot cancel due to salary processed
+
         new_attendance = frappe.get_doc(
             {
                 "doctype": "Attendance",
-                "employee": doc.employee,
+                "employee": employee,
                 "attendance_date": _date,
                 "status": "Absent",
                 "custom_attendance_tag": "A",
@@ -778,97 +831,56 @@ def sandwich_attendance(doc):
         new_attendance.add_comment(
             "Comment", frappe._("Marked Absent by Sandwich Policy")
         )
+    except Exception as e:
+        frappe.log_error(
+            f"Failed to sandwich-mark {employee} on {_date}: {e}", "sandwich_attendance"
+        )
 
 
-def revert_sandwich_attendance(doc):
-    """Revert sandwich-marked absences if sandwich condition breaks (including for back-dated changes)."""
-    grade = frappe.db.get_value("Employee", doc.employee, "grade")
+def sandwich_attendance(doc):
+    """Mark a Weekly-Off/Holiday block as Absent by sandwich policy when the
+    single day right after it is submitted Absent and the single day right
+    before it is also absence-side. Local, same-run check only - no
+    historical search."""
+    grade = frappe.get_value("Employee", doc.employee, "grade")
     if not grade:
         return
 
-    is_sandwich = frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag")
-    if not is_sandwich:
+    if not frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag"):
         return
 
-    # Only proceed if current status is not Absent
-    if doc.status == "Absent":
+    if not is_sandwich_absence_side(doc.employee, doc.attendance_date):
         return
 
-    current_date = getdate(doc.attendance_date)
+    block = get_holiday_block(doc.employee, add_days(doc.attendance_date, -1))
+    if not block:
+        return
+    block_start, block_end = block
 
-    # Find previous Present/WFH/On Duty (left boundary)
-    prev_present = frappe.db.get_value(
-        "Attendance",
-        {
-            "employee": doc.employee,
-            "attendance_date": ("<", current_date),
-            "status": ["in", ["Present", "Work From Home", "On Duty"]],
-            "docstatus": 1,
-        },
-        "attendance_date",
-        order_by="attendance_date desc",
-    )
-
-    # Find next Present/WFH/On Duty (right boundary)
-    next_present = frappe.db.get_value(
-        "Attendance",
-        {
-            "employee": doc.employee,
-            "attendance_date": (">", current_date),
-            "status": ["in", ["Present", "Work From Home", "On Duty"]],
-            "docstatus": 1,
-        },
-        "attendance_date",
-        order_by="attendance_date asc",
-    )
-
-    if not prev_present and not next_present:
+    if not is_sandwich_absence_side(doc.employee, add_days(block_start, -1)):
         return
 
-    from_date = getdate(prev_present) if prev_present else current_date
-    to_date = getdate(next_present) if next_present else current_date
-    to_mark_absent = get_mark_to_absent(doc.employee, doc.attendance_date)
+    _date = block_start
+    while _date <= block_end:
+        _mark_date_absent_by_sandwich(doc.employee, _date)
+        _date = add_days(_date, 1)
 
+
+def _revert_sandwich_block(employee, block_start, block_end):
     sandwich_absents = frappe.get_all(
         "Attendance",
         filters={
-            "employee": doc.employee,
-            "attendance_date": ("between", (from_date, to_date)),
+            "employee": employee,
+            "attendance_date": ("between", (block_start, block_end)),
             "custom_marked_absent_by_sandwich": 1,
             "docstatus": 1,
         },
         fields=["name", "attendance_date"],
         order_by="attendance_date asc",
     )
-
     for rec in sandwich_absents:
-        if to_mark_absent and getdate(rec.attendance_date) in to_mark_absent:
-            continue
-
-        att = frappe.get_doc("Attendance", rec.name)
-
-        before = frappe.db.get_value(
-            "Attendance",
-            {
-                "employee": doc.employee,
-                "attendance_date": add_days(att.attendance_date, -1),
-                "docstatus": 1,
-            },
-            "status",
-        )
-        after = frappe.db.get_value(
-            "Attendance",
-            {
-                "employee": doc.employee,
-                "attendance_date": add_days(att.attendance_date, 1),
-                "docstatus": 1,
-            },
-            "status",
-        )
-        if is_sandwich_boundary_status(before) and is_sandwich_boundary_status(after):
-            continue
-
         try:
+            att = frappe.get_doc("Attendance", rec.name)
             checkins = frappe.get_all(
                 "Employee Checkin",
                 filters={"attendance": att.name},
@@ -876,11 +888,33 @@ def revert_sandwich_attendance(doc):
                 order_by="time asc",
             )
             att.cancel()
-            create_attendance(doc.employee, att.attendance_date, checkins)
+            create_attendance(employee, att.attendance_date, checkins)
         except Exception as e:
             frappe.log_error(
-                f"Failed to revert {att.name}: {e}", "revert_sandwich_attendance"
+                f"Failed to revert {rec.name}: {e}", "revert_sandwich_attendance"
             )
+
+
+def revert_sandwich_attendance(doc):
+    """Revert sandwich-marked absences on the Weekly-Off/Holiday block(s)
+    immediately touching this date, once this date is no longer absence-side.
+    Local, same-run check only - no historical search."""
+    grade = frappe.db.get_value("Employee", doc.employee, "grade")
+    if not grade:
+        return
+
+    if not frappe.db.get_value("Employee Grade", grade, "custom_sandwich_flag"):
+        return
+
+    if is_sandwich_absence_side(doc.employee, doc.attendance_date):
+        return  # still absence-side (e.g. leave-driven Half Day) - nothing to revert
+
+    current_date = getdate(doc.attendance_date)
+    for neighbor in (add_days(current_date, -1), add_days(current_date, 1)):
+        block = get_holiday_block(doc.employee, neighbor)
+        if not block:
+            continue
+        _revert_sandwich_block(doc.employee, block[0], block[1])
 
 
 def should_consider_holiday(employee: str, date, weekly_holiday_name=None):
@@ -924,124 +958,6 @@ def should_consider_holiday(employee: str, date, weekly_holiday_name=None):
         return False
 
     return True
-
-
-def get_mark_to_absent(employee, for_date):
-    weekly_off_name = get_weekly_off_based_on_date(employee, for_date)
-    safe_limit = add_days(for_date, -10)
-    holidays = get_holiday_dates_for_employee(employee, safe_limit, for_date)
-    filters = [
-        ["employee", "=", employee],
-        ["attendance_date", "<", for_date],
-        ["attendance_date", "not in", holidays],
-        ["status", "in", ["Present", "Work From Home", "On Duty"]],
-        ["docstatus", "=", 1],
-    ]
-    nearest_present = frappe.db.get_value(
-        "Attendance",
-        filters,
-        "attendance_date",
-        order_by="attendance_date desc",
-    )
-    if not nearest_present:
-        return False
-
-    records = frappe.get_all(
-        "Attendance",
-        filters={
-            "employee": employee,
-            "attendance_date": [">=", nearest_present],
-            "docstatus": 1,
-        },
-        fields=["name", "attendance_date", "status"],
-        order_by="attendance_date asc",
-    )
-    if not records:
-        return False
-    records_by_date = {getdate(r.attendance_date): frappe._dict(r) for r in records}
-    to_mark_absent = set()
-    current = getdate(nearest_present)
-    to_date = getdate(for_date)
-    while current <= to_date:
-        if not should_consider_holiday(employee, current, weekly_off_name):
-            current = add_days(current, 1)
-            continue
-
-        # Detect holiday block
-        # For example if two consecutive holiday/weekly off then find next non holiday date
-
-        block_start = current
-        block_end = current
-        next_day = add_days(block_end, 1)
-        weekly_off_for_next_day = get_weekly_off_based_on_date(employee, next_day)
-        while should_consider_holiday(employee, next_day, weekly_off_for_next_day):
-            block_end = next_day
-            next_day = add_days(block_end, 1)
-            weekly_off_for_next_day = get_weekly_off_based_on_date(employee, next_day)
-
-        prev_date = add_days(block_start, -1)
-        next_date = add_days(block_end, 1)
-
-        pre_attendance = records_by_date.get(prev_date)
-        post_attendance = records_by_date.get(next_date)
-
-        if not pre_attendance:
-            pre_attendance = frappe.db.get_value(
-                "Attendance",
-                {"employee": employee, "attendance_date": prev_date, "docstatus": 1},
-                ["name", "attendance_date", "status"],
-                as_dict=True,
-            )
-
-        if not post_attendance:
-            post_attendance = frappe.db.get_value(
-                "Attendance",
-                {"employee": employee, "attendance_date": next_date, "docstatus": 1},
-                ["name", "attendance_date", "status"],
-                as_dict=True,
-            )
-        # 1. back and post both exists
-        # 2. only back exists
-        # 3. only post exists
-        # 4. both does not exists
-
-        if pre_attendance and post_attendance:
-            pre_attendance = frappe._dict(pre_attendance)
-            post_attendance = frappe._dict(post_attendance)
-            if is_sandwich_boundary_status(
-                pre_attendance.status
-            ) and is_sandwich_boundary_status(post_attendance.status):
-                d = block_start
-                while d <= block_end:
-                    to_mark_absent.add(d)
-                    d = add_days(d, 1)
-
-        elif pre_attendance and not post_attendance and next_date <= getdate(for_date):
-            pre_attendance = frappe._dict(pre_attendance)
-            if is_sandwich_boundary_status(pre_attendance.status):
-                d = block_start
-                while d <= block_end:
-                    to_mark_absent.add(d)
-                    d = add_days(d, 1)
-        elif not pre_attendance and post_attendance:
-            post_attendance = frappe._dict(post_attendance)
-            if is_sandwich_boundary_status(post_attendance.status):
-                d = block_start
-                while d <= block_end:
-                    to_mark_absent.add(d)
-                    d = add_days(d, 1)
-        elif not pre_attendance and not post_attendance:
-            d = block_start
-            while d <= block_end:
-                to_mark_absent.add(d)
-                d = add_days(d, 1)
-        current = add_days(block_end, 1)
-
-    return list(to_mark_absent)
-
-
-def is_sandwich_boundary_status(status):
-    return status in {"Absent", "On Leave"}
 
 
 class SandwichPolicyError(frappe.ValidationError):
