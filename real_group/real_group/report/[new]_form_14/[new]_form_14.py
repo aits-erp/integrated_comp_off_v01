@@ -113,7 +113,15 @@ def build_day_snapshot(employee, target_date, emp_data, attendance_requests_map,
     attendance_doc = attendance_on_date[0] if attendance_on_date else None
     holiday_info = is_holiday_for_employee(employee.name, target_date)
     processed_status = dw.derive_processed_status(
-        status_value, processed_value, attendance_doc, checkins_on_date, worked_hours, holiday_info
+        status_value,
+        processed_value,
+        attendance_doc,
+        checkins_on_date,
+        worked_hours,
+        holiday_info,
+        employee=employee.name,
+        target_date=target_date,
+        attendance_requests_map=attendance_requests_map,
     )
 
     half_type = resolve_half_type(attendance_on_date, attendance_requests_map, employee.name, target_date)
@@ -157,12 +165,22 @@ def resolve_half_type(attendance_on_date, attendance_requests_map, employee_name
         if attendance_requests_map
         else []
     )
+    # Prefer an Official/Tour request's half over a Mis Punch request's half:
+    # this half_type is used to say "which half is OD", and when both a
+    # Mis Punch and a Tour/Official half-day request exist for the same date,
+    # only the Official/Tour one unambiguously answers that question.
+    fallback_half_type = None
     for request in requests:
         half_type = _extract_half_type(request)
-        if half_type:
+        if not half_type:
+            continue
+        reason = (request.get("reason") or "").strip().lower()
+        if reason in {"official", "tour"}:
             return half_type
+        if not fallback_half_type:
+            fallback_half_type = half_type
 
-    return None
+    return fallback_half_type
 
 
 def _extract_half_type(source):
@@ -390,7 +408,7 @@ def map_status_to_halves(
                 official_code,
                 leave_presence_first_half,
                 leave_presence_second_half,
-                default_present_first=leave_presence_confirmed,
+                default_present_first=leave_presence_confirmed or mis_punch_regularized,
                 half_type=half_type_code,
             ),
             presence_first_half,
