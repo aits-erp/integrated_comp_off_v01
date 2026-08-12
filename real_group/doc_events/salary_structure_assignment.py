@@ -4,6 +4,19 @@ from hrms.payroll.utils import sanitize_expression
 
 ESIC_SALARY_COMPONENT = "Employee State Insurance"
 ESIC_ABBR = "SI"
+HIDDEN_PRINT_EARNING_COMPONENTS = {
+    "incentive",
+    "incentives",
+    "over time",
+    "arrear",
+}
+HIDDEN_PRINT_DEDUCTION_COMPONENTS = {
+    "salary advance",
+    "other",
+    "miscellaneous",
+    "pf arrear",
+    "esi arrear",
+}
 
 
 def before_save(doc, method=None):
@@ -81,15 +94,17 @@ def get_projected_breakup(salary_structure_assignment):
     earnings = _get_projected_rows(salary_structure.earnings, data)
     deductions = _get_projected_rows(salary_structure.deductions, data)
 
-    total_earnings = clean_payroll_amount(sum(row.amount or 0 for row in earnings))
-    total_deductions = clean_payroll_amount(sum(row.amount or 0 for row in deductions))
     pf_employer_contribution = _get_pf_employer_contribution(earnings, deductions)
     esic_employer_contribution = _get_esic_employer_contribution(earnings, deductions)
     bonus_exgratia = _get_bonus_exgratia(doc, employee, earnings)
+    print_earnings = _get_print_rows(earnings, HIDDEN_PRINT_EARNING_COMPONENTS)
+    print_deductions = _get_print_rows(deductions, HIDDEN_PRINT_DEDUCTION_COMPONENTS)
+    total_earnings = clean_payroll_amount(sum(row.amount or 0 for row in print_earnings))
+    total_deductions = clean_payroll_amount(sum(row.amount or 0 for row in print_deductions))
 
     return {
-        "earnings": earnings,
-        "deductions": deductions,
+        "earnings": print_earnings,
+        "deductions": print_deductions,
         "total_earnings": total_earnings,
         "total_earnings_yearly": clean_payroll_amount(total_earnings * 12),
         "total_deductions": total_deductions,
@@ -103,6 +118,14 @@ def get_projected_breakup(salary_structure_assignment):
         "bonus_exgratia": bonus_exgratia,
         "bonus_exgratia_yearly": bonus_exgratia * 12,
     }
+
+
+def _get_print_rows(rows, hidden_components):
+    return [
+        row
+        for row in rows
+        if (row.salary_component or "").strip().lower() not in hidden_components
+    ]
 
 
 def _empty_projected_breakup():
