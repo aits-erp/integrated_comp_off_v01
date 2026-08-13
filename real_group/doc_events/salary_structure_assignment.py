@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import ceil, flt, floor, getdate, rounded
+from frappe.utils import ceil, floor, flt, getdate, rounded
 from hrms.payroll.utils import sanitize_expression
 
 ESIC_SALARY_COMPONENT = "Employee State Insurance"
@@ -121,11 +121,7 @@ def get_projected_breakup(salary_structure_assignment):
 
 
 def _get_print_rows(rows, hidden_components):
-    return [
-        row
-        for row in rows
-        if (row.salary_component or "").strip().lower() not in hidden_components
-    ]
+    return [row for row in rows if (row.salary_component or "").strip().lower() not in hidden_components]
 
 
 def _empty_projected_breakup():
@@ -155,28 +151,20 @@ def _get_pf_employer_contribution(earnings, deductions):
         return 0
 
     pf_basic_limit = flt(frappe.db.get_single_value("Real Group Settings", "pf_basic_limit"))
-    is_full_basic_pf = (
-        pf_basic_limit
-        and basic > pf_basic_limit
-        and round(employee_pf) == round(basic * 0.12)
-    )
+    is_full_basic_pf = pf_basic_limit and basic > pf_basic_limit and round(employee_pf) == round(basic * 0.12)
     pf_base = basic if is_full_basic_pf else min(basic, pf_basic_limit) if pf_basic_limit else basic
 
     return round_payroll_amount(pf_base * 0.13)
 
 
 def _get_esic_employer_contribution(earnings, deductions):
-    employee_esic = _get_component_amount(
-        deductions, salary_component=ESIC_SALARY_COMPONENT, abbr=ESIC_ABBR
-    )
+    employee_esic = _get_component_amount(deductions, salary_component=ESIC_SALARY_COMPONENT, abbr=ESIC_ABBR)
     basic = _get_component_amount(earnings, salary_component="Basic", abbr="B")
 
     if employee_esic <= 0 or basic <= 0:
         return 0
 
-    esic_deduction_limit = flt(
-        frappe.db.get_single_value("Real Group Settings", "esic_deduction_limit")
-    )
+    esic_deduction_limit = flt(frappe.db.get_single_value("Real Group Settings", "esic_deduction_limit"))
     esic_base = min(basic, esic_deduction_limit) if esic_deduction_limit else basic
 
     return round_payroll_amount(esic_base * 0.0325)
@@ -317,9 +305,7 @@ def _get_formula_context(doc, salary_structure, employee, ignore_exit_date=False
 
     data.start_date = data.get("from_date")
     data.end_date = (
-        data.get("from_date")
-        if ignore_exit_date
-        else data.get("custom_esi_exit_date") or data.get("from_date")
+        data.get("from_date") if ignore_exit_date else data.get("custom_esi_exit_date") or data.get("from_date")
     )
     data.setdefault("custom_previous_base", 0)
     data.setdefault("custom_esi_exit_date", None)
@@ -381,9 +367,7 @@ def _evaluate_salary_detail(row, data):
     if amount == 0:
         return 0
 
-    if frappe.db.get_value(
-        "Salary Component", row.salary_component, "round_to_the_nearest_integer", cache=True
-    ):
+    if frappe.db.get_value("Salary Component", row.salary_component, "round_to_the_nearest_integer", cache=True):
         return round_payroll_amount(amount)
 
     return clean_payroll_amount(amount)
