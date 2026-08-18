@@ -24,6 +24,13 @@ EL_CL_REJECTED_STATES = ["Cancelled", "Rejected by HOD", "Rejected by HR"]
 
 
 def validate(doc, method=None):
+    if is_salary_processed(doc):
+        frappe.throw(
+            frappe._(
+                "Leave Application cannot be created, updated, or approved because a Salary Slip already exists for this period."
+            )
+        )
+
     validate_employee_not_resigned(doc)
     validate_change_request_day(doc)
     validate_cl(doc)
@@ -59,38 +66,37 @@ def validate_employee_not_resigned(doc):
 
 
 def before_cancel(doc, method=None):
-    if frappe.db.exists(
-        "Salary Slip",
-        {
-            "employee": doc.employee,
-            "start_date": ["<=", doc.from_date],
-            "end_date": [">=", doc.from_date],
-            "docstatus": 1,
-        },
-    ):
+    if is_salary_processed(doc):
         frappe.throw(
             frappe._(
-                "Cannot cancel: Salary for this period has already been submitted."
+                "Cannot cancel: a Salary Slip (draft or submitted) already exists for this period."
             ),
             SandwichPolicyError,
         )
 
 
 def before_delete(doc, method=None):
-    if frappe.db.exists(
+    if is_salary_processed(doc):
+        frappe.throw(
+            frappe._(
+                "Cannot delete: a Salary Slip (draft or submitted) already exists for this period."
+            )
+        )
+
+
+def is_salary_processed(doc):
+    if not (doc.employee and doc.from_date and doc.to_date):
+        return False
+
+    return frappe.db.exists(
         "Salary Slip",
         {
             "employee": doc.employee,
-            "start_date": ["<=", doc.from_date],
+            "start_date": ["<=", doc.to_date],
             "end_date": [">=", doc.from_date],
-            "docstatus": 1,
+            "docstatus": ["!=", 2],
         },
-    ):
-        frappe.throw(
-            frappe._(
-                "Cannot delete: Salary for this period has already been submitted."
-            )
-        )
+    )
 
 
 def validate_compensation_leave(doc):

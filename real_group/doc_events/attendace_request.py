@@ -27,6 +27,13 @@ INACTIVE_OVERLAP_STATES = (
 
 
 def validate(doc, method=None):
+    if is_salary_processed(doc):
+        frappe.throw(
+            frappe._(
+                "Attendance Request cannot be created, updated, or approved because a Salary Slip already exists for this period."
+            )
+        )
+
     validate_zero_punch_employee(doc)
     validate_change_request_day(doc)
     validate_workflow_state(doc)
@@ -42,12 +49,17 @@ def validate(doc, method=None):
 
 def before_cancel(doc, method=None):
     if is_salary_processed(doc):
-        frappe.throw(frappe._("Cannot cancel: Salary for this period has already been submitted."),SandwichPolicyError)
+        frappe.throw(
+            frappe._("Cannot cancel: a Salary Slip (draft or submitted) already exists for this period."),
+            SandwichPolicyError,
+        )
 
 
 def before_delete(doc, method=None):
     if is_salary_processed(doc):
-        frappe.throw(frappe._("Cannot delete: Salary for this period has already been submitted."))
+        frappe.throw(
+            frappe._("Cannot delete: a Salary Slip (draft or submitted) already exists for this period.")
+        )
 
 
 def on_submit(doc, method=None):
@@ -323,17 +335,18 @@ def get_monthly_mis_punch_request_count(employee, request_date, current_request=
 
 
 def is_salary_processed(doc):
-    if frappe.db.exists(
+    if not (doc.employee and doc.from_date and doc.to_date):
+        return False
+
+    return frappe.db.exists(
         "Salary Slip",
         {
             "employee": doc.employee,
-            "start_date": ["<=", doc.from_date],
+            "start_date": ["<=", doc.to_date],
             "end_date": [">=", doc.from_date],
-            "docstatus": 1,
+            "docstatus": ["!=", 2],
         },
-    ):
-        return True
-    return False
+    )
 
 class SandwichPolicyError(frappe.ValidationError):
     pass

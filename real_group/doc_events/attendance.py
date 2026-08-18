@@ -21,6 +21,13 @@ from real_group.utils import (
 
 
 def validate(doc, method=None):
+    if is_salary_processed(doc):
+        frappe.throw(
+            _(
+                "Attendance cannot be created or updated because a Salary Slip already exists for this date."
+            )
+        )
+
     if doc.working_hours is not None and doc.working_hours < 0:
         frappe.throw(_("Working hours cannot be negative."))
 
@@ -38,7 +45,7 @@ def before_cancel(doc, method=None):
     if is_salary_processed(doc):
         frappe.throw(
             frappe._(
-                "Cannot cancel: Salary for this period has already been submitted."
+                "Attendance change not allowed since salary slip is created for the period."
             ),
             SandwichPolicyError,
         )
@@ -52,7 +59,7 @@ def before_delete(doc, method=None):
     if is_salary_processed(doc):
         frappe.throw(
             frappe._(
-                "Cannot delete: Salary for this period has already been submitted."
+                "Cannot delete: a Salary Slip already exists for this period."
             )
         )
 
@@ -93,13 +100,16 @@ def set_doc_reprocess_reference(doc, reprocess_reference):
 
 
 def is_salary_processed(doc):
+    if not (doc.employee and doc.attendance_date):
+        return False
+
     return frappe.db.exists(
         "Salary Slip",
         {
             "employee": doc.employee,
             "start_date": ["<=", doc.attendance_date],
             "end_date": [">=", doc.attendance_date],
-            "docstatus": 1,
+            "docstatus": ["!=", 2],
         },
     )
 
