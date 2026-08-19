@@ -396,6 +396,7 @@ fixtures = [
     {"dt": "Workflow"},
     {"dt": "Workflow State"},
     {"dt": "Workflow Action Master"},
+    {"dt": "List View Settings"},
 ]
 
 persistent_cache_keys = [
