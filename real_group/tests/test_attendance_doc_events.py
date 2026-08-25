@@ -36,6 +36,78 @@ class TestAttendanceDocEvents(TestCase):
             self.assertTrue(attendance_doc_events.has_valid_holiday_in_out_pair(doc))
 
 
+class TestCrossDayIncentiveReplacement(TestCase):
+    def _doc(self):
+        return SimpleNamespace(
+            name="HR-ATT-TEST-1", employee="10399", attendance_date=date(2026, 7, 30)
+        )
+
+    def test_regular_shift_does_not_use_cross_day_replacement(self):
+        doc = self._doc()
+        with (
+            patch.object(attendance_doc_events.frappe, "get_all", return_value=["G"]),
+            patch.object(
+                attendance_doc_events.frappe, "get_cached_value", return_value=0
+            ),
+        ):
+            action, logs = (
+                attendance_doc_events.get_cross_day_incentive_replacement_action(
+                    doc, 0.5
+                )
+            )
+
+        self.assertIsNone(action)
+        self.assertEqual(logs, [])
+
+    def test_cross_day_completion_replaces_lower_credit_for_same_work_date(self):
+        doc = self._doc()
+        existing_log = {"name": "INC-0001", "credit": 0.5}
+        with (
+            patch.object(
+                attendance_doc_events.frappe,
+                "get_all",
+                side_effect=[["G", "7"], [existing_log]],
+            ),
+            patch.object(
+                attendance_doc_events.frappe,
+                "get_cached_value",
+                side_effect=lambda doctype, name, field: name == "7",
+            ),
+        ):
+            action, logs = (
+                attendance_doc_events.get_cross_day_incentive_replacement_action(
+                    doc, 1.5
+                )
+            )
+
+        self.assertEqual(action, "replace")
+        self.assertEqual(logs, [existing_log])
+
+    def test_cross_day_repeat_does_not_replace_equal_credit(self):
+        doc = self._doc()
+        existing_log = {"name": "INC-0002", "credit": 1.5}
+        with (
+            patch.object(
+                attendance_doc_events.frappe,
+                "get_all",
+                side_effect=[["G", "7"], [existing_log]],
+            ),
+            patch.object(
+                attendance_doc_events.frappe,
+                "get_cached_value",
+                side_effect=lambda doctype, name, field: name == "7",
+            ),
+        ):
+            action, logs = (
+                attendance_doc_events.get_cross_day_incentive_replacement_action(
+                    doc, 1.5
+                )
+            )
+
+        self.assertEqual(action, "skip")
+        self.assertEqual(logs, [existing_log])
+
+
 class TestUnboundedSandwichSearchStaysRemoved(TestCase):
     """Regression guard: the unbounded historical 'nearest present' search
     (real_group/doc_events/attendance.py, removed 2026-07) must never come
