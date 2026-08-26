@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import cint, get_link_to_form
+from frappe.utils import add_years, cint, get_link_to_form, getdate, today
 
 from real_group.real_group.integration import update_user
 
@@ -43,6 +43,7 @@ def autoname(doc, method):
 def validate(doc, method=None):
     doc.attendance_device_id = doc.name
     doc.employee_number = doc.name
+    validate_age_at_joining(doc)
     validate_employee_data(doc)
     validate_unique_pran(doc)
     validate_aadhar(doc)
@@ -127,6 +128,18 @@ def validate_employee_data(doc):
 
     validate_exact_digits(getattr(doc, "custom_aadhar_number", None), "Aadhar Number", required=True)
     validate_exact_digits(getattr(doc, "custom_pran", None), "PRAN")
+
+
+def validate_age_at_joining(doc):
+    if doc.date_of_joining and getdate(doc.date_of_joining) > getdate(today()):
+        frappe.throw(frappe._("Date of Joining cannot be greater than today."))
+
+    if not (doc.date_of_birth and doc.date_of_joining):
+        return
+
+    eighteenth_birthday = add_years(getdate(doc.date_of_birth), 18)
+    if getdate(doc.date_of_joining) < eighteenth_birthday:
+        frappe.throw(frappe._("Employee must be at least 18 years old on the Date of Joining."))
 
 
 def validate_exact_digits(value, label, length=12, required=False):
