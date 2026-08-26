@@ -425,6 +425,13 @@ def get_detailed_columns():
             "width": "120px",
         },
         {
+            "fieldname": "nps",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "NPS",
+            "width": "120px",
+        },
+        {
             "fieldname": "misc_actual",
             "fieldtype": "Float",
             "precision": "0",
@@ -552,6 +559,13 @@ def get_summary_columns():
             "fieldtype": "Float",
             "precision": "0",
             "label": "IT",
+            "width": "90px",
+        },
+        {
+            "fieldname": "nps",
+            "fieldtype": "Float",
+            "precision": "0",
+            "label": "NPS",
             "width": "90px",
         },
         {
@@ -690,6 +704,14 @@ def get_data(filters, columns=None):
             MAX(CASE WHEN sd.salary_component = 'Labour Welfare Fund' THEN sd.amount ELSE 0 END) labour_welfare_fund,
             MAX(CASE WHEN sd.salary_component = 'Govt Labour Welfare Fund' THEN sd.amount ELSE 0 END) glwf,
             MAX(CASE WHEN sd.salary_component = 'Income Tax' THEN sd.amount ELSE 0 END) income_tax,
+            SUM(
+                CASE
+                    WHEN sd.parentfield = 'deductions'
+                     AND sd.salary_component IN ('National Pension System', 'National Pension Scheme - NPS')
+                    THEN sd.amount
+                    ELSE 0
+                END
+            ) nps,
             SUM(CASE WHEN sd.salary_component = 'Loan' THEN sd.amount ELSE 0 END) amount_to_deduct,
             MAX(CASE WHEN sd.salary_component = 'Loan' THEN sd.amount ELSE 0 END) deducted_amount,
             MAX(CASE WHEN sd.salary_component = 'Salary Advance' THEN sd.amount ELSE 0 END) salary_advance,
