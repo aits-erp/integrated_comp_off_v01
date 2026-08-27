@@ -2,6 +2,7 @@ from importlib import import_module
 
 import frappe
 from frappe.utils import flt, get_last_day, getdate
+
 from real_group.overrides.query_report_export import set_xlsx_cell_style_like_header
 
 # IMPORTANT: module path contains [new]_form_14 so normal import won't work
@@ -712,9 +713,9 @@ def get_data(filters, columns=None):
                     ELSE 0
                 END
             ) nps,
-            SUM(CASE WHEN sd.salary_component = 'Loan' THEN sd.amount ELSE 0 END) amount_to_deduct,
-            MAX(CASE WHEN sd.salary_component = 'Loan' THEN sd.amount ELSE 0 END) deducted_amount,
-            MAX(CASE WHEN sd.salary_component = 'Salary Advance' THEN sd.amount ELSE 0 END) salary_advance,
+            SUM(CASE WHEN sd.parentfield = 'deductions' AND sd.salary_component = 'Loan' THEN sd.amount ELSE 0 END) amount_to_deduct,
+            SUM(CASE WHEN sd.parentfield = 'deductions' AND sd.salary_component = 'Loan' THEN sd.amount ELSE 0 END) deducted_amount,
+            SUM(CASE WHEN sd.parentfield = 'deductions' AND sd.salary_component = 'Salary Advance' THEN sd.amount ELSE 0 END) salary_advance,
             MAX(CASE WHEN sd.salary_component = 'Other' THEN sd.amount ELSE 0 END) other_ded,
             ss.gross_pay as gross_pay_total_earned,
             ss.total_deduction,
@@ -1262,14 +1263,21 @@ def apply_loan_installment_logic(res, from_date, to_date):
 def apply_salary_slip_loan_deduction(res):
     sal_slip = frappe.get_doc("Salary Slip", res.get("salary_slip"))
     amt_to_deduct = 0
+    salary_advance = 0
     for d in sal_slip.deductions:
         if d.get("salary_component") == "Loan":
-            amt_to_deduct += d.get("amount") or 0
+            amt_to_deduct += flt(d.get("amount"))
+        if d.get("salary_component") == "Salary Advance":
+            salary_advance += flt(d.get("amount"))
+
+    salary_slip_loan_payment = 0
+    for loan in sal_slip.get("loans") or []:
+        salary_slip_loan_payment += flt(loan.get("total_payment"))
 
     res["amount_to_deduct"] = amt_to_deduct
     res["deducted_amount"] = amt_to_deduct
-    res["loan"] = amt_to_deduct
-    res["salary_advance"] = 0
+    res["loan"] = amt_to_deduct + salary_slip_loan_payment
+    res["salary_advance"] = salary_advance
 
 
 def apply_holiday_tour_overlap(res, from_date, to_date):
