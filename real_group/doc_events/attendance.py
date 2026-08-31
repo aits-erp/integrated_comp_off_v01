@@ -22,7 +22,11 @@ from real_group.utils import (
 
 def validate(doc, method=None):
     if is_salary_processed(doc):
-        frappe.throw(_("Attendance cannot be created or updated because a Salary Slip already exists for this date."))
+        frappe.throw(
+            _(
+                "Attendance cannot be created or updated because a Salary Slip already exists for this date."
+            )
+        )
 
     if doc.working_hours is not None and doc.working_hours < 0:
         frappe.throw(_("Working hours cannot be negative."))
@@ -40,18 +44,27 @@ def validate(doc, method=None):
 def before_cancel(doc, method=None):
     if is_salary_processed(doc):
         frappe.throw(
-            frappe._("Attendance change not allowed since salary slip is created for the period."),
+            frappe._(
+                "Attendance change not allowed since salary slip is created for the period."
+            ),
             SandwichPolicyError,
         )
 
 
 def on_cancel(doc, method=None):
-    cancel_incentive_or_c_off(doc)
+    cancel_incentive_or_c_off(
+        doc,
+        cancel_incentive=not getattr(
+            frappe.flags, "in_leave_application_attendance_sync", False
+        ),
+    )
 
 
 def before_delete(doc, method=None):
     if is_salary_processed(doc):
-        frappe.throw(frappe._("Cannot delete: a Salary Slip already exists for this period."))
+        frappe.throw(
+            frappe._("Cannot delete: a Salary Slip already exists for this period.")
+        )
 
 
 def on_submit(doc, method=None):
@@ -61,17 +74,32 @@ def on_submit(doc, method=None):
         return
     if doc.custom_marked_absent_by_sandwich:
         return
-    frappe.enqueue(allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True)
+    # Leave approval and leave-cancellation rebuilds may retain the employee's
+    # recorded work hours. They must not turn that attendance maintenance into
+    # a fresh extra-work incentive allocation.
+    if not (
+        doc.leave_application
+        or getattr(frappe.flags, "in_leave_application_attendance_sync", False)
+    ):
+        frappe.enqueue(
+            allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True
+        )
     frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
 
     # Any absence-side status can bracket a Weekly-Off/Holiday and trigger a
     # sandwich mark - not just "Absent". A full-day leave ("On Leave") or a
     # leave-driven Half Day is equally an absence for sandwich purposes, so
     # gate on the same predicate the sandwich helpers use internally.
-    if is_absence_side_status(doc.status, doc.leave_application, doc.attendance_request):
-        frappe.enqueue(sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True)
+    if is_absence_side_status(
+        doc.status, doc.leave_application, doc.attendance_request
+    ):
+        frappe.enqueue(
+            sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True
+        )
     else:
-        frappe.enqueue(revert_sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True)
+        frappe.enqueue(
+            revert_sandwich_attendance, doc=doc, queue="long", enqueue_after_commit=True
+        )
 
 
 def get_reprocess_reference(doc):
@@ -100,7 +128,7 @@ def is_salary_processed(doc):
     )
 
 
-def cancel_incentive_or_c_off(doc):
+def cancel_incentive_or_c_off(doc, cancel_incentive=True):
     reprocess_reference = get_reprocess_reference(doc)
     c_offs = frappe.db.get_all(
         "Compensatory Leave Request",
@@ -115,6 +143,9 @@ def cancel_incentive_or_c_off(doc):
         c_off_doc = frappe.get_doc("Compensatory Leave Request", c_off.name)
         set_doc_reprocess_reference(c_off_doc, reprocess_reference)
         c_off_doc.cancel()
+
+    if not cancel_incentive:
+        return
 
     incentive_logs = frappe.db.get_all(
         "Incentive Log",
@@ -137,22 +168,37 @@ def cancel_incentive_or_c_off(doc):
             },
         )
         if additional_salary:
-            additional_salary_doc = frappe.get_doc("Additional Salary", additional_salary)
+            additional_salary_doc = frappe.get_doc(
+                "Additional Salary", additional_salary
+            )
             additional_salary_doc.cancel()
         incentive_log_doc.cancel()
 
 
 def update_attendance_status(doc):
-    if doc.attendance_request and not doc.leave_application and doc.status == "Half Day":
+    if (
+        doc.attendance_request
+        and not doc.leave_application
+        and doc.status == "Half Day"
+    ):
         is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
         if is_holiday and is_holiday.get("is_half_day"):
-            request_half_day_date = frappe.get_value("Attendance Request", doc.attendance_request, "half_day_date")
-            request_half_type = frappe.get_value("Attendance Request", doc.attendance_request, "custom_half_type")
-            request_reason = frappe.get_value("Attendance Request", doc.attendance_request, "reason")
+            request_half_day_date = frappe.get_value(
+                "Attendance Request", doc.attendance_request, "half_day_date"
+            )
+            request_half_type = frappe.get_value(
+                "Attendance Request", doc.attendance_request, "custom_half_type"
+            )
+            request_reason = frappe.get_value(
+                "Attendance Request", doc.attendance_request, "reason"
+            )
             if (
                 request_half_day_date
                 and getdate(request_half_day_date) == getdate(doc.attendance_date)
-                and (half_types_differ(is_holiday.get("half_type"), request_half_type) or not request_half_type)
+                and (
+                    half_types_differ(is_holiday.get("half_type"), request_half_type)
+                    or not request_half_type
+                )
             ):
                 doc.status = "Half Day" if request_reason == "Mis Punch" else "Present"
                 frappe.db.set_value("Attendance", doc.name, "status", doc.status)
@@ -161,8 +207,13 @@ def update_attendance_status(doc):
         is_holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
         is_lwp = frappe.get_value("Leave Type", doc.leave_type, "is_lwp")
         if is_holiday and is_holiday.get("is_half_day"):
-            leave_half_type = frappe.get_value("Leave Application", doc.leave_application, "custom_half_type")
-            if half_types_differ(is_holiday.get("half_type"), leave_half_type) or not leave_half_type:
+            leave_half_type = frappe.get_value(
+                "Leave Application", doc.leave_application, "custom_half_type"
+            )
+            if (
+                half_types_differ(is_holiday.get("half_type"), leave_half_type)
+                or not leave_half_type
+            ):
                 if is_lwp:
                     doc.status = "Absent"
                 else:
@@ -170,10 +221,18 @@ def update_attendance_status(doc):
                 frappe.db.set_value("Attendance", doc.name, "status", doc.status)
 
         if doc.attendance_request:
-            request_half_day_date = frappe.get_value("Attendance Request", doc.attendance_request, "half_day_date")
-            leave_half_date = frappe.get_value("Leave Application", doc.leave_application, "half_day_date")
-            request_half_type = frappe.get_value("Attendance Request", doc.attendance_request, "custom_half_type")
-            leave_half_type = frappe.get_value("Leave Application", doc.leave_application, "custom_half_type")
+            request_half_day_date = frappe.get_value(
+                "Attendance Request", doc.attendance_request, "half_day_date"
+            )
+            leave_half_date = frappe.get_value(
+                "Leave Application", doc.leave_application, "half_day_date"
+            )
+            request_half_type = frappe.get_value(
+                "Attendance Request", doc.attendance_request, "custom_half_type"
+            )
+            leave_half_type = frappe.get_value(
+                "Leave Application", doc.leave_application, "custom_half_type"
+            )
             if (
                 request_half_day_date
                 and leave_half_date
@@ -215,7 +274,9 @@ def get_half_day_holiday_combo_tag(doc, holiday):
     holiday_half_type = holiday.get("half_type")
 
     if doc.leave_application and doc.leave_type:
-        leave_half_type = frappe.get_cached_value("Leave Application", doc.leave_application, "custom_half_type")
+        leave_half_type = frappe.get_cached_value(
+            "Leave Application", doc.leave_application, "custom_half_type"
+        )
         if half_types_differ(holiday_half_type, leave_half_type):
             leave_type = frappe.get_cached_doc("Leave Type", doc.leave_type)
             leave_code = get_leave_code_for_tag(leave_type)
@@ -232,7 +293,9 @@ def get_half_day_holiday_combo_tag(doc, holiday):
             getattr(request, "half_day", False)
             and getattr(request, "half_day_date", None)
             and getdate(request.half_day_date) == getdate(doc.attendance_date)
-            and half_types_differ(holiday_half_type, getattr(request, "custom_half_type", None))
+            and half_types_differ(
+                holiday_half_type, getattr(request, "custom_half_type", None)
+            )
         ):
             if request.reason == "Mis Punch":
                 return "PHO"
@@ -248,7 +311,9 @@ def get_half_day_holiday_combo_tag(doc, holiday):
 
 
 def get_attendance_checkin_log_types(doc):
-    log_types = frappe.get_all("Employee Checkin", filters={"attendance": doc.name}, pluck="log_type")
+    log_types = frappe.get_all(
+        "Employee Checkin", filters={"attendance": doc.name}, pluck="log_type"
+    )
     if log_types:
         return [log_type for log_type in log_types if log_type]
 
@@ -264,7 +329,9 @@ def get_attendance_checkin_log_types(doc):
         ["shift_start", ">=", start],
         ["shift_start", "<", end],
     ]
-    log_types = frappe.get_all("Employee Checkin", filters=fallback_filters, pluck="log_type")
+    log_types = frappe.get_all(
+        "Employee Checkin", filters=fallback_filters, pluck="log_type"
+    )
     if log_types:
         return [log_type for log_type in log_types if log_type]
 
@@ -273,7 +340,9 @@ def get_attendance_checkin_log_types(doc):
         ["time", ">=", start],
         ["time", "<", end],
     ]
-    log_types = frappe.get_all("Employee Checkin", filters=fallback_filters, pluck="log_type")
+    log_types = frappe.get_all(
+        "Employee Checkin", filters=fallback_filters, pluck="log_type"
+    )
     return [log_type for log_type in log_types if log_type]
 
 
@@ -299,7 +368,12 @@ def update_attendance_tag(doc):
         status = half_day_holiday_combo
     elif doc.status == "On Leave" or doc.leave_application:
         leave_type = frappe.get_doc("Leave Type", doc.leave_type)
-        if is_sandwich and is_holiday and is_holiday.get("is_holiday") and not is_holiday.get("is_half_day"):
+        if (
+            is_sandwich
+            and is_holiday
+            and is_holiday.get("is_holiday")
+            and not is_holiday.get("is_half_day")
+        ):
             if doc.leave_application:
                 if "earned leave" in leave_type.name.lower():
                     status = "EL"
@@ -347,9 +421,13 @@ def update_attendance_tag(doc):
     frappe.db.set_value("Attendance", doc.name, "custom_attendance_tag", status)
 
     if status == "Half Day" and doc.leave_application:
-        half_day_date = frappe.db.get_value("Leave Application", doc.leave_application, "half_day_date")
+        half_day_date = frappe.db.get_value(
+            "Leave Application", doc.leave_application, "half_day_date"
+        )
         if half_day_date and getdate(half_day_date) == getdate(doc.attendance_date):
-            half_type = frappe.db.get_value("Leave Application", doc.leave_application, "custom_half_type")
+            half_type = frappe.db.get_value(
+                "Leave Application", doc.leave_application, "custom_half_type"
+            )
             frappe.db.set_value("Attendance", doc.name, "custom_half_type", half_type)
 
 
@@ -367,7 +445,8 @@ def get_cross_day_incentive_replacement_action(doc, total_credit):
         pluck="shift",
     )
     if not any(
-        shift and frappe.get_cached_value("Shift Type", shift, "custom_is_cross_day") for shift in linked_shifts
+        shift and frappe.get_cached_value("Shift Type", shift, "custom_is_cross_day")
+        for shift in linked_shifts
     ):
         return None, []
 
@@ -453,16 +532,25 @@ def allocate_incentive(doc):
     branch = employee.branch
     grade_doc = frappe.get_cached_doc("Employee Grade", grade, for_update=False)
 
-    if grade_doc.custom_present_on_holiday != "Incentive" and grade_doc.custom_extra_work_hour != "Incentive":
+    if (
+        grade_doc.custom_present_on_holiday != "Incentive"
+        and grade_doc.custom_extra_work_hour != "Incentive"
+    ):
         return
 
     hours = doc.working_hours
-    checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
+    checkins = frappe.db.exists(
+        "Employee Checkin", {"attendance": doc.name}, cache=True
+    )
     if not hours or hours == 0:
         return
     status = ""
     holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
-    if holiday and holiday.get("is_holiday") and not (checkins or has_attendance_checkins(doc)):
+    if (
+        holiday
+        and holiday.get("is_holiday")
+        and not (checkins or has_attendance_checkins(doc))
+    ):
         return  # It is holiday and employee did not worked.
 
     if holiday and holiday.get("is_holiday") and holiday.get("is_weekly_off"):
@@ -491,7 +579,11 @@ def allocate_incentive(doc):
         return
     c_matrix = frappe.get_cached_doc("Compensation Matrix", c_matrix)
 
-    if holiday and holiday.get("is_holiday") and grade_doc.custom_present_on_holiday == "Incentive":
+    if (
+        holiday
+        and holiday.get("is_holiday")
+        and grade_doc.custom_present_on_holiday == "Incentive"
+    ):
         if holiday.get("is_half_day"):
             if hours <= (shift_duration / 2):
                 return
@@ -513,10 +605,40 @@ def allocate_incentive(doc):
     if not credit:
         return
 
-    cross_day_action, logs_to_replace = get_cross_day_incentive_replacement_action(doc, credit)
+    month_start = get_first_day(doc.attendance_date)
+    month_end = get_last_day(doc.attendance_date)
+    existing_incentive = frappe.db.get_value(
+        "Additional Salary",
+        {
+            "employee": employee.name,
+            "salary_component": "Incentives",
+            "payroll_date": ("between", (month_start, month_end)),
+            "docstatus": 1,
+        },
+        fieldname="name",
+    )
+    cross_day_action, logs_to_replace = get_cross_day_incentive_replacement_action(
+        doc, credit
+    )
     if cross_day_action == "replace":
-        for incentive_log in logs_to_replace:
-            frappe.get_doc("Incentive Log", incentive_log.name).cancel()
+        savepoint_name = f"incentive_replacement_{doc.name}".replace("-", "_")
+        frappe.db.savepoint(savepoint_name)
+        try:
+            # An Incentive Log cannot be cancelled while the monthly Additional
+            # Salary still links to it. Remove that aggregate first; it is
+            # rebuilt below from the remaining logs plus the fresh full credit.
+            if existing_incentive:
+                additional_salary = frappe.get_doc(
+                    "Additional Salary", existing_incentive
+                )
+                additional_salary.cancel()
+                additional_salary.delete()
+                existing_incentive = None
+            for incentive_log in logs_to_replace:
+                frappe.get_doc("Incentive Log", incentive_log.name).cancel()
+        except Exception:
+            frappe.db.rollback(save_point=savepoint_name)
+            raise
     elif cross_day_action == "skip":
         return
 
@@ -536,20 +658,7 @@ def allocate_incentive(doc):
         )
         or 0
     )
-    month_start = get_first_day(doc.attendance_date)
-    month_end = get_last_day(doc.attendance_date)
     additional_incentive = (earning / (date_diff(month_end, month_start) + 1)) * credit
-
-    existing_incentive = frappe.db.get_value(
-        "Additional Salary",
-        {
-            "employee": employee.name,
-            "salary_component": "Incentives",
-            "payroll_date": ("between", (month_start, month_end)),
-            "docstatus": 1,
-        },
-        fieldname="name",
-    )
     existing_incentive_logs = frappe.db.get_all(
         "Incentive Log",
         filters={
@@ -560,7 +669,9 @@ def allocate_incentive(doc):
         fields=["name", "incentive"],
     )
     existing_incentive_amount = (
-        sum((log.get("incentive") or 0) for log in existing_incentive_logs) if existing_incentive_logs else 0
+        sum((log.get("incentive") or 0) for log in existing_incentive_logs)
+        if existing_incentive_logs
+        else 0
     )
     incentive_ceil = grade_doc.custom_incentive_ceiling
     additional_incentive_as = additional_incentive
@@ -570,7 +681,9 @@ def allocate_incentive(doc):
         additional_salary.cancel()
         additional_salary.delete()
     additional_incentive_as = (
-        min(additional_incentive_as, incentive_ceil) if incentive_ceil else additional_incentive_as
+        min(additional_incentive_as, incentive_ceil)
+        if incentive_ceil
+        else additional_incentive_as
     )
     additional_incentive_as = round_incentive(additional_incentive_as)
 
@@ -584,7 +697,9 @@ def allocate_incentive(doc):
         worked_hrs_in_delta,
         credit,
     )
-    _create_additional_salary(employee.name, additional_incentive_as, incentive_log.name)
+    _create_additional_salary(
+        employee.name, additional_incentive_as, incentive_log.name
+    )
 
 
 def allocate_c_off(doc):
@@ -594,17 +709,26 @@ def allocate_c_off(doc):
     branch = employee.branch
     grade_doc = frappe.get_cached_doc("Employee Grade", grade, for_update=False)
 
-    if grade_doc.custom_present_on_holiday != "Comp Off" and grade_doc.custom_extra_work_hour != "Comp Off":
+    if (
+        grade_doc.custom_present_on_holiday != "Comp Off"
+        and grade_doc.custom_extra_work_hour != "Comp Off"
+    ):
         return
 
     hours = doc.working_hours
-    checkins = frappe.db.exists("Employee Checkin", {"attendance": doc.name}, cache=True)
+    checkins = frappe.db.exists(
+        "Employee Checkin", {"attendance": doc.name}, cache=True
+    )
     if not hours or hours == 0:
         return
 
     status = ""
     holiday = is_holiday_for_employee(doc.employee, doc.attendance_date)
-    if holiday and holiday.get("is_holiday") and not (checkins or has_attendance_checkins(doc)):
+    if (
+        holiday
+        and holiday.get("is_holiday")
+        and not (checkins or has_attendance_checkins(doc))
+    ):
         return  # It is holiday and employee did not worked.
 
     if holiday and holiday.get("is_holiday") and holiday.get("is_weekly_off"):
@@ -632,7 +756,11 @@ def allocate_c_off(doc):
         return
     c_matrix = frappe.get_cached_doc("Compensation Matrix", c_matrix)
 
-    if holiday and holiday.get("is_holiday") and grade_doc.custom_present_on_holiday == "Comp Off":
+    if (
+        holiday
+        and holiday.get("is_holiday")
+        and grade_doc.custom_present_on_holiday == "Comp Off"
+    ):
         if holiday.get("is_half_day"):
             if hours <= (shift_duration / 2):
                 return
@@ -667,7 +795,9 @@ def allocate_c_off(doc):
     )
     if existing_c_offs:
         for existing_c_off in existing_c_offs:
-            existing_c_off_doc = frappe.get_doc("Compensatory Leave Request", existing_c_off)
+            existing_c_off_doc = frappe.get_doc(
+                "Compensatory Leave Request", existing_c_off
+            )
             set_doc_reprocess_reference(existing_c_off_doc, reprocess_reference)
             existing_c_off_doc.cancel()
 
@@ -680,7 +810,9 @@ def allocate_c_off(doc):
             "credit": credit,
             "leave_type": "Compensatory Off",
             "status": f"{status}:{diff}",
-            "expiry": add_days(getdate(doc.attendance_date), grade_doc.custom_comp_off_validity),
+            "expiry": add_days(
+                getdate(doc.attendance_date), grade_doc.custom_comp_off_validity
+            ),
             "reason": status,
             "custom_extra_work_hours": worked_hrs_in_delta,
             "custom_reprocess_reference": reprocess_reference,
@@ -729,7 +861,9 @@ def is_sandwich_absence_side(employee, date):
     )
     if not att:
         return False
-    return is_absence_side_status(att.status, att.leave_application, att.attendance_request)
+    return is_absence_side_status(
+        att.status, att.leave_application, att.attendance_request
+    )
 
 
 def get_holiday_block(employee, date):
@@ -744,12 +878,16 @@ def get_holiday_block(employee, date):
     block_start = block_end = getdate(date)
 
     prev_day = add_days(block_start, -1)
-    while should_consider_holiday(employee, prev_day, get_weekly_off_based_on_date(employee, prev_day)):
+    while should_consider_holiday(
+        employee, prev_day, get_weekly_off_based_on_date(employee, prev_day)
+    ):
         block_start = prev_day
         prev_day = add_days(block_start, -1)
 
     next_day = add_days(block_end, 1)
-    while should_consider_holiday(employee, next_day, get_weekly_off_based_on_date(employee, next_day)):
+    while should_consider_holiday(
+        employee, next_day, get_weekly_off_based_on_date(employee, next_day)
+    ):
         block_end = next_day
         next_day = add_days(block_end, 1)
 
@@ -784,9 +922,13 @@ def _mark_date_absent_by_sandwich(employee, _date):
         )
         new_attendance.insert(ignore_permissions=True)
         new_attendance.submit()
-        new_attendance.add_comment("Comment", frappe._("Marked Absent by Sandwich Policy"))
+        new_attendance.add_comment(
+            "Comment", frappe._("Marked Absent by Sandwich Policy")
+        )
     except Exception as e:
-        frappe.log_error(f"Failed to sandwich-mark {employee} on {_date}: {e}", "sandwich_attendance")
+        frappe.log_error(
+            f"Failed to sandwich-mark {employee} on {_date}: {e}", "sandwich_attendance"
+        )
 
 
 def sandwich_attendance(doc):
@@ -842,7 +984,9 @@ def _revert_sandwich_block(employee, block_start, block_end):
             att.cancel()
             create_attendance(employee, att.attendance_date, checkins)
         except Exception as e:
-            frappe.log_error(f"Failed to revert {rec.name}: {e}", "revert_sandwich_attendance")
+            frappe.log_error(
+                f"Failed to revert {rec.name}: {e}", "revert_sandwich_attendance"
+            )
 
 
 def revert_sandwich_attendance(doc):
