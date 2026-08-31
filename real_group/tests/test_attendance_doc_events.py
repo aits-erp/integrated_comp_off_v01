@@ -2,10 +2,14 @@ from datetime import timedelta
 from datetime import date
 from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import call, patch
+from unittest.mock import Mock, call, patch
 
 from real_group.doc_events import attendance as attendance_doc_events
 from real_group.doc_events.attendance import validate
+from real_group.overrides import leave_application as leave_application_override
+from real_group.real_group.doctype.reprocess_attendance import (
+    reprocess_attendance as reprocess_attendance_doctype,
+)
 
 
 class TestAttendanceDocEvents(TestCase):
@@ -106,6 +110,259 @@ class TestCrossDayIncentiveReplacement(TestCase):
 
         self.assertEqual(action, "skip")
         self.assertEqual(logs, [existing_log])
+
+    def test_replacement_cancels_additional_salary_before_old_incentive_log(self):
+        doc = SimpleNamespace(
+            name="HR-ATT-TEST-1",
+            employee="10399",
+            attendance_date=date(2026, 7, 30),
+            working_hours=24.27,
+            shift="G",
+        )
+        employee = SimpleNamespace(name="10399", date_of_joining=None, grade="E2", branch="Plant Site")
+        grade = SimpleNamespace(
+            custom_present_on_holiday=None,
+            custom_extra_work_hour="Incentive",
+            custom_incentive_ceiling=3500,
+        )
+        shift = SimpleNamespace(custom_shift_time="9:00:00")
+        matrix = SimpleNamespace(
+            items=[
+                SimpleNamespace(
+                    from_hrs=timedelta(hours=11),
+                    to_hrs=timedelta(hours=16),
+                    c_off_credit=1.5,
+                )
+            ]
+        )
+        old_additional_salary = Mock(name="old_additional_salary")
+        old_incentive_log = Mock(name="old_incentive_log")
+        fresh_incentive_log = Mock(name="fresh_incentive_log")
+        fresh_incentive_log.name = "INC-NEW"
+        fresh_additional_salary = Mock(name="fresh_additional_salary")
+        fake_frappe = SimpleNamespace(
+            db=SimpleNamespace(
+                exists=Mock(side_effect=[True, "Plant Site-09:00:00"]),
+                get_value=Mock(side_effect=["HR-ADS-TEST-1", "10399", 23500]),
+                get_all=Mock(return_value=[]),
+                savepoint=Mock(),
+                rollback=Mock(),
+            ),
+            get_cached_doc=Mock(side_effect=[employee, grade, shift, matrix]),
+            get_doc=Mock(
+                side_effect=[
+                    old_additional_salary,
+                    old_incentive_log,
+                    fresh_incentive_log,
+                    fresh_additional_salary,
+                ]
+            ),
+        )
+
+        with (
+            patch.object(attendance_doc_events, "frappe", fake_frappe),
+            patch.object(attendance_doc_events, "get_reprocess_reference", return_value=None),
+            patch.object(attendance_doc_events, "is_holiday_for_employee", return_value=None),
+            patch.object(
+                attendance_doc_events,
+                "get_cross_day_incentive_replacement_action",
+                return_value=("replace", [SimpleNamespace(name="INC-OLD")]),
+            ),
+        ):
+            attendance_doc_events.allocate_incentive(doc)
+
+        self.assertEqual(
+            fake_frappe.get_doc.call_args_list[:2],
+            [call("Additional Salary", "HR-ADS-TEST-1"), call("Incentive Log", "INC-OLD")],
+        )
+        old_additional_salary.cancel.assert_called_once_with()
+        old_additional_salary.delete.assert_called_once_with()
+        old_incentive_log.cancel.assert_called_once_with()
+        fresh_incentive_log.insert.assert_called_once_with(ignore_permissions=True)
+        fresh_incentive_log.submit.assert_called_once_with()
+        fresh_additional_salary.insert.assert_called_once_with(ignore_permissions=True)
+        fresh_additional_salary.submit.assert_called_once_with()
+
+
+class TestLeaveApplicationIncentiveSuppression(TestCase):
+    def _doc(self, leave_application=None):
+        return SimpleNamespace(
+            employee="80495",
+            attendance_date=date(2026, 7, 7),
+            status="Present",
+            leave_application=leave_application,
+            attendance_request=None,
+            custom_marked_absent_by_sandwich=False,
+        )
+
+    def test_leave_linked_attendance_does_not_queue_an_incentive(self):
+        doc = self._doc(leave_application="RI-LAP-24-0000037")
+
+        with (
+            patch.object(attendance_doc_events, "update_attendance_status"),
+            patch.object(attendance_doc_events, "update_attendance_tag"),
+            patch.object(attendance_doc_events.frappe, "enqueue") as enqueue,
+            patch.object(
+                attendance_doc_events.frappe,
+                "flags",
+                attendance_doc_events.frappe._dict(in_reprocess_attendance=False),
+            ),
+        ):
+            attendance_doc_events.on_submit(doc)
+
+        self.assertNotIn(
+            call(
+                attendance_doc_events.allocate_incentive,
+                doc=doc,
+                queue="long",
+                enqueue_after_commit=True,
+            ),
+            enqueue.call_args_list,
+        )
+
+    def test_leave_approval_update_does_not_queue_an_incentive(self):
+        doc = self._doc(leave_application="RI-LAP-24-0000037")
+
+        with patch.object(leave_application_override.frappe, "enqueue") as enqueue:
+            leave_application_override.LeaveApplicationOverride.process_jobs_after_update(
+                None, doc
+            )
+
+        self.assertEqual(enqueue.call_count, 2)
+        self.assertIn(
+            call(
+                leave_application_override.allocate_c_off,
+                doc=doc,
+                queue="long",
+                enqueue_after_commit=True,
+            ),
+            enqueue.call_args_list,
+        )
+        self.assertIn(
+            call(
+                attendance_doc_events.allocate_c_off,
+                doc=doc,
+                queue="long",
+                enqueue_after_commit=True,
+            ),
+            enqueue.call_args_list,
+        )
+
+    def test_direct_attendance_still_queues_an_incentive(self):
+        doc = self._doc()
+
+        with (
+            patch.object(attendance_doc_events, "update_attendance_status"),
+            patch.object(attendance_doc_events, "update_attendance_tag"),
+            patch.object(attendance_doc_events.frappe, "enqueue") as enqueue,
+            patch.object(
+                attendance_doc_events.frappe,
+                "flags",
+                attendance_doc_events.frappe._dict(in_reprocess_attendance=False),
+            ),
+        ):
+            attendance_doc_events.on_submit(doc)
+
+        self.assertIn(
+            call(
+                attendance_doc_events.allocate_incentive,
+                doc=doc,
+                queue="long",
+                enqueue_after_commit=True,
+            ),
+            enqueue.call_args_list,
+        )
+
+    def test_leave_cancellation_keeps_existing_incentive_logs(self):
+        doc = self._doc(leave_application="RI-LAP-24-0000037")
+
+        with (
+            patch.object(
+                attendance_doc_events, "cancel_incentive_or_c_off"
+            ) as cancel_incentive_or_c_off,
+            patch.object(
+                attendance_doc_events.frappe,
+                "flags",
+                attendance_doc_events.frappe._dict(
+                    in_leave_application_attendance_sync=True
+                ),
+            ),
+        ):
+            attendance_doc_events.on_cancel(doc)
+
+        cancel_incentive_or_c_off.assert_called_once_with(doc, cancel_incentive=False)
+
+    def test_direct_attendance_cancellation_still_reverses_its_incentive(self):
+        doc = self._doc()
+
+        with (
+            patch.object(
+                attendance_doc_events, "cancel_incentive_or_c_off"
+            ) as cancel_incentive_or_c_off,
+            patch.object(
+                attendance_doc_events.frappe,
+                "flags",
+                attendance_doc_events.frappe._dict(
+                    in_leave_application_attendance_sync=False
+                ),
+            ),
+        ):
+            attendance_doc_events.on_cancel(doc)
+
+        cancel_incentive_or_c_off.assert_called_once_with(doc, cancel_incentive=True)
+
+
+class TestReprocessLeaveIncentiveSuppression(TestCase):
+    def _run_reprocess_post_processing(self, leave_application=None):
+        attendance = SimpleNamespace(
+            name="HR-ATT-TEST-1",
+            status="On Leave" if leave_application else "Present",
+            leave_application=leave_application,
+            attendance_request=None,
+        )
+        reprocess = SimpleNamespace(
+            employee="80495",
+            name="HR-RPA-TEST-1",
+            apply_attendance_requests=lambda: None,
+            apply_leave_applications=lambda: None,
+        )
+
+        with (
+            patch.object(
+                reprocess_attendance_doctype.frappe,
+                "get_all",
+                return_value=[attendance.name],
+            ),
+            patch.object(
+                reprocess_attendance_doctype.frappe,
+                "get_doc",
+                return_value=attendance,
+            ),
+            patch.object(reprocess_attendance_doctype, "allocate_c_off") as allocate_c_off,
+            patch.object(
+                reprocess_attendance_doctype, "allocate_incentive"
+            ) as allocate_incentive,
+            patch.object(reprocess_attendance_doctype, "sandwich_attendance"),
+            patch.object(reprocess_attendance_doctype, "revert_sandwich_attendance"),
+        ):
+            reprocess_attendance_doctype.ReprocessAttendance.process_leave_and_requests(
+                reprocess, "2026-07-07", "2026-07-07"
+            )
+
+        return attendance, allocate_c_off, allocate_incentive
+
+    def test_leave_linked_attendance_does_not_get_reprocess_incentive(self):
+        attendance, allocate_c_off, allocate_incentive = (
+            self._run_reprocess_post_processing("RI-LAP-24-0000038")
+        )
+
+        allocate_c_off.assert_called_once_with(attendance)
+        allocate_incentive.assert_not_called()
+
+    def test_regular_attendance_still_gets_reprocess_incentive(self):
+        attendance, _, allocate_incentive = self._run_reprocess_post_processing()
+
+        allocate_incentive.assert_called_once_with(attendance)
 
 
 class TestUnboundedSandwichSearchStaysRemoved(TestCase):
