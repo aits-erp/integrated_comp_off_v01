@@ -1,4 +1,7 @@
+from contextlib import contextmanager
+
 import frappe
+
 from erpnext.buying.doctype.supplier_scorecard.supplier_scorecard import daterange
 from frappe import _
 from frappe.utils import add_days, cint, date_diff, format_date, getdate
@@ -14,7 +17,6 @@ from hrms.hr.doctype.leave_application.leave_application import (
 
 from real_group.doc_events.attendance import (
     allocate_c_off,
-    allocate_incentive,
     update_attendance_tag,
 )
 from real_group.helper.attendance_helper import create_attendance
@@ -24,6 +26,18 @@ from real_group.utils import (
     holiday_matches_requested_half,
     is_holiday_for_employee,
 )
+
+
+@contextmanager
+def suppress_incentive_allocation():
+    previous_sync_state = getattr(
+        frappe.flags, "in_leave_application_attendance_sync", False
+    )
+    frappe.flags.in_leave_application_attendance_sync = True
+    try:
+        yield
+    finally:
+        frappe.flags.in_leave_application_attendance_sync = previous_sync_state
 
 
 class LeaveApplicationOverride(LeaveApplication):
@@ -86,9 +100,6 @@ class LeaveApplicationOverride(LeaveApplication):
             update_attendance_tag, doc=doc, queue="long", enqueue_after_commit=True
         )
         frappe.enqueue(allocate_c_off, doc=doc, queue="long", enqueue_after_commit=True)
-        frappe.enqueue(
-            allocate_incentive, doc=doc, queue="long", enqueue_after_commit=True
-        )
 
     def update_attendance(self):
         if self.status != "Approved":
@@ -278,7 +289,8 @@ class LeaveApplicationOverride(LeaveApplication):
             checkin_map.setdefault(attendance_date, []).extend(checkins)
             attendance_doc = frappe.get_doc("Attendance", attendance_name)
             if attendance_doc.docstatus == 1:
-                attendance_doc.cancel()
+                with suppress_incentive_allocation():
+                    attendance_doc.cancel()
 
         start_date = getdate(self.from_date)
         end_date = getdate(self.to_date)
@@ -288,7 +300,8 @@ class LeaveApplicationOverride(LeaveApplication):
                 start_date = add_days(start_date, 1)
                 continue
             checkins = checkin_map.get(start_date, [])
-            create_attendance(self.employee, start_date, checkins)
+            with suppress_incentive_allocation():
+                create_attendance(self.employee, start_date, checkins)
             # Only submitted requests may drive attendance: a cancelled request
             # cannot be linked at all (CancelledLinkError), and a draft one has
             # not been approved yet. A date can legitimately carry more than one
@@ -308,7 +321,8 @@ class LeaveApplicationOverride(LeaveApplication):
             )
             for attendance_request in attendance_requests:
                 request_doc = frappe.get_doc("Attendance Request", attendance_request)
-                request_doc.create_or_update_attendance(start_date)
+                with suppress_incentive_allocation():
+                    request_doc.create_or_update_attendance(start_date)
 
             start_date = add_days(start_date, 1)
 
