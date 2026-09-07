@@ -1277,6 +1277,7 @@ def apply_salary_slip_loan_deduction(res):
     res["amount_to_deduct"] = amt_to_deduct
     res["deducted_amount"] = amt_to_deduct
     res["loan"] = amt_to_deduct + salary_slip_loan_payment
+    res["total_deduction"] = flt(res.get("total_deduction")) + salary_slip_loan_payment
     res["salary_advance"] = salary_advance
 
 
