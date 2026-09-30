@@ -1,7 +1,7 @@
 import frappe
 from frappe.utils import add_days, get_datetime, getdate, today
 
-from real_group.utils import is_holiday_for_employee
+from real_group_hrms.utils import is_holiday_for_employee
 
 
 def process():

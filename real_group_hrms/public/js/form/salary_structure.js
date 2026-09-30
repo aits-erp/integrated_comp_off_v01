@@ -31,7 +31,7 @@ frappe.ui.form.on("Salary Structure", {
         primary_action_label: "Fetch Details",
         primary_action(values) {
           frappe.call({
-            method: "real_group.real_group.integration.erp_config_master",
+            method: "real_group_hrms.real_group.integration.erp_config_master",
             args: {
               emp_catg: values.employee_category,
               company: values.company,

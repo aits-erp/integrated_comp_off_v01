@@ -52,7 +52,7 @@ function resetLogs(listview) {
 
   frappe.confirm(__("Set Is Processed to N for the selected logs?"), async () => {
     const { message } = await frappe.call({
-      method: "real_group.real_group.doctype.bioattendancelog.bioattendancelog.reset_bioattendance_logs",
+      method: "real_group_hrms.real_group.doctype.bioattendancelog.bioattendancelog.reset_bioattendance_logs",
       args: { log_names: logNames },
       freeze: true,
       freeze_message: __("Resetting selected logs..."),

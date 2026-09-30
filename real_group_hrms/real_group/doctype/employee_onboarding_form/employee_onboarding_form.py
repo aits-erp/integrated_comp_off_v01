@@ -18,8 +18,8 @@ class EmployeeOnboardingForm(Document):
         )
         from frappe.types import DF
 
-        from real_group.real_group.doctype.employee_family_details.employee_family_details import EmployeeFamilyDetails
-        from real_group.real_group.doctype.employee_nominee.employee_nominee import EmployeeNominee
+        from real_group_hrms.real_group.doctype.employee_family_details.employee_family_details import EmployeeFamilyDetails
+        from real_group_hrms.real_group.doctype.employee_nominee.employee_nominee import EmployeeNominee
 
         aadhar_number: DF.Data
         addemergency_address: DF.SmallText | None

@@ -9,7 +9,7 @@ import frappe
 from frappe.utils import add_days, cint, cstr, format_date, get_datetime, get_time, getdate
 from frappe.utils.caching import redis_cache
 
-from real_group.utils import convert_time_to_hours, is_holiday_for_employee
+from real_group_hrms.utils import convert_time_to_hours, is_holiday_for_employee
 
 month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 

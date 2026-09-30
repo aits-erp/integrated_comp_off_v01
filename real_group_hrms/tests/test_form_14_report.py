@@ -5,7 +5,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 
-form_14 = import_module("real_group.real_group.report.[new]_form_14.[new]_form_14")
+form_14 = import_module("real_group_hrms.real_group.report.[new]_form_14.[new]_form_14")
 
 
 class TestForm14Report(TestCase):

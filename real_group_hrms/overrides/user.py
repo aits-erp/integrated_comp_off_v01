@@ -48,7 +48,7 @@ class UserOverride(User):
         if not cint(self.enabled) and getattr(frappe.local, "login_manager", None):
             frappe.local.login_manager.logout(user=self.name)
 
-        from real_group.overrides.notification_settings import toggle_notifications
+        from real_group_hrms.overrides.notification_settings import toggle_notifications
 
         toggle_notifications(self.name, enable=cint(self.enabled))
 

@@ -9,10 +9,10 @@ from erpnext.setup.doctype.employee.test_employee import make_employee
 from hrms.hr.doctype.shift_type.test_shift_type import setup_shift_type
 from hrms.payroll.doctype.salary_slip.test_salary_slip import make_holiday_list
 
-from real_group.patches.fix_cross_day_attendance_request_hours import (
+from real_group_hrms.patches.fix_cross_day_attendance_request_hours import (
     execute as fix_cross_day_attendance_request_hours,
 )
-from real_group.api.attendance_request import closest_shift_for_time
+from real_group_hrms.api.attendance_request import closest_shift_for_time
 
 
 test_dependencies = ["Employee"]
@@ -210,7 +210,7 @@ class TestAttendanceRequestOverride(FrappeTestCase):
 
     def test_closest_shift_prefers_cross_day_overlap_for_early_morning_request(self):
         with patch(
-            "real_group.api.attendance_request.get_employee_allowed_shifts",
+            "real_group_hrms.api.attendance_request.get_employee_allowed_shifts",
             return_value=[self.early_day_shift.name, self.cross_day_shift.name],
         ):
             shift_name = closest_shift_for_time(

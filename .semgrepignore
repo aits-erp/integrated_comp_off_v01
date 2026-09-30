@@ -28,4 +28,4 @@ test*.py
 
 # Markdown files
 *.md
-real_group/__init__.py
+real_group_hrms/__init__.py

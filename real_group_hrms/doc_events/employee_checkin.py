@@ -6,7 +6,7 @@ from frappe import _
 from frappe.integrations.utils import make_get_request
 from frappe.utils import get_datetime, get_time, get_timedelta, getdate
 
-from real_group.tasks.process_employee_checkin import (
+from real_group_hrms.tasks.process_employee_checkin import (
     fetch_shift_details,
     find_closest_shift_from_punch_time,
     get_employee_allowed_shifts,
@@ -219,7 +219,7 @@ def get_sms_creds():
 
 
 def set_geolocation(doc):
-    from real_group.utils import set_geolocation_from_coordinates
+    from real_group_hrms.utils import set_geolocation_from_coordinates
 
     set_geolocation_from_coordinates(doc)
 

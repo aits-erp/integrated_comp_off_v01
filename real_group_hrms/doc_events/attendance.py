@@ -11,8 +11,8 @@ from frappe.utils import (
     getdate,
 )
 
-from real_group.helper.attendance_helper import create_attendance
-from real_group.utils import (
+from real_group_hrms.helper.attendance_helper import create_attendance
+from real_group_hrms.utils import (
     convert_time_to_hours,
     get_weekly_off_based_on_date,
     half_types_differ,

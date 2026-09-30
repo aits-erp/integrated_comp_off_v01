@@ -4,7 +4,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
 
-attendance_request = import_module("real_group.doc_events.attendace_request")
+attendance_request = import_module("real_group_hrms.doc_events.attendace_request")
 
 
 class TestAttendanceRequestValidation(TestCase):
@@ -158,8 +158,8 @@ class TestAttendanceRequestValidation(TestCase):
         self.assertNotIn("or_filters", kwargs)
 
 
-leave_application_override = import_module("real_group.overrides.leave_application")
-attendance_request_override = import_module("real_group.overrides.attendance_request")
+leave_application_override = import_module("real_group_hrms.overrides.leave_application")
+attendance_request_override = import_module("real_group_hrms.overrides.attendance_request")
 
 
 class TestCancelAttendanceReappliesOnlySubmittedRequests(TestCase):

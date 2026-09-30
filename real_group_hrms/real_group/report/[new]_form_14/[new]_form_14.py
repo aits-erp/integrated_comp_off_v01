@@ -7,9 +7,9 @@ from importlib import import_module
 import frappe
 from frappe.utils import cint, format_date, get_datetime, get_timedelta, getdate
 
-from real_group.utils import is_holiday_for_employee
+from real_group_hrms.utils import is_holiday_for_employee
 
-dw = import_module("real_group.real_group.report.[new]_day_wise_attendance.[new]_day_wise_attendance")
+dw = import_module("real_group_hrms.real_group.report.[new]_day_wise_attendance.[new]_day_wise_attendance")
 
 
 def execute(filters=None):

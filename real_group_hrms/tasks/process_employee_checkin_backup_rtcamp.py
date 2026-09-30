@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import frappe
 from frappe.utils import cstr, format_time, get_datetime, get_link_to_form, get_time, get_timedelta, getdate
 
-from real_group.utils import convert_time_to_minutes
+from real_group_hrms.utils import convert_time_to_minutes
 
 
 def ensure_punch_datetime(log):

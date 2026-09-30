@@ -5,7 +5,7 @@ frappe.ui.form.on("Skip Loan Installment", {
     refresh(frm) {
         frm.set_query("active_loans", function () {
             return {
-                query: "real_group.real_group.doctype.skip_loan_installment.skip_loan_installment.get_employee_advance",
+                query: "real_group_hrms.real_group.doctype.skip_loan_installment.skip_loan_installment.get_employee_advance",
                 filters: {
                     "employee": frm.doc.employee,
                 },
@@ -43,7 +43,7 @@ frappe.ui.form.on("Skip Loan Installment", {
     active_loans(frm) {
         // console.log(frm.doc.active_loans);
         // frappe.call({
-        //     method: 'real_group.real_group.doctype.skip_loan_installment.skip_loan_installment.get_additional_salary',
+        //     method: 'real_group_hrms.real_group.doctype.skip_loan_installment.skip_loan_installment.get_additional_salary',
         //     args: {
         //         'employee': frm.doc.employee,
         //         'ref_doctype': "Employee Advance",

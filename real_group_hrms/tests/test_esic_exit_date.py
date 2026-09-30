@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import frappe
 
-from real_group.doc_events.salary_structure_assignment import get_esic_exit_date_for_assignment
+from real_group_hrms.doc_events.salary_structure_assignment import get_esic_exit_date_for_assignment
 
 
 class TestESICExitDate(TestCase):
@@ -126,7 +126,7 @@ class TestESICExitDate(TestCase):
             return 0
 
         return patch.multiple(
-            "real_group.doc_events.salary_structure_assignment",
+            "real_group_hrms.doc_events.salary_structure_assignment",
             get_assignment_esic_amount=get_mocked_esic_amount,
             get_previous_submitted_assignment=lambda doc: previous_assignment,
         )

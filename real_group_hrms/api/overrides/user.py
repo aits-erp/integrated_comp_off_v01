@@ -3,7 +3,7 @@ import frappe
 from frappe.core.doctype.user.user import _get_user_for_update_password
 from frappe.core.doctype.user.user import update_password as _update_password
 
-from real_group.real_group.integration import oracle_connection
+from real_group_hrms.real_group.integration import oracle_connection
 
 
 def enqueue_oracle_password_sync(user: str, new_password: str):

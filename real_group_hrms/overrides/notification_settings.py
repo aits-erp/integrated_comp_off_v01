@@ -3,7 +3,7 @@ from frappe.desk.doctype.notification_settings.notification_settings import (
     NotificationSettings,
 )
 
-from real_group.overrides.user import has_itadmin_role
+from real_group_hrms.overrides.user import has_itadmin_role
 
 
 class NotificationSettingsOverride(NotificationSettings):

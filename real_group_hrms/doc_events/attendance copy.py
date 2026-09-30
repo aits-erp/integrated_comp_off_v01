@@ -4,8 +4,8 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, date_diff, get_datetime, get_first_day, get_last_day, getdate
 
-from real_group.helper.attendance_helper import create_attendance
-from real_group.utils import (
+from real_group_hrms.helper.attendance_helper import create_attendance
+from real_group_hrms.utils import (
     convert_time_to_hours,
     get_holiday_dates_for_employee,
     get_weekly_off_based_on_date,

@@ -14,7 +14,7 @@ class RejectReason(Document):
     if TYPE_CHECKING:
         from frappe.types import DF
 
-        from real_group.real_group.doctype.reject_reason_type.reject_reason_type import RejectReasonType
+        from real_group_hrms.real_group.doctype.reject_reason_type.reject_reason_type import RejectReasonType
 
         document_type: DF.TableMultiSelect[RejectReasonType]
         reason: DF.Data | None

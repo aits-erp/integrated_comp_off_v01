@@ -6,14 +6,14 @@ from unittest.mock import patch
 import frappe
 from frappe.utils import get_datetime, get_time
 
-from real_group.tasks import process_employee_checkin
-from real_group.tasks.process_employee_checkin import (
+from real_group_hrms.tasks import process_employee_checkin
+from real_group_hrms.tasks.process_employee_checkin import (
     find_closest_shift_from_punch_time,
     get_checkout_validation_for_owning_shift,
     get_valid_owning_shift_for_checkout,
     process_employee_checkout,
 )
-from real_group.utils import convert_time_to_seconds
+from real_group_hrms.utils import convert_time_to_seconds
 
 
 SITE_SHIFT_DEFINITIONS = [

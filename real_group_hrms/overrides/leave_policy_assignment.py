@@ -19,7 +19,7 @@ from hrms.hr.doctype.leave_policy_assignment.leave_policy_assignment import (
     calculate_pro_rated_leaves,
 )
 
-from real_group.api.employee_transfer import adjust_value
+from real_group_hrms.api.employee_transfer import adjust_value
 
 
 class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
@@ -73,7 +73,7 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
         return flt(new_leaves_allocated, precision)
 
     def get_leaves_for_working_days(self, on_working_days: int):
-        from real_group.utils import fetch_leaves_for_working_days
+        from real_group_hrms.utils import fetch_leaves_for_working_days
 
         return fetch_leaves_for_working_days(
             self.employee,
@@ -186,7 +186,7 @@ class LeavePolicyAssignmentOverride(LeavePolicyAssignment):
         return leaves
 
     def get_leaves_for_previous_leave_period(self, working_days: int):
-        from real_group.utils import fetch_leaves_for_working_days, get_remaining_days_for_pro_rated
+        from real_group_hrms.utils import fetch_leaves_for_working_days, get_remaining_days_for_pro_rated
 
         # This method is used to calculate the leaves for previous year, based on the Indian Factory Act.
         # Which says employee can earned 1 leave per applicable days worked in the previous year.

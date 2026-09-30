@@ -5,10 +5,10 @@ from frappe import _
 from frappe.utils import add_days, cint, date_diff, format_date, get_time, getdate
 from hrms.hr.doctype.attendance_request.attendance_request import AttendanceRequest
 
-from real_group.helper.attendance_helper import (
+from real_group_hrms.helper.attendance_helper import (
     create_attendance,
 )
-from real_group.utils import (
+from real_group_hrms.utils import (
     convert_time_to_hours,
     has_absent_attendance,
     holiday_matches_requested_half,

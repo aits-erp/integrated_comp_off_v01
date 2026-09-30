@@ -6,7 +6,7 @@ import cx_Oracle
 import frappe
 from frappe.utils import flt
 
-from real_group.real_group.employee_map import (
+from real_group_hrms.real_group.employee_map import (
     ACCOUNT_MAP,
     ATTENDANCE_BALANCE,
     BONUS_TRANSACTION,
@@ -202,7 +202,7 @@ def enqueue_update_employee(doc, method):
         return
 
     frappe.enqueue(
-        "real_group.real_group.integration.update_employee_by_name",
+        "real_group_hrms.real_group.integration.update_employee_by_name",
         queue="short",
         enqueue_after_commit=True,
         employee=doc.name,

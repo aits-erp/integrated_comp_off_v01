@@ -10,7 +10,7 @@ from hrms.hr.doctype.leave_application.leave_application import (
 )
 from hrms.hr.doctype.leave_application.leave_application import get_holidays as _get_holidays
 
-from real_group.utils import has_absent_attendance, is_holiday_for_employee
+from real_group_hrms.utils import has_absent_attendance, is_holiday_for_employee
 
 
 @frappe.whitelist()

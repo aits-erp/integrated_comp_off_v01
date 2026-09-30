@@ -1,7 +1,7 @@
 import frappe
 from frappe.utils import flt, getdate
 from hrms.payroll.doctype.salary_slip.salary_slip import SalarySlip
-from real_group.doc_events.salary_structure_assignment import ESIC_ABBR, ESIC_SALARY_COMPONENT
+from real_group_hrms.doc_events.salary_structure_assignment import ESIC_ABBR, ESIC_SALARY_COMPONENT
 
 
 class SalarySlipOverride(SalarySlip):

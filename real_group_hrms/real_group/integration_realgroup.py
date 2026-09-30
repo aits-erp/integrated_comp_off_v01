@@ -5,7 +5,7 @@ from datetime import datetime
 import cx_Oracle
 import frappe
 
-from real_group.real_group.employee_map import (
+from real_group_hrms.real_group.employee_map import (
     ACCOUNT_MAP,
     ATTENDANCE_BALANCE,
     BONUS_TRANSACTION,

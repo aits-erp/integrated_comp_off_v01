@@ -1,7 +1,7 @@
 import frappe
 from frappe.utils import getdate
 
-from real_group.doc_events.salary_structure_assignment import get_esic_exit_date_for_assignment
+from real_group_hrms.doc_events.salary_structure_assignment import get_esic_exit_date_for_assignment
 
 
 def execute():

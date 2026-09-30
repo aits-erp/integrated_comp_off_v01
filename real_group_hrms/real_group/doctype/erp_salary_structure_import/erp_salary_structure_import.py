@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.model.document import Document
-from real_group.real_group.integration import config_master , employee_rate_master
+from real_group_hrms.real_group.integration import config_master , employee_rate_master
 
 
 class ERPSalaryStructureImport(Document):

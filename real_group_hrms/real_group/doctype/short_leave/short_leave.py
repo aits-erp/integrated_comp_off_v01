@@ -63,13 +63,13 @@ class ShortLeave(Document):
         self.update_attendance_on_short_leave_cancel()
 
     def update_attendance_on_short_leave_cancel(self):
-        from real_group.helper.attendance_helper import (
+        from real_group_hrms.helper.attendance_helper import (
             get_attendance,
             mark_attendance_and_link_log,
             mark_half_day_based_on_deduction_cycle,
             update_time,
         )
-        from real_group.utils import is_holiday_for_employee
+        from real_group_hrms.utils import is_holiday_for_employee
 
         attendance = frappe.db.exists(
             "Attendance",

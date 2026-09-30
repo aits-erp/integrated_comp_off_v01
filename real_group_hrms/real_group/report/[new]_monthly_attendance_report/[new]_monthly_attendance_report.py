@@ -5,8 +5,8 @@ from importlib import import_module
 
 from frappe.utils import cint
 
-dw = import_module("real_group.real_group.report.[new]_day_wise_attendance.[new]_day_wise_attendance")
-form = import_module("real_group.real_group.report.[new]_form_14.[new]_form_14")
+dw = import_module("real_group_hrms.real_group.report.[new]_day_wise_attendance.[new]_day_wise_attendance")
+form = import_module("real_group_hrms.real_group.report.[new]_form_14.[new]_form_14")
 
 
 def execute(filters=None):

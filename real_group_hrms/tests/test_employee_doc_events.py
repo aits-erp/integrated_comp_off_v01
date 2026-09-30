@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-employee = import_module("real_group.doc_events.employee")
+employee = import_module("real_group_hrms.doc_events.employee")
 
 
 class TestEmployeeDocEvents(TestCase):

@@ -13,7 +13,7 @@ from frappe.utils import (
     getdate,
 )
 
-from real_group.utils import (
+from real_group_hrms.utils import (
     half_types_match,
     is_holiday_for_employee,
     normalize_half_type,

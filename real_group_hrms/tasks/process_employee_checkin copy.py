@@ -12,7 +12,7 @@ from frappe.utils import (
     getdate,
 )
 
-from real_group.utils import convert_time_to_minutes
+from real_group_hrms.utils import convert_time_to_minutes
 
 
 def get_bio_log_filter_values(employee_doc):

@@ -4,7 +4,7 @@ from collections import defaultdict
 import frappe
 from frappe.utils import now_datetime
 
-from real_group.real_group.integration import oracle_connection
+from real_group_hrms.real_group.integration import oracle_connection
 
 
 LEAVE_TYPE_MAP = {

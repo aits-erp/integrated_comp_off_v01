@@ -67,7 +67,7 @@ function set_values_from_salary_structure(frm) {
   }
 
   frappe.call({
-    method: "real_group.doc_events.salary_structure_assignment.get_salary_structure_assignment_values",
+    method: "real_group_hrms.doc_events.salary_structure_assignment.get_salary_structure_assignment_values",
     args: {
       salary_structure: frm.doc.salary_structure,
     },

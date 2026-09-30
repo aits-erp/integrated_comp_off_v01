@@ -7,15 +7,15 @@ from frappe.model.document import Document
 from frappe.model.workflow import get_workflow_state_field
 from frappe.utils import add_days, date_diff, get_datetime, get_link_to_form, getdate
 
-from real_group.api.overrides.leave_application import get_leave_balance_on
-from real_group.doc_events.attendance import (
+from real_group_hrms.api.overrides.leave_application import get_leave_balance_on
+from real_group_hrms.doc_events.attendance import (
     allocate_c_off,
     allocate_incentive,
     revert_sandwich_attendance,
     sandwich_attendance,
 )
-from real_group.tasks.process_attendance import process as _process_attendance
-from real_group.utils import is_holiday_for_employee
+from real_group_hrms.tasks.process_attendance import process as _process_attendance
+from real_group_hrms.utils import is_holiday_for_employee
 
 
 class ReprocessAttendance(Document):

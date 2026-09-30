@@ -4,10 +4,10 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import Mock, call, patch
 
-from real_group.doc_events import attendance as attendance_doc_events
-from real_group.doc_events.attendance import validate
-from real_group.overrides import leave_application as leave_application_override
-from real_group.real_group.doctype.reprocess_attendance import (
+from real_group_hrms.doc_events import attendance as attendance_doc_events
+from real_group_hrms.doc_events.attendance import validate
+from real_group_hrms.overrides import leave_application as leave_application_override
+from real_group_hrms.real_group.doctype.reprocess_attendance import (
     reprocess_attendance as reprocess_attendance_doctype,
 )
 

@@ -5,7 +5,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import get_link_to_form, getdate
 
-from real_group.utils import get_weekly_off
+from real_group_hrms.utils import get_weekly_off
 
 DAY_MAPPING = {
     "Sunday": "SUN",

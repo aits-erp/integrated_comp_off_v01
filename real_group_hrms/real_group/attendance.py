@@ -51,7 +51,7 @@ def process_attendance_from_attendance_summary():
 
     for emp in all_employee:
         frappe.enqueue(
-            "real_group.real_group.attendance.process_attendance_from_attendance_summary_queue",
+            "real_group_hrms.real_group.attendance.process_attendance_from_attendance_summary_queue",
             queue="long",
             timeout=3600,
             employee=emp.name,
@@ -426,7 +426,7 @@ def process_attendance_for_last_day_of_month():
 
     for emp in all_employee:
         frappe.enqueue(
-            "real_group.real_group.attendance.process_attendance_for_last_day_of_month_queue",
+            "real_group_hrms.real_group.attendance.process_attendance_for_last_day_of_month_queue",
             queue="long",
             timeout=3600,
             employee=emp.name,

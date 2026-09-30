@@ -3,10 +3,10 @@ from importlib import import_module
 import frappe
 from frappe.utils import flt, get_last_day, getdate
 
-from real_group.overrides.query_report_export import set_xlsx_cell_style_like_header
+from real_group_hrms.overrides.query_report_export import set_xlsx_cell_style_like_header
 
 # IMPORTANT: module path contains [new]_form_14 so normal import won't work
-new_form_14 = import_module("real_group.real_group.report.[new]_form_14.[new]_form_14")
+new_form_14 = import_module("real_group_hrms.real_group.report.[new]_form_14.[new]_form_14")
 
 
 # ----------------  Salary Component Order ----------------

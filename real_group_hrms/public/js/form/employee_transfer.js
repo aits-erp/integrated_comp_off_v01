@@ -42,7 +42,7 @@ frappe.ui.form.on("Employee Transfer", {
     }
 
     frappe.call({
-      method: "real_group.api.employee_transfer.get_leave_details",
+      method: "real_group_hrms.api.employee_transfer.get_leave_details",
       args: { employee: frm.doc.employee, date: frappe.datetime.get_today() },
       callback: function (r) {
         if (r.message) {

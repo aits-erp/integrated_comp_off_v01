@@ -1,6 +1,6 @@
 import frappe
 
-from real_group.overrides.attendance_request import (
+from real_group_hrms.overrides.attendance_request import (
     calculate_request_working_hours_for_date,
     get_working_hours_timedelta,
 )

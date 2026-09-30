@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import frappe
 from frappe.utils import get_datetime
 
-from real_group.helper.attendance_helper import (
+from real_group_hrms.helper.attendance_helper import (
     calculate_working_hours_for_attendance,
     get_attendance_status_from_working_hours,
     get_first_checkin_shift,

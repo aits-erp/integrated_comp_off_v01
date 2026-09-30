@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-leave_application = import_module("real_group.doc_events.leave_application")
+leave_application = import_module("real_group_hrms.doc_events.leave_application")
 
 
 class TestLeaveApplicationValidation(TestCase):

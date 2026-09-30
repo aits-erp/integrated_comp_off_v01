@@ -18,7 +18,7 @@ class WeeklyOffList(Document):
     if TYPE_CHECKING:
         from frappe.types import DF
 
-        from real_group.real_group.doctype.weekly_off_holiday.weekly_off_holiday import WeeklyOffHoliday
+        from real_group_hrms.real_group.doctype.weekly_off_holiday.weekly_off_holiday import WeeklyOffHoliday
 
         from_date: DF.Date
         holiday_list_name: DF.Data

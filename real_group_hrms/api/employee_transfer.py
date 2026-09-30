@@ -5,7 +5,7 @@ from hrms.hr.doctype.leave_application.leave_application import (
 )
 from hrms.hr.doctype.leave_application.leave_application import get_leave_details as _get_leave_details
 
-from real_group.utils import get_remaining_days_for_pro_rated
+from real_group_hrms.utils import get_remaining_days_for_pro_rated
 
 
 @frappe.whitelist()

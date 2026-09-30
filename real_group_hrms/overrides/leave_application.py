@@ -15,12 +15,12 @@ from hrms.hr.doctype.leave_application.leave_application import (
     is_lwp,
 )
 
-from real_group.doc_events.attendance import (
+from real_group_hrms.doc_events.attendance import (
     allocate_c_off,
     update_attendance_tag,
 )
-from real_group.helper.attendance_helper import create_attendance
-from real_group.utils import (
+from real_group_hrms.helper.attendance_helper import create_attendance
+from real_group_hrms.utils import (
     get_actual_leave_balance_cf,
     get_holiday_dates_for_employee,
     holiday_matches_requested_half,

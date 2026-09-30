@@ -17,7 +17,7 @@ from hrms.hr.doctype.employee_checkin.employee_checkin import (
     update_attendance_in_checkins,
 )
 
-from real_group.utils import (
+from real_group_hrms.utils import (
     convert_time_to_hours,
     convert_time_to_minutes,
     get_holiday_dates_for_employee,
@@ -267,7 +267,7 @@ def create_attendance(
                 existing_attendance.reload()
             # Keep tags consistent when we change status on an already-submitted doc.
             try:
-                from real_group.doc_events.attendance import (
+                from real_group_hrms.doc_events.attendance import (
                     allocate_c_off,
                     allocate_incentive,
                     revert_sandwich_attendance,

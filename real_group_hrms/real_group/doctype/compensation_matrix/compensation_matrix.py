@@ -15,7 +15,7 @@ class CompensationMatrix(Document):
     if TYPE_CHECKING:
         from frappe.types import DF
 
-        from real_group.real_group.doctype.compensation_matrix_details.compensation_matrix_details import (
+        from real_group_hrms.real_group.doctype.compensation_matrix_details.compensation_matrix_details import (
             CompensationMatrixDetails,
         )
 

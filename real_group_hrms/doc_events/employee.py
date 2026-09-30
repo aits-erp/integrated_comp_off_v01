@@ -1,7 +1,7 @@
 import frappe
 from frappe.utils import add_years, cint, get_link_to_form, getdate, today
 
-from real_group.real_group.integration import update_user
+from real_group_hrms.real_group.integration import update_user
 
 
 def autoname(doc, method):

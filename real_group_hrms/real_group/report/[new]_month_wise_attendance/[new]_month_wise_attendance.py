@@ -7,9 +7,9 @@ from importlib import import_module
 import frappe
 from frappe.utils import add_days, cint, format_date, get_time
 
-from real_group.utils import is_holiday_for_employee
+from real_group_hrms.utils import is_holiday_for_employee
 
-day_wise_attendance = import_module("real_group.real_group.report.[new]_day_wise_attendance.[new]_day_wise_attendance")
+day_wise_attendance = import_module("real_group_hrms.real_group.report.[new]_day_wise_attendance.[new]_day_wise_attendance")
 
 column_config = [
     {"fieldname": "present", "label": "P", "metric": "present"},

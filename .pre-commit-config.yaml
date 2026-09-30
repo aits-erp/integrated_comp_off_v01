@@ -7,7 +7,7 @@ repos:
     rev: v4.3.0
     hooks:
       - id: trailing-whitespace
-        files: "real_group.*"
+        files: "real_group_hrms.*"
         exclude: ".*json$|.*txt$|.*csv|.*md|.*svg"
       - id: check-yaml
       - id: check-merge-conflict
@@ -53,11 +53,11 @@ repos:
         # Ignore any files that might contain jinja / bundles
         exclude: |
             (?x)^(
-                real_group/public/dist/.*|
+                real_group_hrms/public/dist/.*|
                 .*node_modules.*|
                 .*boilerplate.*|
-                real_group/templates/includes/.*|
-                real_group/public/js/lib/.*
+                real_group_hrms/templates/includes/.*|
+                real_group_hrms/public/js/lib/.*
             )$
 
 
@@ -70,12 +70,12 @@ repos:
         # Ignore any files that might contain jinja / bundles
         exclude: |
             (?x)^(
-                real_group/public/dist/.*|
+                real_group_hrms/public/dist/.*|
                 cypress/.*|
                 .*node_modules.*|
                 .*boilerplate.*|
-                real_group/templates/includes/.*|
-                real_group/public/js/lib/.*
+                real_group_hrms/templates/includes/.*|
+                real_group_hrms/public/js/lib/.*
             )$
 
 ci:

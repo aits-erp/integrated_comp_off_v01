@@ -8,7 +8,7 @@ from frappe.utils import (
     getdate,
 )
 
-from real_group.helper.attendance_helper import create_attendance
+from real_group_hrms.helper.attendance_helper import create_attendance
 
 
 def process(from_date=None, employee_names: list | None = None, reprocess_ref=None):

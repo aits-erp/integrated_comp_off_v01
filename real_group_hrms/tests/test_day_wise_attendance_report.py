@@ -6,15 +6,15 @@ from unittest.mock import patch
 
 
 day_wise_attendance = import_module(
-    "real_group.real_group.report.[new]_day_wise_attendance.[new]_day_wise_attendance"
+    "real_group_hrms.real_group.report.[new]_day_wise_attendance.[new]_day_wise_attendance"
 )
 month_wise_attendance = import_module(
-    "real_group.real_group.report.[new]_month_wise_attendance.[new]_month_wise_attendance"
+    "real_group_hrms.real_group.report.[new]_month_wise_attendance.[new]_month_wise_attendance"
 )
 monthly_attendance_report = import_module(
-    "real_group.real_group.report.[new]_monthly_attendance_report.[new]_monthly_attendance_report"
+    "real_group_hrms.real_group.report.[new]_monthly_attendance_report.[new]_monthly_attendance_report"
 )
-form_14 = import_module("real_group.real_group.report.[new]_form_14.[new]_form_14")
+form_14 = import_module("real_group_hrms.real_group.report.[new]_form_14.[new]_form_14")
 
 
 def get_leave_type_doc(name):

@@ -13,7 +13,7 @@ class RealGroupSettings(Document):
 
     if TYPE_CHECKING:
         from frappe.types import DF
-        from real_group.real_group.doctype.oracle_credentials.oracle_credentials import OracleCredentials
+        from real_group_hrms.real_group.doctype.oracle_credentials.oracle_credentials import OracleCredentials
 
         birthday_wish_message: DF.HTMLEditor | None
         birthday_wish_subject: DF.Data | None

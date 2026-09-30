@@ -6,7 +6,7 @@ async function set_latest_checkout_time(frm) {
     return;
   }
   const r = await frappe.call({
-    method: "real_group.real_group.doctype.gate_pass.gate_pass.get_latest_checkout_time",
+    method: "real_group_hrms.real_group.doctype.gate_pass.gate_pass.get_latest_checkout_time",
     args: {
       employee: frm.doc.employee,
       date: frm.doc.date,

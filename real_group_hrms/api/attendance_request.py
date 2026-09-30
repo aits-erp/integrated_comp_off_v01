@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import frappe
 from frappe.utils import get_time, getdate, get_timedelta
 
-from real_group.tasks.process_employee_checkin import (
+from real_group_hrms.tasks.process_employee_checkin import (
     find_closest_shift_from_punch_time,
     get_employee_allowed_shifts,
     get_shift_timings,

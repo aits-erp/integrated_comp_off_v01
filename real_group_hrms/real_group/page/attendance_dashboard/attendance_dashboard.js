@@ -129,7 +129,7 @@ class AttendanceDashboard {
 		}
 		const $parent = me.elements.attendance_dashboard_wrapper;
 		frappe.call({
-			method: 'real_group.real_group.page.attendance_dashboard.attendance_dashboard.get_card_details',
+			method: 'real_group_hrms.real_group.page.attendance_dashboard.attendance_dashboard.get_card_details',
 			args: {
 				company: me.company,
 				month: me.month,
@@ -172,7 +172,7 @@ class AttendanceDashboard {
 		var me = this;
 
 		frappe.call({
-			method: 'real_group.real_group.page.attendance_dashboard.attendance_dashboard.get_chart_details',
+			method: 'real_group_hrms.real_group.page.attendance_dashboard.attendance_dashboard.get_chart_details',
 			args: {
 				company: me.company,
 				month: me.month,

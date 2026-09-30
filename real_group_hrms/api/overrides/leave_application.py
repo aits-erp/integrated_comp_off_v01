@@ -14,7 +14,7 @@ from hrms.hr.doctype.leave_application.leave_application import (
     get_holidays as _get_holidays,
 )
 
-from real_group.utils import holiday_matches_requested_half, is_holiday_for_employee
+from real_group_hrms.utils import holiday_matches_requested_half, is_holiday_for_employee
 
 
 @frappe.whitelist()

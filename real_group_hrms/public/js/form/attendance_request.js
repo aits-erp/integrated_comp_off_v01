@@ -175,7 +175,7 @@ function fetchClosestShiftForTime(frm) {
   }
 
   frappe.call({
-    method: "real_group.api.attendance_request.closest_shift_for_time",
+    method: "real_group_hrms.api.attendance_request.closest_shift_for_time",
     args: {
       from_time: frm.doc.custom_from_time,
       to_time: frm.doc.custom_to_time,
@@ -225,7 +225,7 @@ frappe.ui.form.on("Attendance Request", {
   },
   employee: async (frm) => {
     frappe.call({
-      method: "real_group.tasks.process_employee_checkin.get_employee_allowed_shifts",
+      method: "real_group_hrms.tasks.process_employee_checkin.get_employee_allowed_shifts",
       args: {
         for_date: frm.doc.from_date,
         employee: frm.doc.employee,
@@ -337,7 +337,7 @@ frappe.ui.form.on("Attendance Request", {
 
     if (frm.doc.from_date && frm.doc.to_date && frm.doc.employee) {
       frappe.call({
-        method: "real_group.api.attendance_request.get_leave_on_dates",
+        method: "real_group_hrms.api.attendance_request.get_leave_on_dates",
         args: {
           employee: frm.doc.employee,
           from_date: frm.doc.from_date,

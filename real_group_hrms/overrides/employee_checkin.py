@@ -6,7 +6,7 @@ from hrms.hr.doctype.employee_checkin.employee_checkin import (
     skip_attendance_in_checkins,
     update_attendance_in_checkins,
 )
-from real_group.utils import set_geolocation_from_coordinates
+from real_group_hrms.utils import set_geolocation_from_coordinates
 
 
 class EmployeeCheckinOverride(EmployeeCheckin):
