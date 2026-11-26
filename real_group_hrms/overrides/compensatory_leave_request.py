@@ -20,7 +20,7 @@ class CompensatoryLeaveRequestOverride(CompensatoryLeaveRequest):
         comp_leave_valid_from = add_days(self.work_end_date, 1)
         leave_period = get_leave_period(comp_leave_valid_from, comp_leave_valid_from, company)
         if leave_period:
-            leave_allocation = self.get_existing_allocation_for_period(leave_period)
+            leave_allocation = self.get_existing_allocation(comp_leave_valid_from)
             if leave_allocation:
                 leave_allocation.new_leaves_allocated += date_difference
                 leave_allocation.validate()

@@ -1,0 +1,4 @@
+[
+ {"doctype":"Custom Field","name":"Leave Application-custom_comp_off_available_work_date","dt":"Leave Application","fieldname":"custom_comp_off_available_work_date","fieldtype":"Small Text","label":"Worked Holiday Dates","insert_after":"leave_type","read_only":1,"no_copy":1,"module":"Real Group"},
+ {"doctype":"Custom Field","name":"Leave Application-custom_comp_off_source_request","dt":"Leave Application","fieldname":"custom_comp_off_source_request","fieldtype":"Table MultiSelect","label":"Automatically Assigned Compensatory Leave Requests","options":"Comp Off Source Request","insert_after":"custom_comp_off_available_work_date","no_copy":1,"module":"Real Group"}
+]

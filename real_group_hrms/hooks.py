@@ -30,7 +30,7 @@ app_license = "mit"
 # include js in doctype views
 doctype_js = {
     "User": "public/js/form/user.js",
-    "Leave Application": "public/js/form/leave_application.js",
+    "Leave Application": ["public/js/form/leave_application.js", "public/js/form/comp_off_sources.js"],
     "Employee": "public/js/form/employee.js",
     "Employee Performance Feedback": "public/js/form/employee_performance_feedback.js",
     "Appraisal Template": "public/js/form/appraisal_template.js",
@@ -247,7 +247,7 @@ doc_events = {
         "validate": ["real_group_hrms.doc_events.leave_type.validate"],
     },
     "Leave Application": {
-        "validate": "real_group_hrms.doc_events.leave_application.validate",
+        "validate": ["real_group_hrms.doc_events.leave_application.validate", "real_group_hrms.doc_events.comp_off_sources.assign_comp_off_sources_fifo"],
         "before_cancel": "real_group_hrms.doc_events.leave_application.before_cancel",
         "before_delete": "real_group_hrms.doc_events.leave_application.before_delete",
     },
