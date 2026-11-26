@@ -1,4 +1,4 @@
-import cx_Oracle
+import oracledb as cx_Oracle
 import frappe
 from frappe.core.doctype.user.user import _get_user_for_update_password
 from frappe.core.doctype.user.user import update_password as _update_password

@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-import cx_Oracle
+import oracledb as cx_Oracle
 import frappe
 
 from real_group_hrms.real_group.employee_map import (

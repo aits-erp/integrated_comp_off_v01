@@ -2,7 +2,7 @@ import json
 import time
 from datetime import datetime
 
-import cx_Oracle
+import oracledb as cx_Oracle
 import frappe
 from frappe.utils import flt
 
